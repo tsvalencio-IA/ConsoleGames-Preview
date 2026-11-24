@@ -6276,7 +6276,12 @@
   function serviceVehiclePools(kind=''){if(kind==='police')return world.policeCars||[];if(kind==='firefighter')return world.fireTrucks||[];if(kind==='paramedic')return world.ambulances||[];return[...(world.policeCars||[]),...(world.fireTrucks||[]),...(world.ambulances||[])];}
   function serviceVehicleById(id=''){return serviceVehiclePools().find(vehicle=>vehicle.id===id)||null;}
   function currentServiceMissionJob(){if(typeof inRioMap==='function'&&inRioMap())return rioMapSave().career?.activeJob||null;return state.career?.activeJob||(typeof activeCoopServiceJob==='function'?activeCoopServiceJob():null);}
-  function serviceVehicleAvailable(vehicle,job=null){if(!vehicle||vehicle.occupied||vehicle.incidentTargetId||vehicle.targetFireId||vehicle.group?.visible===false)return false;const token=job?.instanceId||currentServiceMissionJob()?.instanceId||'';return!vehicle.missionReservedFor||vehicle.missionReservedFor===token;}
+  function serviceVehicleAvailable(vehicle,job=null,autonomous=false){
+    if(!vehicle?.group||vehicle.occupied||vehicle.incidentTargetId||vehicle.targetFireId)return false;
+    if(!autonomous&&vehicle.group.visible===false)return false;
+    const token=job?.instanceId||currentServiceMissionJob()?.instanceId||'';
+    return !vehicle.missionReservedFor||vehicle.missionReservedFor===token;
+  }
   function serviceVehicleAppearance(kind){if(kind==='police')return{chassis:0x26384e,primary:0xf4f7fb,primaryDark:0x183d70,secondary:0x215ea8,glass:0x13253a};if(kind==='firefighter')return{chassis:0x263746,primary:0xc93431,primaryDark:0x982622,secondary:0xf2d84d,glass:0x183448};return{chassis:0x263746,primary:0xf6f8fa,primaryDark:0xd83e42,secondary:0xe34848,glass:0x164055};}
   function safeServiceDepot(kind,index=0){
     if(typeof inRioMap==='function'&&inRioMap())return rioServiceDepot(kind);
@@ -6346,9 +6351,17 @@
     const now=performance.now();if(!world.fires.length)return;if(!world.fires.some(f=>f.active)&&now>world.nextFireAt&&!currentHouse&&!world.activeIncident)activateFireIncident();
     for(const fire of world.fires){if(!fire.active)continue;const intensity=clamp(Number(fire.coopIntensity??1),.08,1);fire.flames.forEach((flame,i)=>{flame.scale.y=(.82+Math.sin(now*.008+i)*.22)*intensity;flame.scale.x=.55+intensity*.45;flame.scale.z=.55+intensity*.45;flame.rotation.y+=dt*(.7+i*.08);});fire.smoke.forEach((puff,i)=>{puff.position.y=1.25+i*.35+Math.sin(now*.002+i)*.14;puff.material.opacity=.12+intensity*.22;puff.rotation.y+=dt*.35;});}
     const active=world.fires.find(f=>f.active);
+    // One crew attends a building fire. The remaining truck can respond to a
+    // road incident while that work is in progress.
+    if(active&&!active.coopMissionId&&!world.fireTrucks.some(truck=>!truck.occupied&&truck.targetFireId===active.id)){
+      const candidates=world.fireTrucks.filter(truck=>!truck.missionReservedFor&&serviceVehicleAvailable(truck,null,true));
+      candidates.sort((a,b)=>Math.hypot(a.group.position.x-active.navX,a.group.position.z-active.navZ)-
+        Math.hypot(b.group.position.x-active.navX,b.group.position.z-active.navZ));
+      const truck=candidates[0];
+      if(truck){truck.targetFireId=active.id;truck.serviceRoute=[];truck.serviceRouteIndex=0;truck.arrivedAt=0;}
+    }
     for(const truck of world.fireTrucks){
       const fireResponding=!!(truck.targetFireId||truck.incidentTargetId);truck.lightA.visible=fireResponding&&Math.floor(now/230)%2===0;truck.lightB.visible=fireResponding&&!truck.lightA.visible;if(truck.occupied)continue;if(truck.incidentTargetId)continue;
-      const reserved=!!truck.missionReservedFor;if(active&&!active.coopMissionId&&!truck.targetFireId&&!reserved){truck.targetFireId=active.id;truck.serviceRoute=[];truck.serviceRouteIndex=0;}
       if(truck.targetFireId){const fire=world.fires.find(f=>f.id===truck.targetFireId&&f.active);if(!fire){truck.targetFireId='';truck.serviceRoute=[];continue;}const distance=moveServiceVehicle(truck,{x:fire.navX,z:fire.navZ},dt);if(distance<5.5){if(!truck.arrivedAt)truck.arrivedAt=now;fire.truckHelping=true;truck.sprayAcc=(truck.sprayAcc||0)+dt;if(truck.sprayAcc>.1){truck.sprayAcc=0;spawnDust(lerp(truck.group.position.x,fire.x,.7),lerp(truck.group.position.z,fire.z,.7),0x69d8ff);}if(now-truck.arrivedAt>5200&&state.career.activeJob?.id!=='firefighter'&&!fire.coopMissionId)extinguishFireIncident(fire,false);}}
       else returnServiceVehicleHome(truck,dt);
     }
@@ -6603,8 +6616,16 @@
   }
   function dispatchIncidentResponder(incident,kind){
     const job=currentServiceMissionJob();if(job&&serviceKindForJob(job)===kind){incident.playerAssigned[kind]=true;job.emergencyIncidentId=incident.id;job.serviceVehicleArrived=false;job.sceneTaskCompleted=false;reserveMissionServiceVehicle(job,{waypoint:true});return null;}
-    const candidates=serviceVehiclePools(kind).filter(v=>serviceVehicleAvailable(v,null)).map(vehicle=>{const target=incidentResponderPoint(incident,kind,vehicle,true),route=incidentResponderRoute(vehicle,target);return{vehicle,target,route,distance:routeLength(route)};}).filter(({route})=>!(typeof inRioMap==='function'&&inRioMap())||route.length>=2).sort((a,b)=>a.distance-b.distance||String(a.vehicle.id).localeCompare(String(b.vehicle.id)));
-    const selected=candidates[0];if(!selected)return null;const {vehicle,target,route,distance}=selected;incident.staging[kind]={...target};vehicle.incidentTargetId=incident.id;setIncidentResponderRoute(vehicle,target,route);incident.responders[kind]=vehicle.id;
+    const candidates=serviceVehiclePools(kind).filter(vehicle=>serviceVehicleAvailable(vehicle,null,true)).map(vehicle=>{
+      const target=incidentResponderPoint(incident,kind,vehicle,true),route=incidentResponderRoute(vehicle,target);
+      const start=vehicle.group.position,staged=Math.hypot(start.x-target.x,start.z-target.z)<1.65;
+      const departure=staged||!!route[1]&&incidentResponderTravelClear(vehicle,start,route[1],false);
+      return {vehicle,target,route,distance:routeLength(route),staged,departure};
+    }).filter(candidate=>candidate.staged||candidate.route.length>=2)
+      .sort((a,b)=>Number(b.departure)-Number(a.departure)||a.distance-b.distance||String(a.vehicle.id).localeCompare(String(b.vehicle.id)));
+    const selected=candidates[0];
+    if(!selected){if(incident.staging)delete incident.staging[kind];return null;}
+    const {vehicle,target,route,distance}=selected;incident.staging[kind]={...target};vehicle.incidentTargetId=incident.id;setIncidentResponderRoute(vehicle,target,route);incident.responders[kind]=vehicle.id;
     incident.dispatches||={};(incident.dispatches[kind]||=[]).push({vehicleId:vehicle.id,at:performance.now(),distance,from:{x:vehicle.group.position.x,z:vehicle.group.position.z},target:{...target}});
     incident.serviceBudgetMs=Math.max(Number(incident.serviceBudgetMs||30000),Math.min(90000,18000+distance/Math.max(1,vehicle.speed)*2200));incident.hardClearAt=incident.startedAt+incident.serviceBudgetMs;return vehicle;
   }

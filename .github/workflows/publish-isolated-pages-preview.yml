@@ -44,7 +44,7 @@ jobs:
       - name: Validate generated game
         run: |
           node --check games/otthi/app.js
-          node --test tests/rio-compact-layout.test.mjs tests/rio-wardrobe.test.mjs tests/world-integrity.test.mjs tests/otthi-simulator-commerce.test.mjs tests/world-light-budget.test.mjs tests/world-pedestrian-navigation.test.mjs tests/kart-racecraft.test.mjs tests/war-camera-body-only.test.mjs tests/world-traffic-flow.test.mjs
+          node --test tests/rio-compact-layout.test.mjs tests/rio-wardrobe.test.mjs tests/world-integrity.test.mjs tests/otthi-simulator-commerce.test.mjs tests/world-light-budget.test.mjs tests/world-pedestrian-navigation.test.mjs tests/world-physical-rescue.test.mjs tests/kart-racecraft.test.mjs tests/war-camera-body-only.test.mjs tests/world-traffic-flow.test.mjs
           git diff --exit-code -- games/otthi
           git diff --check
 

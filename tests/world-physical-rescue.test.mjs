@@ -32,6 +32,39 @@ test('a long responder exits a curb along the road instead of rotating its rear 
  f.context.departure=departure;assert.equal(f.run('incidentResponderTravelClear(vehicle,from,departure,false)'),true);
 });
 
+test('a road incident selects a vehicle with a clear departure even outside the rendered area',()=>{
+ const f=fixture();
+ const near={id:'near',group:{visible:true,position:{x:6,z:0}},speed:8};
+ const clear={id:'clear',group:{visible:false,position:{x:0,z:0}},speed:8};
+ f.world.policeCars.push(near,clear);
+ const i=f.context.i=incident();i.staging={};
+ Object.assign(f.context,{currentServiceMissionJob:()=>null,serviceVehiclePools:()=>f.world.policeCars,
+  incidentResponderPoint:()=>({x:10,z:0}),incidentResponderRoute:vehicle=>[vehicle.group.position,{x:10,z:0}],
+  routeLength:route=>route[1].x-route[0].x,incidentResponderTravelClear:vehicle=>vehicle.id==='clear',
+  setIncidentResponderRoute:(vehicle,target,route)=>{vehicle.chosenRoute=route;}});
+ f.run(section(source,'  function serviceVehicleAvailable(','  function serviceVehicleAppearance('));
+ f.run(section(source,'  function dispatchIncidentResponder(','  function dispatchIncidentResponders('));
+ assert.equal(f.run('dispatchIncidentResponder(i,"police")').id,'clear');
+ assert.equal(i.responders.police,clear.id);assert.equal(clear.incidentTargetId,i.id);
+ assert.equal(near.incidentTargetId,undefined);assert.equal(clear.group.position.x,0);
+ assert.equal(Object.keys(i.physicalArrivals).length,0,'dispatch alone cannot mark a physical arrival');
+});
+
+test('one building fire leaves a second fire truck free to respond on the road',()=>{
+ const f=fixture(),truck=(id,x)=>({id,group:{visible:true,position:{x,z:0}},lightA:{},lightB:{}});
+ const near=truck('near',0),spare=truck('spare',30);
+ f.world.fireTrucks.push(near,spare);
+ f.world.fires=[{id:'building-fire',active:true,navX:4,navZ:0,flames:[],smoke:[]}];
+ const movement=[];
+ Object.assign(f.context,{clamp:(n,min,max)=>Math.max(min,Math.min(max,n)),currentServiceMissionJob:()=>null,
+  moveServiceVehicle:vehicle=>{movement.push(vehicle.id);return 10;},returnServiceVehicleHome:()=>0});
+ f.run(section(source,'  function serviceVehicleAvailable(','  function serviceVehicleAppearance('));
+ f.run(section(source,'  function updateFireService(','  function createPoliceCar('));
+ f.run('updateFireService(.1);updateFireService(.1)');
+ assert.equal(near.targetFireId,'building-fire');assert.equal(spare.targetFireId,undefined);
+ assert.deepEqual(movement,['near','near']);
+});
+
 test('hidden parked instances do not become phantom blockers, and visible bodies still block',()=>{
  const f=fixture();f.context.vehicle={serviceType:'firefighter'};
  const other={id:'parked',group:{visible:false},body:{x:0,z:0,w:1,l:2,s:0,c:1}};f.world.vehicles.push(other);
