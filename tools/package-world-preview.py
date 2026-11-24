@@ -14,14 +14,17 @@ DIRECTORIES = ('games', 'arcade', 'covers', 'enhancements', 'escola')
 
 
 def root_site_manifest(document):
-    """The Pages source keeps its established app identity under /ConsoleGames/.
+    """The Pages source keeps its established app identity under /ConsoleGames-Preview/.
     Vercel serves this package at the domain root, so its own app URLs must be
     rooted there. This never modifies the source manifest or another origin."""
     result = dict(document)
     for key in ('id', 'start_url', 'scope'):
         value = result.get(key)
-        if isinstance(value, str) and value.startswith('/ConsoleGames/'):
-            result[key] = value[len('/ConsoleGames'):]
+        if isinstance(value, str):
+            for prefix in ('/ConsoleGames-Preview', '/ConsoleGames'):
+                if value.startswith(prefix + '/'):
+                    result[key] = value[len(prefix):]
+                    break
     return result
 
 
