@@ -265,7 +265,7 @@
   function updateCompactRio(dt,before){
     if(player.vehicle&&rioFuelCapacity(currentVehicleRef())){
       const vehicle=currentVehicleRef(),metres=distance2D(player,before),fuel=rioFuelLevel(vehicle);
-      if(metres>0&&fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-metres*.002);
+      if(metres>0&&metres<=40&&!player.car.passengerOf){if(fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-metres*.002);rioMaintenanceWear(rioMaintenanceRecord(vehicle),metres);}
     }
     if(player.boating)rioRecordBoatPose();
     updateRioWaterfront(dt);
