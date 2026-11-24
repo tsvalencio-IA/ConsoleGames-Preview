@@ -23,7 +23,7 @@ function fixture(blocked = () => false) {
     return npc;
   };
   const tick = () => { time += 100; };
-  return {spawn, tick, traffic, step: (npc, target) => context.v705NpcWalk(npc, .1, target, 1.4, true)};
+  return {spawn, tick, traffic, context, step: (npc, target) => context.v705NpcWalk(npc, .1, target, 1.4, true)};
 }
 
 test('pedestrian walks around an intervening wall without crossing or changing destination', () => {
@@ -70,4 +70,27 @@ test('pedestrian leaves clearance around a waiting person and a vehicle approach
     if (tick < 60) assert(!(Math.abs(npc.group.position.x - 4) < 1.42 && Math.abs(npc.group.position.z) < .4));
   }
   assert(distance(npc.group.position, {x: 9, z: 0}) < .08);
+});
+
+
+test('step-aside and evacuation remain active instead of being overridden by proximity chat',()=>{
+  const f=fixture(), npc=f.spawn('rio-city-walker',0,0), ctx=f.context;
+  ctx.player.x=.8;ctx.player.z=0;
+  const b=ctx.v705NpcBrain(npc);
+  b.state='step-aside';b.target={x:0,z:2};b.stepAsideUntil=2400;
+  for(let i=0;i<7;i++){f.tick();ctx.v705NpcThink(npc);assert.equal(b.state,'step-aside');f.step(npc,b.target);}
+  assert(npc.group.position.z>.5);
+  b.state='evade';b.target={x:0,z:3};b.fearUntil=2500;
+  f.tick();ctx.v705NpcThink(npc);assert.equal(b.state,'evade');
+});
+
+test('a social peer target is not a moving vehicle occupant or an unrelated interior',()=>{
+ const f=fixture(), ctx=f.context, npc=f.spawn('rio-city-friend',0,0);
+ const brain=ctx.v705NpcBrain(npc);brain.traits.social=1;
+ const driver=f.spawn('driver',.4,0);driver.mobility={};
+ const hidden=f.spawn('hidden',.7,0);hidden.group.visible=false;
+ const clerk=f.spawn('clerk',1,0);clerk.stationary=true;
+ const indoor=f.spawn('inside',1.2,0);indoor.group.parent={};
+ const friend=f.spawn('friend',2,0);
+ assert.equal(ctx.v705NpcSocialPeer(npc),friend);
 });

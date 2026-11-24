@@ -24,6 +24,7 @@
   };
   bar.insertBefore(shortcut('worldHomeBtn','🏠','Minha casa',returnHome),els.avatarGameBtn);
   const phone=bar.querySelector('#worldPhoneBtn');if(phone)bar.insertBefore(phone,els.avatarGameBtn);
+  bar.append(shortcut('worldChooseAvatarBtn','👤','Personagens',openAvatarStudio));
   bar.append(shortcut('worldJourneyBtn','🧭','Meu caminho',()=>openObjectivesPanel()));
   bar.append(shortcut('worldClimateBtn','🌦️','Clima',()=>openRioClimate()));
   bar.append(shortcut('worldLobbyBtn','↩️','Menu inicial',stopGame));

@@ -51,3 +51,13 @@ test('character selection is directly accessible in pause menu and saves existin
  assert.match(avatar,/data-world-avatar-save/);
  assert.match(avatar,/saveState\(true\)/);
 });
+
+
+test('city merchants, shoppers, coast residents and retail staff use differentiated native human models',()=>{
+ assert.match(npc,/merchant-\|shopper-\|coast-\|beach-\|travel-resident-/);
+ assert.match(npc,/npc\.visualRole=role/);
+ assert.match(npc,/role==='retail'/);
+ assert.match(npc,/role==='leisure'/);
+ assert.match(npc,/role==='concierge'/);
+ assert.match(npc,/role==='service'/);
+});

@@ -1,0 +1,52 @@
+name: OTThi - validar correcoes NPC e HUD antes de publicar
+on:
+  push:
+    branches: [fix/otthi-npc-hud-20261124]
+permissions:
+  contents: write
+concurrency:
+  group: npc-hud-candidate
+  cancel-in-progress: false
+jobs:
+  candidate:
+    if: github.repository == 'tsvalencio-IA/ConsoleGames-Preview'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build real modular World
+        run: python3 games/otthi/tools/build_project.py
+      - name: Regression and static suite
+        run: |
+          node --check games/otthi/app.js
+          node --test tests/*.test.mjs
+          git diff --check
+      - name: Package isolated site
+        run: python3 tools/build-github-pages-preview.py
+      - name: Verify mobile menu and all eight routes
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium --with-deps
+          node tests/pages-preview-browser.mjs
+      - name: Store evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npc-hud-eight-games
+          path: test-results/pages-preview/
+          if-no-files-found: ignore
+      - name: Record generated runtime after all checks
+        run: |
+          git config user.name 'ConsoleGames validation'
+          git config user.email 'console-validation@users.noreply.github.com'
+          git add games/otthi/app.js games/otthi/style.css games/otthi/sw.js games/otthi/index.html games/otthi/release-manifest.json games/otthi/src/module-order.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'build(otthi): synchronize validated NPC and HUD runtime'
+            git push origin HEAD:"${GITHUB_REF_NAME}"
+          fi

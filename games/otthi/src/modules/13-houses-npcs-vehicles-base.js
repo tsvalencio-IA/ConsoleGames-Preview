@@ -274,12 +274,14 @@
     // pedestrians and shop staff in Rio Preto use the new human visual style.
     const otToyHeroes=new Set(['nino','luna','teo','bia','maya','clara','rafa','davi','leo','michelle-ottovias']);
     const rioModernNpc=!otToyHeroes.has(id)&&
-      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-)/.test(String(id));
+      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
     if(rioModernNpc){
       // Rio Preto service staff should be human-looking, not a randomly assigned
       // Lego/Mario/Minecraft character. Keep the old toy renderers untouched for
       // named OT characters, retro worlds and all other existing NPCs.
       npc.visualStyle='rio-human';
+      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
+      npc.visualRole=role;group.userData.visualRole=role;
       const detailLayer=new THREE.Group();detailLayer.name='RIO_NPC_FACE_AND_CLOTHES';group.add(detailLayer);
       const detail=renderMat(shadeColor(color,-42),{roughness:.86});
       const collarMat=renderMat(0xe6e0d6,{roughness:.88});
@@ -333,16 +335,30 @@
         box(.19,.22,.026,shirtDark,side*.23,1.33,.354,detailLayer);
         box(.065,.11,.04,metalMat,side*.23,1.39,.375,detailLayer);
       }
-      if(String(id).startsWith('porteiro-')){
+      if(role==='concierge'){
         box(.30,.11,.035,metalMat,.21,1.60,.42,detailLayer);
         box(.22,.065,.033,detail,-.19,1.61,.42,detailLayer);
         const badgePlate=renderMat(0x1f778d,{roughness:.63});
         box(.09,.11,.055,badgePlate,-.37,1.30,.295,detailLayer);
-      }else if(String(id).includes('bakery')||String(id).includes('server')){
+      }else if(role==='service'){
         const apron=renderMat(0xf5efe0,{roughness:.88});
         box(.60,.66,.075,apron,0,1.15,.38,detailLayer);
         box(.13,.57,.045,apron,-.31,1.19,.36,detailLayer);
         box(.13,.57,.045,apron,.31,1.19,.36,detailLayer);
+      }else if(role==='retail'){
+        // Staff wear a distinct collared outfit and name badge. These details
+        // are batched with the rest of the existing articulated model.
+        const lapel=renderMat(0xf3eadb,{roughness:.83});
+        const badge=renderMat(0xd8bd81,{roughness:.62});
+        for(const side of[-1,1]){
+          box(.18,.26,.042,lapel,side*.13,1.66,.355,detailLayer);
+        }
+        box(.26,.095,.032,badge,-.20,1.45,.385,detailLayer);
+        box(.035,.13,.035,detail,.24,1.58,.39,detailLayer);
+      }else if(role==='leisure'){
+        const seam=renderMat(shadeColor(color,26),{roughness:.92});
+        box(.57,.08,.055,seam,0,1.46,.345,detailLayer);
+        box(.51,.045,.055,seam,0,1.26,.365,detailLayer);
       }else if(hash%4===0){
         const jacket=renderMat(shadeColor(color,-19),{roughness:.86});
         for(const side of[-1,1])

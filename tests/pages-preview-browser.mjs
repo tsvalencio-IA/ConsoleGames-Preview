@@ -183,7 +183,7 @@ try {
       assert.equal(await page.evaluate(() => OTTHOS_TEST_API.getState().profile.name), 'Rio Preto QA');
       assert.equal(await page.evaluate(() => OTTHOS_RTDB.configured), false);
 
-      for (const viewport of [{width: 320, height: 640}, {width: 393, height: 852}, {width: 740, height: 360}]) {
+      for (const viewport of [{width: 320, height: 568}, {width: 393, height: 852}, {width: 568, height: 320}, {width: 740, height: 360}]) {
         await page.setViewportSize(viewport);
         await page.waitForFunction(({width, height}) => innerWidth === width && innerHeight === height, viewport);
         for (const mode of ['clean', 'full']) {
@@ -191,15 +191,18 @@ try {
           await page.locator('#quickToggleBtn').tap();
           const layout = await page.locator('#quickBar').evaluate(bar => {
             const rect = bar.getBoundingClientRect();
-            const tiles = [...bar.querySelectorAll(':scope > button')].filter(el => el.getBoundingClientRect().width);
+            const tiles = [...bar.querySelectorAll(':scope > button, :scope > a')].filter(el => el.getBoundingClientRect().width);
+            const boxes=tiles.map(el=>({id:el.id,rect:el.getBoundingClientRect()}));
+            const overlaps=[];for(let a=0;a<boxes.length;a++)for(let b=a+1;b<boxes.length;b++){const p=boxes[a],q=boxes[b];if(Math.min(p.rect.right,q.rect.right)-Math.max(p.rect.left,q.rect.left)>1&&Math.min(p.rect.bottom,q.rect.bottom)-Math.max(p.rect.top,q.rect.top)>1)overlaps.push([p.id,q.id]);}
             return {left: rect.left, right: rect.right, bottom: rect.bottom, scrollWidth: bar.scrollWidth,
               clientWidth: bar.clientWidth, small: tiles.filter(el => el.offsetWidth < 44 || el.offsetHeight < 44).map(el => el.id),
-              tiles: tiles.map(el => el.id)};
+              tiles: tiles.map(el => el.id), overlaps};
           });
           assert(layout.left >= 0 && layout.right <= viewport.width && layout.bottom <= viewport.height, JSON.stringify(layout));
           assert(layout.scrollWidth <= layout.clientWidth + 1, JSON.stringify(layout));
           assert.deepEqual(layout.small, []);
-          for (const id of ['worldHomeBtn', 'worldPhoneBtn', 'mapBtn', 'worldCampaignBtn', 'avatarGameBtn', 'worldLobbyBtn']) assert(layout.tiles.includes(id), id);
+          assert.deepEqual(layout.overlaps, [], JSON.stringify(layout));
+          for (const id of ['worldHomeBtn', 'worldPhoneBtn', 'mapBtn', 'worldCampaignBtn', 'avatarGameBtn', 'worldChooseAvatarBtn', 'worldLobbyBtn']) assert(layout.tiles.includes(id), id);
           if (viewport.width !== 320) await page.screenshot({path: path.join(out, `${viewport.width}-${mode}.png`)});
           await page.locator('#worldMenuClose').tap();
           report.layouts.push({viewport, mode, tiles: layout.tiles.length});
