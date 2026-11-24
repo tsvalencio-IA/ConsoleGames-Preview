@@ -394,14 +394,44 @@
   const rioDiningServiceBefore=rioUpdatePlaceService;
   rioUpdatePlaceService=function(site,room,dt){
     rioDiningServiceBefore(site,room,dt);
-    if(!room.root.visible||!room.diningGuests?.length)return;
+    if(!room.root.visible)return;
     const time=performance.now()/1000;
-    for(const {npc,seat,index} of room.diningGuests){
+    for(const {npc,seat,index} of room.diningGuests||[]){
       const phase=(time+index*3)%12,action=phase<5?'talk':phase<9?'eat':'sit';
       poseResident(npc,action,time,seat.seatTop);
       if(phase>=9&&npc.limbs)npc.limbs.rightArm.rotation.x=-1.35-Math.sin(time*2)*.18;
     }
+    for(const {npc,seat,action,index} of room.publicGuests||[]){
+      const gesture=action==='talk'&&((time+index*2)%8)>4?'sit':action;
+      poseResident(npc,gesture,time,seat);
+    }
+    if(room.stageActor&&room.serviceComplete){
+      const npc=room.stageActor;poseResident(npc,'talk',time);
+      if(npc.limbs){npc.limbs.leftArm.rotation.x=-.9-Math.sin(time*3)*.32;npc.limbs.rightArm.rotation.x=-.8+Math.sin(time*3)*.32;}
+    }
+    if(room.cinema?.session&&typeof rioUpdateCinema==='function')rioUpdateCinema(room,time);
   };
+
+  // Occupied furniture and role-specific idle routines share the existing NPC
+  // renderer. These residents stay inside the room, outside walking aisles.
+  function rioPublicGuest(site,room,id,name,x,z,{seat=null,action='talk',yaw=site.yaw,color=0x6d8792}={}){
+    const p=room.point(x,z),npc=createNPC('rio-public-'+site.key+'-'+id,name,p.x,p.z,color,0);
+    npc.stationary=true;npc.cityLifeManaged=true;npc.rioFloorY=room.floorY;
+    npc.group.rotation.y=yaw;room.root.add(npc.group);(room.npcs??=[]).push(npc);
+    world.interactables=world.interactables.filter(item=>item.id!=='npc-'+npc.id);
+    const guests=room.publicGuests??=[];
+    guests.push({npc,seat:seat===null?undefined:room.floorY+seat,action,index:guests.length});
+    poseResident(npc,action,0,seat===null?undefined:room.floorY+seat);
+    return npc;
+  }
+  function rioBasketTotals(basket,items){
+    const entries=[];
+    for(const item of items){
+      const quantity=Math.max(0,Math.min(12,Math.floor(Number(basket[item.id])||0)));
+      if(quantity&&Number.isSafeInteger(item.price)&&item.price>0)entries.push({item,quantity});
+    }
+    return {entries,count:entries.reduce((n,e)=>n+e.quantity,0),total:entries.reduce((n,e)=>n+e.item.price*e.quantity,0)};
+  }
 
   function rioServiceClerk(site,room,role,name,x,z,color){
     const p=room.point(x,z),clerk=createNPC('rio-service-'+site.key+'-'+role,name,p.x,p.z,color,0);
@@ -439,12 +469,45 @@
         for(const end of[-1,1])box(sx,.46,end*stallD*.47,stallW+.08,.75,.10,0x9c7453);
       }
     }
+    if(site.kind!=='bakery'){
+      room.basket??={};
+      // Physical shelf access: select goods here, then take the basket to the
+      // original cashier. The existing direct-purchase flow remains available.
+      const positions=items.map((item,i)=>({item,side:i%2?-1:1,z:(Math.floor(i/2)-.5)*stallD*.55}));
+      for(const {item,side,z} of positions){
+        const x=side*(stallX-stallW/2-.85),point=room.point(x,z);
+        room.action('shelf-'+item.id,'Prateleira · '+item.name,x,z,()=>{
+          if(!rioPlayerAt(point))return false;
+          const basket=room.basket,summary=rioBasketTotals(basket,items);
+          if(summary.count>=12){toast('Cesta cheia. Passe no caixa.','info',2000);return false;}
+          basket[item.id]=(Number(basket[item.id])||0)+1;
+          toast(item.name+' na cesta. Total: '+rioBasketTotals(basket,items).total+' moedas.','good',2200);
+          return true;
+        },{inside:true,icon:'🛒',radius:1.45});
+      }
+      if(w>=12&&d>=10){
+        rioPublicGuest(site,room,'market-1','Cliente',-stallX+stallW/2+.70,stallD*.38,{yaw:site.yaw-Math.PI/2,action:'work',color:0x9d785e});
+        rioPublicGuest(site,room,'market-2','Cliente',stallX-stallW/2-.70,stallD*.38,{yaw:site.yaw+Math.PI/2,action:'talk',color:0x568a82});
+      }
+    }
     room.action('counter',site.kind==='bakery'?'Comprar pães no balcão':'Comprar no caixa',0,counterZ+1.02,()=>{
       if(!rioPlayerAt(counter))return;
       clerk.servingUntil=performance.now()+2500;
-      openModal(site.name,'<p>Produtos do jogo disponíveis no balcão.</p><div class="choice-grid">'+items.map(item=>
+      const summary=rioBasketTotals(room.basket||{},items);
+      const basketHTML=summary.count?'<h3>Sua cesta · '+summary.count+' produto(s)</h3><p>'+summary.entries.map(e=>escapeHtml(e.item.name)+' × '+e.quantity).join(' · ')+'</p><p>Total: <b>'+summary.total+' moedas</b></p><div class="modal-actions"><button class="btn primary" data-rio-basket-pay>Pagar cesta</button><button class="btn" data-rio-basket-clear>Esvaziar cesta</button></div>':'<p>Escolha produtos nas prateleiras ou compre diretamente no caixa.</p>';
+      openModal(site.name,basketHTML+'<p>Produtos disponíveis no balcão.</p><div class="choice-grid">'+items.map(item=>
         '<button class="choice" data-rio-checkout="'+item.id+'"><b>'+item.name+'</b><span>'+item.price+' moedas</span></button>').join('')+'</div>',root=>{
         let sold=false;
+        const basketPay=root.querySelector('[data-rio-basket-pay]'),basketClear=root.querySelector('[data-rio-basket-clear]');
+        if(basketPay)basketPay.onclick=()=>{
+          if(sold||!room.root.visible||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85)return;
+          const fresh=rioBasketTotals(room.basket||{},items);
+          if(!fresh.count||fresh.total>Number(state.profile.coins)){toast('Moedas insuficientes.','warn',1800);return;}
+          sold=true;
+          for(const {item,quantity} of fresh.entries)for(let i=0;i<quantity;i++)rioPurchaseItems(item);
+          room.basket={};rioCountVisit(site);closeModal();toast('Compra da cesta concluída.','good',2200);
+        };
+        if(basketClear)basketClear.onclick=()=>{if(sold)return;room.basket={};closeModal();};
         for(const button of root.querySelectorAll('[data-rio-checkout]'))button.onclick=()=>{
           if(sold||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85||!room.root.visible)return;
           const item=items.find(record=>record.id===button.dataset.rioCheckout);
@@ -489,6 +552,17 @@
         strip.position.set(p.x,room.floorY+2.69,p.z);strip.visible=false;room.root.add(strip);room.lights.push(strip);
       }
       for(let i=0;i<3;i++)for(const side of [-1,1])room.bench(side*x,.29+i*1.17);
+      room.stageActor=rioPublicGuest(site,room,'stage','Artista',0,-d*.40,{action:'talk',color:0xa76c56});
+      room.stageActor.rioFloorY=room.floorY+.32;
+      for(let i=0;i<3;i++)rioPublicGuest(site,room,'audience-'+i,'Espectador',-x,.29+i*1.17,{seat:.535,yaw:site.yaw+Math.PI,action:'sit'});
+      const approach=room.point(x,.29+1.17+.81),seat=room.point(x,.29+1.17);
+      room.action('watch-show','Sentar e assistir à apresentação',x,.29+1.17+.81,()=>{
+        if(!room.serviceComplete||!rioPlayerAt(approach))return false;
+        return beginCharacterActivity('tv',{target:approach,pose:{...seat,y:room.floorY+.535,yaw:site.yaw+Math.PI,sitting:true},commit:()=>{
+          if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+          state.needs.fun=clamp(Number(state.needs.fun||0)+18,0,100);rioCountVisit(site);return true;
+        }});
+      },{inside:true,available:()=>!!room.serviceComplete,icon:'🎭'});
     }else if(kind==='exhibition'){
       room.object(0,.5,-d*.29,1.25,1,1.25,rioPaint.stone);
       room.part('canopy',0,1.55,-d*.29,.82,.9,.74,0xab7344);
@@ -500,6 +574,8 @@
       room.box(examX-.51,1.14,examZ,.075,.91,1.70,0x9fb4ad);
       room.box(examX,1.84,examZ-.98,1.52,.13,.08,0x8ca79e);
       room.sign('SALA DE REPOUSO',examX,2.22,examZ-.97,Math.min(2.9,w*.30),.32,'#57796d');
+      rioServiceClerk(site,room,'nursing','Profissional de enfermagem',examX+.85,examZ-.72,0xe5e8de);
+      if(w>=12&&d>=10)rioPublicGuest(site,room,'waiting','Paciente',x,seatsZ,{seat:.535,action:'sit'});
       const approach=room.point(examX+.91,examZ),bed=room.point(examX,examZ);
       room.action('recovery','Descansar após o atendimento',examX+.91,examZ,()=>{
         if(!room.serviceComplete)return false;
@@ -520,6 +596,19 @@
     },{inside:true,icon:'📋'});
     room.action('service',next,stationX,stationZ+1.02,()=>{
       if(!room.ticket||!rioPlayerAt(badge))return;
+      const complete=()=>{
+        if(!room.ticket||!room.root.visible||!rioPlayerAt(badge,.30))return false;
+        room.ticket=false;room.serviceComplete=true;room.lights.forEach(item=>{item.visible=true;});
+        rioCountVisit(site);toast(success,'good',2600);return true;
+      };
+      if(kind==='reception'){
+        CHARACTER_ACTIVITIES['rio-consult']=['Atendimento simulado',4];
+        const doctor=room.npcs?.find(n=>n.shopSlot==='nursing');
+        if(doctor)doctor.servingUntil=performance.now()+4500;
+        return beginCharacterActivity('rio-consult',{target:badge,pose:{...badge,y:room.floorY,yaw:site.yaw+Math.PI},commit:complete});
+      }
+      // Preserve the established interaction radius for civic, station and
+      // exhibition desks; their own objects still provide the visible action.
       room.ticket=false;room.serviceComplete=true;room.lights.forEach(item=>{item.visible=true;});
       rioCountVisit(site);toast(success,'good',2600);
     },{inside:true,available:()=>room.ticket});
@@ -535,6 +624,7 @@
     const {w,d}=site;
     const lateral=Math.min(w*.24,4.7), pewZ=Math.min(d*.20,2.8);
     for(let i=0;i<4;i++)for(const side of [-1,1])room.bench(side*lateral,pewZ-i*1.35);
+    for(let i=0;i<3;i++)rioPublicGuest(site,room,'pew-'+i,'Visitante',-lateral,pewZ-i*1.35,{seat:.535,action:'sit',yaw:site.yaw+Math.PI,color:[0x8b736c,0x63878a,0x9a9570][i]});
     const altarZ=-d/2+1.34;
     room.object(0,.53,altarZ,Math.min(3.55,w*.54),1.06,.78,rioPaint.stone);
     room.box(0,3.72,altarZ-.66,.16,2.11,.16,0xa47d61);
