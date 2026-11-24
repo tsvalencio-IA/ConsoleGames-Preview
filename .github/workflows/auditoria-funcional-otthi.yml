@@ -1,0 +1,67 @@
+name: OTThi - auditoria funcional independente
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/otthi-mapa-integridade-20261124]
+    paths:
+      - '.github/workflows/auditoria-funcional-otthi.yml'
+permissions:
+  contents: read
+concurrency:
+  group: otthi-functional-audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: missoes-mapa
+            scripts: "world-mission-map-browser world-player-journey-browser"
+          - group: missoes-transporte-dupla
+            scripts: "world-civil-browser balloon-photo-browser world-civil-multiplayer-browser"
+          - group: imoveis-comercio
+            scripts: "rio-walkable-buildings-browser rio-regional-interiors-browser rio-city-services-browser"
+          - group: garagem-oficina
+            scripts: "world-fleet-garage-browser world-workshop-bays-browser"
+          - group: mapa-represa
+            scripts: "rio-compact-world-browser rio-park-integrity-browser"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build the exact tested revision
+        run: python3 games/otthi/tools/build_project.py
+      - name: Install isolated Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium --with-deps
+      - name: Run native scenarios, retain every result
+        shell: bash
+        run: |
+          mkdir -p test-results/audit-logs
+          printf 'scenario\tstatus\texit_code\n' > test-results/audit-logs/summary.tsv
+          failed=0
+          for script in ${{ matrix.scripts }}; do
+            set +e
+            timeout --kill-after=15s 7m node "tests/$script.mjs" > "test-results/audit-logs/$script.log" 2>&1
+            code=$?
+            set -e
+            status=FAILED
+            if [ "$code" -eq 0 ]; then status=PASSED; elif [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then status=TIMEOUT; fi
+            printf '%s\t%s\t%s\n' "$script" "$status" "$code" | tee -a test-results/audit-logs/summary.tsv
+            if [ "$code" -ne 0 ]; then failed=1; fi
+          done
+          cat test-results/audit-logs/summary.tsv >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
+      - name: Preserve logs and native screenshots even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: otthi-audit-${{ matrix.group }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
