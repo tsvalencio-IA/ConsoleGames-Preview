@@ -16514,14 +16514,29 @@ function precompile(T,renderer,scene,camera,timings){
   {type:'police',purpose:'Organize a travessia e acompanhe o morador em segurança.'},
   {type:'balloon',purpose:'Prepare o balão, visite as paisagens e volte para pousar.'}
  ]);
- function playerJourneySnapshot(){
+ function playerJourneyProgress(includeRows=true){
   if(!ensureCivilMissions())return{ready:false};
-  const definitions=OTCivilMissionCore.definitions,completed=state.civilWorld.completedTypes||{},current=civilCurrent();
-  const rows=PLAYER_JOURNEY_ROUTE.filter(item=>definitions[item.type]).map(item=>{const count=Number(completed[item.type]);return{...item,title:definitions[item.type].title,icon:definitions[item.type].icon,region:definitions[item.type].region,count:Number.isFinite(count)&&count>0?Math.floor(count):0};});
-  const done=rows.filter(item=>item.count>0).length,difficulty=done===0?'easy':done<4?'normal':'hard',next=rows.find(item=>!item.count)||rows.reduce((best,item)=>!best||item.count<best.count?item:best,null),p=current&&current.book.progress(current.r.id,current.uid);
+  const definitions=OTCivilMissionCore.definitions,completed=state.civilWorld.completedTypes||{};
+  const rows=includeRows?[]:null;
+  let done=0,total=0,nextItem=null,nextCount=Infinity;
+  for(const item of PLAYER_JOURNEY_ROUTE){
+   const definition=definitions[item.type];if(!definition)continue;
+   const raw=Number(completed[item.type]),count=Number.isFinite(raw)&&raw>0?Math.floor(raw):0;
+   total++;if(count>0)done++;
+   if(includeRows)rows.push({...item,title:definition.title,icon:definition.icon,region:definition.region,count});
+   if(count<nextCount){nextItem=item;nextCount=count;}
+  }
+  const difficulty=done===0?'easy':done<4?'normal':'hard';
+  const definition=nextItem&&definitions[nextItem.type];
+  const next=nextItem?{...nextItem,title:definition.title,icon:definition.icon,region:definition.region,count:nextCount,reward:definition.reward+(difficulty==='hard'?50:0)}:null;
+  return{ready:true,rows,done,total,difficulty,difficultyLabel:OTCivilMissionCore.difficulties[difficulty].label,next};
+ }
+ function playerJourneySnapshot(){
+  const progress=playerJourneyProgress();if(!progress.ready)return progress;
+  const current=civilCurrent(),p=current&&current.book.progress(current.r.id,current.uid);
   const owned=[...new Set((state.vehicles?.owned||[]).map(String))],stored=owned.filter(id=>state.vehicles?.garage?.stored?.[id]);
   const owner=sharedWorldOwnId(),orders=(state.vehicles?.phoneOrders||[]).filter(order=>order.owner===owner&&order.kind==='parcel'),tracking=phoneDeliveryTracking();
-  return{ready:true,profile:String(civilSoloUid()),rows,done,total:rows.length,difficulty,difficultyLabel:OTCivilMissionCore.difficulties[difficulty].label,next:next?{...next,reward:definitions[next.type].reward+(difficulty==='hard'?50:0)}:null,
+  return{...progress,profile:String(civilSoloUid()),
    current:current?{id:current.r.id,type:current.r.type,status:current.r.status,mode:current.r.mode,title:p?.definition?.title||'',phase:current.r.phase,steps:p?.definition?.steps.length||0,step:p?.step?.title||'',count:p?.count||0,quota:p?.quota||0}:null,
    resources:{owned:owned.length,stored:stored.length,parcelPending:orders.filter(order=>['queued','en-route','ready'].includes(order.status)).length,parcelReady:!!tracking?.ready,familyPark:!!state.familyAdventure?.flags?.park}};
  }
@@ -16573,13 +16588,13 @@ function precompile(T,renderer,scene,camera,timings){
   });return true;
  }
  const playerJourneyDirectoryBefore=worldExploreDirectoryHtml;
- worldExploreDirectoryHtml=function(...args){const s=playerJourneySnapshot();return`<section class="player-journey-entry"><div><b>Meu caminho no mundo</b><span>${s.ready?s.done+'/'+s.total+' aventuras conhecidas':'Descubra aventuras e atividades no seu ritmo.'}</span></div><button class="btn primary" data-journey-open>VER PRÓXIMO PASSO</button></section>`+playerJourneyDirectoryBefore(...args);};
+ worldExploreDirectoryHtml=function(...args){const s=playerJourneyProgress(false);return`<section class="player-journey-entry"><div><b>Meu caminho no mundo</b><span>${s.ready?s.done+'/'+s.total+' aventuras conhecidas':'Descubra aventuras e atividades no seu ritmo.'}</span></div><button class="btn primary" data-journey-open>VER PRÓXIMO PASSO</button></section>`+playerJourneyDirectoryBefore(...args);};
  const playerJourneyBindBefore=worldExploreBindDirectory;
  worldExploreBindDirectory=function(root,...args){playerJourneyBindBefore(root,...args);root.querySelector('[data-journey-open]')?.addEventListener('click',openPlayerJourney);};
  const playerJourneyHudBefore=updateCivilHUD;
  updateCivilHUD=function(){
   if(!civilMissions.ready)return;const current=civilCurrent();if(current&&['active','lobby'].includes(current.r.status)){playerJourneyHudBefore();return;}
-  const snapshot=playerJourneySnapshot(),next=snapshot.next;if(!snapshot.ready||!next){playerJourneyHudBefore();return;}
+  const snapshot=playerJourneyProgress(false),next=snapshot.next;if(!snapshot.ready||!next){playerJourneyHudBefore();return;}
   const values=[[els.missionChapter,'SEU PRÓXIMO PASSO'],[els.missionTitle,next.icon+' '+next.title],[els.missionStep,(snapshot.done===snapshot.total?'Repita em Desafio ou jogue em dupla.':snapshot.difficultyLabel+' · '+next.reward+' moedas ao concluir.')+' Toque para abrir Meu caminho.']];
   for(const[element,value]of values)if(element.textContent!==value)element.textContent=value;
   const width=Math.round(snapshot.done/Math.max(1,snapshot.total)*100)+'%';if(els.missionFill.style.width!==width)els.missionFill.style.width=width;

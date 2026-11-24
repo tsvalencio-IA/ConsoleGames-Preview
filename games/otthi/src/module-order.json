@@ -648,7 +648,7 @@
     {
       "file": "src/modules/76-player-journey.js",
       "description": "Voluntary progression through existing civilian adventures and services",
-      "sha256Body": "3cfc1f076965a24ab6cb6423d6b0a959b8a0f31c9ee51b70ef32a858e93fccb7"
+      "sha256Body": "8a364a43d7fddf15054341514926036d850cc48e56d1ba232f7cb279686cf19b"
     },
     {
       "file": "src/modules/77-exploration-hud.js",
