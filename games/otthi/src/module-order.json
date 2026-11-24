@@ -178,7 +178,7 @@
       "startLine": 3310,
       "endLine": 3495,
       "description": "Bombeiros, incêndios, polícia, ambulância, segurança e incidentes",
-      "sha256Body": "ec45ae6f096403937e326ab3f901a3866b16a8e14ca68359821316df1deed883"
+      "sha256Body": "9a9cd4aee53c296641a3f2174631f3edfefd8482f704fdf7d61fcb6497d2f35e"
     },
     {
       "file": "src/modules/17-adventures-learning-world.js",

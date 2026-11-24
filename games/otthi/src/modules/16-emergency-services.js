@@ -338,7 +338,13 @@
     const incident=world.activeIncident;if(incident&&incident.id===vehicle.incidentTargetId){
       incident.travelProgress||={};const key=target.x+':'+target.z;let progress=incident.travelProgress[vehicle.serviceType];
       if(!progress||progress.target!==key)progress=incident.travelProgress[vehicle.serviceType]={target:key,bestDistance:distance,lastAtMs:Number(incident.serviceElapsedMs||0)};
-      const remaining=Math.hypot(motion.x-target.x,motion.z-target.z);if(remaining<progress.bestDistance-.4){progress.bestDistance=remaining;progress.lastAtMs=Number(incident.serviceElapsedMs||0);}
+      const remaining=Math.hypot(motion.x-target.x,motion.z-target.z);
+      if(remaining<progress.bestDistance-.4)progress.bestDistance=remaining;
+      // A valid detour can initially take the vehicle away from the staging spot.
+      // Keep the bounded travel allowance while the vehicle is advancing on it.
+      if((travel>.035&&!motion.blocked)||(remaining<=progress.bestDistance+.02&&travel>.015)){
+        progress.lastAtMs=Number(incident.serviceElapsedMs||0);
+      }
     }
     world.trafficSnapshot=null;recoverIncidentResponder(job,dt);
     if(job.blockedFor>6&&job.searchFailed){const incident=world.activeIncident;if(incident&&incident.id===vehicle.incidentTargetId){const alternate=incidentResponderPoint(incident,vehicle.serviceType,vehicle,true),route=incidentResponderRoute(vehicle,alternate),first=route[1];if(first&&incidentResponderTravelClear(vehicle,{x:vehicle.group.position.x,z:vehicle.group.position.z},first,false)){const {reroutes,stationaryFor}=job;job=setIncidentResponderRoute(vehicle,alternate,route);job.reroutes=reroutes+1;job.stationaryFor=stationaryFor;}}}
@@ -402,7 +408,7 @@
       if(!incident.required[kind]||incident.arrived[kind]||incident.tasks[kind]||incident.playerAssigned[kind])continue;
       const current=serviceVehiclePools(kind).find(vehicle=>vehicle.id===incident.responders[kind]&&vehicle.incidentTargetId===incident.id);
       if(!current){incident.responders[kind]='';dispatchIncidentResponder(incident,kind);continue;}
-      if(current.responseJob?.stationaryFor>=8&&(incident.dispatches?.[kind]?.length||0)<2&&dispatchIncidentResponder(incident,kind,true)){
+      if(kind==='police'&&current.responseJob?.stationaryFor>=8&&(incident.dispatches?.[kind]?.length||0)<2&&dispatchIncidentResponder(incident,kind,true)){
         releaseIncidentResponder(current);
         if(incident.travelProgress)delete incident.travelProgress[kind];
       }

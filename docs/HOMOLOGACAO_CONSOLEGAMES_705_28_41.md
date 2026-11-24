@@ -15,8 +15,8 @@ As branches anteriores de mapa, expansão residencial, cidade completa, recupera
 | CG-005 | Pedestres seguem destinos, consultam obstáculos e tráfego próximos, aguardam passagem e recalculam desvios em etapas com orçamento limitado. Atendentes do shopping se voltam para o jogador e respondem à abertura da loja. |
 | CG-006 | A telemetria separa carregamento dos modelos, compilação, preparação da câmera e primeiro quadro. Permanecem necessárias medições em aparelhos físicos. |
 | CG-007 | Os modelos e o guarda-roupa existentes vieram da candidata. O link do Canva exigiu autenticação e o vídeo citado não estava nos anexos acessíveis. |
-| CG-008 | Os seis condomínios usam a lógica nativa de apartamentos por unidade. O registro histórico de cada condomínio corresponde à unidade 101. A validação de compra, decoração, recarga e todos os condomínios deve ser tratada por percurso. |
-| CG-009 | Lojas, atendentes, compras e entregas usam os contratos de economia e inventário do jogo. A primeira amostra nativa confirmou o débito e a quantidade de um pedido. |
+| CG-008 | Os seis condomínios usam a lógica nativa de apartamentos por unidade. O registro histórico de cada condomínio corresponde à unidade 101. O Chromium verificou compra e entrada na unidade 102 do Rio Candelaro, propriedade separada e piscina externa. Também confirmou a posição do sofá comprado após recarregar a casa na Rua Cotegipe. |
+| CG-009 | Lojas, atendentes, compras e entregas usam os contratos de economia e inventário do jogo. O navegador confirmou consumo no Canecão, entrada e saída física do Shopping Cidade Norte, compra de uma polo e seleção para Thamis. |
 | CG-010 | Os três lagos, a ponte e a natação ficam na Represa. Prancha, barco de pesca, lancha e navio usam os modelos existentes e vagas na marina do Guarujá. |
 | CG-011 | O despacho prioriza a viatura com saída livre e reserva um caminhão quando há um incêndio em atendimento. Chegadas físicas e contingências aparecem em registros separados. A prévia usa perfis locais e bloqueia a conexão com o Firebase original. |
 
@@ -51,6 +51,8 @@ O pacote local `cb1502e3c72c1aa6` abriu os oito jogos e retornou ao console, inc
 
 A suíte de código passou em **618 de 618 testes** na revisão de origem `b7a699b1c81b5987`. Os quatro casos históricos de corrida, calibração de mãos, rota de socorro e estacionamento foram executados na referência e na candidata.
 
+O teste cooperativo com dois clientes Chromium e um retransmissor local concluiu as etapas compartilhadas da missão, usou duas vagas de oficina ao mesmo tempo e ocupou oito assentos do teleférico. Também trocou a autoridade da sessão e verificou a liberação dos assentos após desconexão. A homologação de multiplayer entre aparelhos exige um backend de teste separado.
+
 ## Publicação e dados
 
 A página de destino está configurada para GitHub Actions. O workflow `publish-isolated-pages-preview.yml` só roda em `tsvalencio-IA/ConsoleGames-Preview` e exige validação do build e do artefato no Chromium antes de publicar. O empacotamento preserva os arquivos Firebase no código de origem. A versão empacotada mantém perfis, caches, IndexedDB e canais locais em um namespace próprio e bloqueia as conexões do Firebase de produção.
@@ -58,3 +60,7 @@ A página de destino está configurada para GitHub Actions. O workflow `publish-
 O GitHub devolveu HTTP 403 ao tentar gravar no destino. A instalação selecionada do aplicativo inclui `ConsoleGames`, e a lista de acesso à instalação precisa incluir `ConsoleGames-Preview`. A mudança indispensável é adicionar `ConsoleGames-Preview` em **Repository access → Only select repositories** e salvar. [Acesso do aplicativo](https://github.com/settings/installations/115333490)
 
 O workflow confere o SHA, o manifesto, o HTML, os recursos carregados e os retornos ao console no endereço publicado. O teste usa uma conta local descartável. A homologação permanece separada do repositório original e do Firebase real. [Destino de homologação](https://github.com/tsvalencio-IA/ConsoleGames-Preview/actions)
+
+## Verificação no aparelho
+
+Quando o endereço de homologação estiver disponível, abra o Mundo Aberto com um perfil de teste. Após entrar, ande, gire a câmera e vire o aparelho para paisagem. Abra o menu, toque em **Minha casa** e volte à direção por uma avenida. Registre o modelo do aparelho, o navegador, o tempo aproximado até o primeiro movimento e onde uma pausa perceptível ocorreu. O navegador de testes reproduziu os tamanhos e a rotação de tela. Latência de toque, câmera física e desempenho durante uso prolongado ainda precisam ser medidos em Android e iPhone.

@@ -21,6 +21,23 @@ test('response controller replaces its patrol path before moving along the actua
  assert.deepEqual(JSON.parse(JSON.stringify(v.group.userData.roadPath)),path,'old patrol route must not remain');
  assert.equal(v.group.userData.roadPathClosed,false);
 });
+
+test('a vehicle advancing on an outward detour keeps its physical travel allowance',()=>{
+ const c=context(),v=actor('police',0,0),target={x:0,z:25};
+ v.serviceType='police';v.incidentTargetId='detour';v.wheels=[];
+ v.group.position.set=(x,y,z)=>Object.assign(v.group.position,{x,z});
+ c.world.activeIncident={id:'detour',serviceElapsedMs:30000};
+ c.buildRoutePoints=()=>[{x:0,z:0},{x:0,z:-10},{x:0,z:25}];
+ c.incidentResponderDeparture=()=>null;c.compactRoute=path=>path;c.groundHeightAt=()=>0;
+ c.trafficSpeedFactor=()=>1;c.incidentResponderPoseClear=()=>true;c.recoverIncidentResponder=()=>false;
+ const classSource=phone.slice(phone.indexOf(' class PhoneDriveRoute {'),phone.indexOf('\n // Bounded local A*'));
+ vm.runInContext(classSource+'\n'+fn(emergency,'incidentResponderRoute')+'\n'+fn(emergency,'setIncidentResponderRoute')+'\n'+fn(emergency,'moveIncidentResponder'),c);
+ c.moveIncidentResponder(v,target,.1);
+ c.world.activeIncident.serviceElapsedMs=31000;
+ c.moveIncidentResponder(v,target,.1);
+ assert(v.group.position.z<0);
+ assert.equal(c.world.activeIncident.travelProgress.police.lastAtMs,31000);
+});
 test('safety overlap correction cannot manufacture another accident, while a fresh real moving impact remains detectable',()=>{const c=context();vm.runInContext('const trafficImpactMemory=new Map();\n'+fn(emergency,'trafficActualImpact'),c);const a=actor('a',0,0),b=actor('b',0,2.2);a.currentSpeed=4;b.currentSpeed=1;const aa={...a,speed:4,ref:a},bb={...b,speed:1,ref:b};a.trafficRecoveryUntil=12000;assert(!c.trafficActualImpact(aa,bb,10000));a.trafficRecoveryUntil=0;assert(c.trafficActualImpact(aa,bb,10000));assert(!c.trafficActualImpact(aa,bb,10500),'same pair retains its cooldown');});
 
 test('cars queued on the same simulation tick break an equal-age crossing cycle deterministically',()=>{const c=context();const cars=[actor('a',0,-7,0),actor('b',-7,0,Math.PI/2),actor('c',0,7,Math.PI),actor('d',7,0,-Math.PI/2)];cars.forEach(a=>a.trafficQueuedAt=4000);for(let i=1;i<cars.length;i++){assert.equal(c.trafficYields(cars[0],{...cars[i],ref:cars[i]},0),false);assert.equal(c.trafficYields(cars[i],{...cars[0],ref:cars[0]},cars[i].group.rotation.y),true);}});
