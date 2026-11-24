@@ -617,7 +617,7 @@
       if(ride)rioRodeoSample(ride,8);
       const result=ride?Math.round(ride.correct/8*100):null;
       if(!finish(option.id,result))return false;
-      if(ride)toast('Montaria concluída · equilíbrio '+result+'%','good',3000);
+      if(ride)toast((result>=75?'Montaria aprovada':'Tente novamente para superar 75%')+' · equilíbrio '+result+'%',result>=75?'good':'info',3000);
       return true;
     };
     const started=beginCharacterActivity(key,{target,pose,walkSpeed:2.1,commit});
@@ -689,8 +689,7 @@
     save.regionExperience??={visits:{},paidTotal:0};
     const visits=save.regionExperience.visits[p.id]||{count:0,spent:0};
     const options=RIO_TOURISM_OPTIONS[p.key]||[];
-    const realVenue=!!p.shape&&Number.isFinite(p.x)&&Number.isFinite(p.z);
-    const choices=realVenue?'<label class="field">Escolha a atividade<select data-regional-activity>'+options.map(o=>'<option value="'+o.id+'">'+escapeHtml(o.label)+'</option>').join('')+'</select></label>':'';
+    const choices=options.length?'<label class="field">Escolha a atividade<select data-regional-activity>'+options.map(o=>'<option value="'+o.id+'">'+escapeHtml(o.label)+'</option>').join('')+'</select></label>':'';
     openModal(p.name,
       '<p>'+experience.label+' · atividade jogável e registrada no seu histórico de viagens.</p>'+
       '<p>Ingresso: <b>'+experience.ticket+' moedas</b> · Seu saldo: <b>'+state.profile.coins+' moedas</b></p>'+
@@ -711,7 +710,7 @@
         const record=save.regionExperience.visits[p.id]||{count:0,spent:0};
         record.count++;record.spent+=experience.ticket;record.lastVisit=Date.now();
         if(activity){record.activities??={};const entry=record.activities[activity]??={count:0};entry.count++;entry.lastVisit=record.lastVisit;
-          if(Number.isFinite(score)){entry.lastScore=score;entry.bestScore=Math.max(Number(entry.bestScore)||0,score);}}
+          if(Number.isFinite(score)){entry.lastScore=score;entry.bestScore=Math.max(Number(entry.bestScore)||0,score);if(score>=75)entry.approved=(Number(entry.approved)||0)+1;}}
         save.regionExperience.visits[p.id]=record;
         save.regionExperience.paidTotal+=experience.ticket;
         for(const [need,delta] of Object.entries(experience.needs)){
@@ -722,30 +721,13 @@
         toast(experience.label+' concluído. Visita registrada em '+p.name+'.','good',2800);
         return true;
         };
-        // Real landmarks cannot be completed by clicking a ticket in a modal.
-        // The old lightweight fixture path below still supports isolated tests.
-        if(realVenue&&rioAttractionScenes.has(p.id)){
-          const option=options.find(o=>o.id===root.querySelector('[data-regional-activity]')?.value)||options[0];
-          closeModal();
-          if(!option||!rioStartAttraction(p,option,finish)){busy=false;toast('Aproxime-se da entrada para iniciar a atividade.','warn',2600);}
-          return;
-        }
-        if(realVenue&&RIO_TOURISM_OPTIONS[p.key]&&typeof THREE!=='undefined'&&!rioAttractionScenes.has(p.id)){
-          busy=false;toast('Aguarde o carregamento da atração e tente novamente.','info',2500);return;
-        }
-        // Thermal-water activities require the player's avatar to walk into
-        // the physical pool and complete the animation before spending coins.
-        if(p.shape==='pool'&&typeof beginCharacterActivity==='function'&&
-          typeof CHARACTER_ACTIVITIES!=='undefined'&&CHARACTER_ACTIVITIES['rio-pool']){
-          const target={x:p.x,z:p.z+p.face*p.d*.19};
-          const pose={x:p.x,z:p.z-p.face*p.d*.16,y:.32,
-            yaw:p.face===1?0:Math.PI,lying:true};
-          const started=beginCharacterActivity('rio-pool',{target,pose,walkSpeed:1.9,
-            commit:finish});
-          if(started){closeModal();return;}
-          busy=false;return;
-        }
-        finish();
+        // Never debit or mark a visit before a real native activity finishes.
+        const scene=rioAttractionScenes.get(p.id);
+        if(!scene||!scene.root.visible){busy=false;toast('Aproxime-se da entrada e aguarde o carregamento da atração.','info',2500);return;}
+        const option=options.find(o=>o.id===root.querySelector('[data-regional-activity]')?.value)||options[0];
+        closeModal();
+        if(!option||!rioStartAttraction(p,option,finish)){busy=false;toast('A passagem está ocupada. Aproxime-se da entrada e tente novamente.','warn',2600);}
+        return;
       };
     });
     return true;
