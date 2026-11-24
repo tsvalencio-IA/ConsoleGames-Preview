@@ -115,6 +115,8 @@ try {
   const release = await (await context.request.get(releaseUrl)).json();
   assert.equal(release.revision, report.release.revision);
   assert.equal(release.build, report.release.build);
+  const firebaseEnabled = report.release.firebase === 'enabled';
+  assert(['enabled','disabled'].includes(report.release.firebase), 'Unknown Firebase publishing mode');
   const networkDenied = await page.evaluate(() => new Promise(resolve => {
     const timeout = setTimeout(() => resolve(false), 2000);
     document.addEventListener('securitypolicyviolation', event => {
@@ -124,8 +126,16 @@ try {
     }, {once: true});
     fetch('https://identitytoolkit.googleapis.com/consolegames-preview-probe', {credentials: 'omit'}).catch(() => {});
   }));
-  assert.equal(networkDenied, true);
-  report.checks.push('firebase-network-policy');
+  assert.equal(networkDenied, !firebaseEnabled);
+  if(firebaseEnabled){
+    assert(backendRequests.includes('identitytoolkit.googleapis.com'), 'Firebase network probe must reach the intercepted QA route');
+    assert.equal(await page.evaluate(()=>window.OTTHOS_FIREBASE_CONFIG?.projectId), 'otthi-656c5');
+    assert.equal(await page.evaluate(()=>window.OTTHOS_FIREBASE_CONFIG?.enabled), true);
+    await page.locator('#profile-btn').tap();
+    await page.locator('#login-form').waitFor({state:'visible'});
+    await page.locator('#profile-dialog').evaluate(dialog=>dialog.close());
+  }
+  report.checks.push(firebaseEnabled?'firebase-config-and-policy-with-remote-network-blocked':'firebase-network-policy');
   for (const name of ['index.html', 'app.js', 'sw.js', 'src/module-order.json', '../danca/index.html']) {
     const resource = await context.request.get(new URL(name, releaseUrl).href);
     assert.equal(resource.status(), 200, name);
@@ -170,18 +180,26 @@ try {
       .find(script => script.src && new URL(script.src).pathname.endsWith('/' + suffix))?.src, script);
     assert(gameAsset?.startsWith(href(relative)), id);
     assert.equal((await context.request.get(gameAsset)).status(), 200, id);
-    assert.equal(await page.evaluate(() => window.OTTHOS_FIREBASE_CONFIG?.enabled === true), false);
+    if (id === 'otthi') assert.equal(await page.evaluate(() => window.OTTHOS_FIREBASE_CONFIG?.enabled === true), firebaseEnabled);
+    if (firebaseEnabled && ['kart','boxe','tenis','ar','voo'].includes(id)) {
+      assert.equal(await page.locator('script[src*="firebasejs/"][src*="firebase-auth"]').count(), 1, id+' must retain original Firebase Auth SDK');
+      assert.match(await page.locator('script:not([src])').allTextContents().then(parts=>parts.join('\n')), /projectId:\s*["']thiaguinhogame-ac91b["']/);
+    }
     report.pages.push({id, url: page.url()});
 
     if (id === 'otthi') {
       await page.waitForFunction(revision => window.OTTHI_RELEASE_COHERENT && window.OTTHI_RELEASE_REVISION === revision, release.revision);
       await page.locator('#playBtn').tap();
+      if(firebaseEnabled){
+        await page.locator('[data-account-create]').waitFor({state:'visible'});
+        await page.locator('[data-account-login]').waitFor({state:'visible'});
+      }
       await page.locator('[data-account-offline]').tap();
       await page.locator('#playerNameInput').fill('Rio Preto QA');
       await page.locator('#playerNameInput').press('Enter');
       await page.waitForFunction(() => OTTHOS_TEST_API.getGame().running && document.querySelector('#modal').hidden, null, {timeout: 160000});
       assert.equal(await page.evaluate(() => OTTHOS_TEST_API.getState().profile.name), 'Rio Preto QA');
-      assert.equal(await page.evaluate(() => OTTHOS_RTDB.configured), false);
+      assert.equal(await page.evaluate(() => OTTHOS_RTDB.configured), firebaseEnabled);
 
       for (const viewport of [{width: 320, height: 568}, {width: 393, height: 852}, {width: 568, height: 320}, {width: 740, height: 360}]) {
         await page.setViewportSize(viewport);
@@ -254,7 +272,8 @@ try {
     await inspectConsole();
     await saveReport();
   }
-  assert.deepEqual(backendRequests, []);
+  if(!firebaseEnabled) assert.deepEqual(backendRequests, []);
+  else report.remoteFirebaseAttemptsBlocked = backendRequests.length;
   assert.deepEqual(report.errors, []);
   report.passed = true;
   await saveReport();

@@ -40,6 +40,47 @@ PREVIEW_POLICY = (
     "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; "
     "form-action 'self'; object-src 'none'; base-uri 'self'"
 )
+# Production Firebase is explicitly authorized for this published preview.
+# Local caches, saves and service-worker scopes remain isolated by the bootstrap.
+# Set OT_PAGES_FIREBASE=disabled for a disconnected recovery build.
+FIREBASE_MODE = os.environ.get("OT_PAGES_FIREBASE", "enabled")
+if FIREBASE_MODE not in {"enabled", "disabled"}:
+    raise SystemExit("Invalid OT_PAGES_FIREBASE")
+FIREBASE_ENABLED = FIREBASE_MODE == "enabled"
+if FIREBASE_ENABLED:
+    PREVIEW_POLICY = PREVIEW_POLICY.replace(
+        "connect-src 'self'",
+        "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com "
+        "https://www.googleapis.com https://firebaseinstallations.googleapis.com "
+        "https://otthi-656c5.firebaseapp.com https://thiaguinhogame-ac91b.firebaseapp.com "
+        "https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app",
+        1,
+    ).replace(
+        "frame-src 'self'",
+        "frame-src 'self' https://otthi-656c5.firebaseapp.com https://thiaguinhogame-ac91b.firebaseapp.com "
+        "https://*.firebaseio.com https://*.firebasedatabase.app",
+        1,
+    )
+
+# Remove only the three explicit offline-homologation guards in the staged
+# source. Keep the original auth methods, account encryption and database paths.
+LIVE_SOURCE_PATCHES = {
+    "arcade/app.js": [
+        ("const preview=Boolean(window.CONSOLEGAMES_PREVIEW);",
+         "const preview=Boolean(window.CONSOLEGAMES_PREVIEW)&&!window.OTTHOS_FIREBASE_CONFIG?.enabled;"),
+        ("if(window.CONSOLEGAMES_PREVIEW){setFeedback(",
+         "if(window.CONSOLEGAMES_PREVIEW&&!window.OTTHOS_FIREBASE_CONFIG?.enabled){setFeedback("),
+    ],
+    "games/otthi/assets/js/multiplayer-rtdb.js": [
+        ("if(window.CONSOLEGAMES_PREVIEW)return{enabled:false};",
+         "if(window.CONSOLEGAMES_PREVIEW&&!window.OTTHOS_FIREBASE_CONFIG?.enabled)return{enabled:false};"),
+    ],
+    "games/otthi/src/modules/02-state-save-cloud-account.js": [
+        ("if(window.CONSOLEGAMES_PREVIEW){",
+         "if(window.CONSOLEGAMES_PREVIEW&&!window.OTTHOS_FIREBASE_CONFIG?.enabled){"),
+    ],
+}
+
 MINIMUM_ROUTES = (
     "index.html", "arcade/index.html", "games/otthi/index.html",
     "games/otthi/app.js", "games/otthi/style.css",
@@ -58,7 +99,8 @@ def ignored(directory: str, names: list[str]) -> set[str]:
 
 
 def prepare_document(source: str, bootstrap: str) -> str:
-    source = FIREBASE_SDK_TAG.sub('', source)
+    if not FIREBASE_ENABLED:
+        source = FIREBASE_SDK_TAG.sub('', source)
     source = re.sub(r'<meta\s+charset=[^>]+>', '', source, flags=re.I)
     injection = f'\n<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="{PREVIEW_POLICY}">\n<script>\n{bootstrap}\n</script>\n'
     head = re.search(r'<head\b[^>]*>', source, re.I)
@@ -100,6 +142,7 @@ def main() -> None:
 
     bootstrap = (ROOT / 'tools' / 'pages-preview-isolation.js').read_text('utf-8')
     changed = 0
+    patched_live_sources = set()
     for item in OUTPUT.rglob("*"):
         if not item.is_file() or item.suffix.lower() not in TEXT_EXTENSIONS:
             continue
@@ -113,17 +156,31 @@ def main() -> None:
             revised = prepare_document(revised, bootstrap)
         elif item.name == 'sw.js':
             revised = "'use strict';\n" + bootstrap + '\n' + revised
-        elif item.name == 'firebase-config.js':
+        elif item.name == 'firebase-config.js' and not FIREBASE_ENABLED:
             revised = 'window.OTTHOS_FIREBASE_CONFIG = Object.freeze({enabled: false});\n'
+        relative = item.relative_to(OUTPUT).as_posix()
+        if FIREBASE_ENABLED and relative in LIVE_SOURCE_PATCHES:
+            for before, after in LIVE_SOURCE_PATCHES[relative]:
+                if revised.count(before) != 1:
+                    raise SystemExit("Firebase activation guard changed in " + relative)
+                revised = revised.replace(before, after, 1)
+            patched_live_sources.add(relative)
         if revised != original:
             item.write_text(revised, encoding="utf-8")
             changed += 1
 
+    if FIREBASE_ENABLED:
+        if patched_live_sources != set(LIVE_SOURCE_PATCHES):
+            raise SystemExit("Missing source for Firebase activation")
+        # Ensure both original public configurations are intact before building.
+        for relative in ("arcade/firebase-config.js", "games/otthi/firebase-config.js"):
+            if (OUTPUT / relative).read_bytes() != (ROOT / relative).read_bytes():
+                raise SystemExit("Original Firebase configuration changed: " + relative)
     subprocess.run([sys.executable, str(OUTPUT / 'games/otthi/tools/build_project.py')], check=True)
     release = verify_manifest()
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     metadata = {'source': SOURCE_SHA, 'commit': git_sha, 'build': release['build'],
-                'revision': release['revision'], 'storagePrefix': 'consolegames-preview:', 'firebase': 'disabled'}
+                'revision': release['revision'], 'storagePrefix': 'consolegames-preview:', 'firebase': FIREBASE_MODE}
     (OUTPUT / 'preview-release.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
     (OUTPUT / ".nojekyll").write_text("", encoding="utf-8")
     for route in MINIMUM_ROUTES:
@@ -131,7 +188,7 @@ def main() -> None:
             raise SystemExit("Missing game route in Pages artifact: " + route)
 
     print(f"Prepared {OUTPUT}: {changed} text files adapted, {len(release['files'])} final hashes verified.")
-    print(f"Pages preview {release['build']} / {release['revision']} with isolated local storage and disconnected Firebase.")
+    print(f"Pages preview {release['build']} / {release['revision']} with isolated local storage and Firebase {FIREBASE_MODE}.")
 
 
 if __name__ == "__main__":
