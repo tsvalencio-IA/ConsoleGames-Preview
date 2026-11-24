@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -64,6 +65,24 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: _pages_preview
+
+      # Artifact registration may be eventually consistent after upload.
+      # Do not call deploy-pages until the GitHub REST API sees the artifact.
+      - name: Wait for uploaded Pages artifact to be indexed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 18); do
+            found="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=github-pages" --jq '.artifacts | map(select(.name == "github-pages" and .expired == false)) | length' 2>/dev/null || true)"
+            if [[ "$found" =~ ^[0-9]+$ ]] && (( found > 0 )); then
+              echo "Pages artifact indexed."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::GitHub did not index the uploaded Pages artifact within 90 seconds."
+          exit 1
 
       - name: Publish preview only
         id: deployment
