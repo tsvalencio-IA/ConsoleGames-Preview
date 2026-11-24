@@ -47,6 +47,31 @@
     lockStableSceneVisibility();freezeWorldFrustumCulling();updateCamera(1);
     perf.expandedScenePreparation={ms:Math.round(performance.now()-started),npcs:world.npcs.length,trafficModels:typeof completeTraffic!=='undefined'?completeTraffic.created.size:0};
   }
+  // Production entry: use the existing world and vehicle constructors, but
+  // do not force the entire catalog or speculative camera views into the boot.
+  // create(T,key) already prepares a missing vehicle template on first use.
+  // Normal expansion keeps filling the same traffic catalog during play.
+  async function preparePlayableWorld(){
+    const started=performance.now(),wasRunning=running;
+    showWorldLoading(85,'Preparando o entorno e os controles...');await nextPaint();
+    try{running=true;updateWorldExpansion();}finally{running=wasRunning;}
+    lockStableSceneVisibility();freezeWorldFrustumCulling();updateCamera(1);updateVisualLOD();
+    const expanded={ms:Math.round(performance.now()-started),npcs:world.npcs.length,trafficModels:completeTraffic.created.size};
+    perf.expandedScenePreparation=expanded;
+    otthiBootMetrics.events.push({event:'entry-expansion',...expanded});
+    const plan=worldLightingPreparationPlan();
+    // In normal play Three prepares only materials actually drawn. Do not
+    // call renderer.compile(scene) across hidden interiors for each bucket.
+    worldLightBudget.preparation={...plan,criticalBuckets:[],mode:'progressive'};
+    showWorldLoading(94,'Renderizando a primeira imagem...');await nextPaint();
+    const first=performance.now(),restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);
+    try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();}
+    const firstMs=Math.round(performance.now()-first);
+    otthiBootMetrics.events.push({event:'first-world-frame',ms:firstMs,sinceBootMs:Math.round(performance.now()-otthiBootMetrics.startedAt)});
+    perf.scenePreparation={mode:'progressive',ms:Math.round(performance.now()-started),programs:renderer.info.programs.length,lightingVariants:0,pointLightBuckets:plan.pointLightBuckets,criticalLightBuckets:[],expanded,gpuWarmup:{preparedViews:0,skippedViews:12}};
+    perf.vehiclePreparation={mode:'on-demand',models:Object.keys(window.OTBrazilVehicles?.catalog||{}).length,ms:0};
+    otthiBootMetrics.events.push({event:'entry-ready',mode:'progressive',ms:perf.scenePreparation.ms});
+  }
   async function prepareWorldFirstFrame(){
     await prepareExpandedWorldForRendering();
     showWorldLoading(86,'Preparando os ângulos da câmera...');await nextPaint();
@@ -100,6 +125,7 @@
   function warmDeferredWorldLighting(){
     if(!running||!paused||!pauseMenuOpen)return null;
     const plan=worldLightBudget.preparation;
+    if(plan?.mode==='progressive')return null;
     const pending=plan?.pointLightBuckets?.find(count=>!worldLightBudget.preparedBuckets.has(count));
     if(pending===undefined)return null;
     const started=performance.now();
@@ -209,7 +235,13 @@
     // bounded steps no larger than the existing30Hz physics interval.
     const time=Number.isFinite(elapsed)?Math.max(0,elapsed):0,interval=Math.max(1/targetSimulationFrameRate(),Math.min(1/30,time/18)),available=Number(perf.loopAcc||0)+time;
     perf.loopAcc=Math.min(.6,available);perf.catchUpDroppedSeconds=Number(perf.catchUpDroppedSeconds||0)+Math.max(0,available-.6);
-    let steps=0;while(running&&perf.loopAcc+1e-9>=interval&&steps<18){perf.loopAcc=Math.max(0,perf.loopAcc-interval);stepWorldSimulation(interval);steps++;}
+    // Limit catch-up CPU work, not the physical timestep. Retain the remaining
+    // accumulator for later frames, subject to the existing .6s safety cap.
+    const now=()=>globalThis.performance?.now?.()??0,workStarted=now();
+    let steps=0;while(running&&perf.loopAcc+1e-9>=interval&&steps<18){
+      perf.loopAcc=Math.max(0,perf.loopAcc-interval);stepWorldSimulation(interval);steps++;
+      if(now()-workStarted>=12){perf.catchUpBudgetHits=Number(perf.catchUpBudgetHits||0)+1;break;}
+    }
     perf.catchUpStepsMax=Math.max(Number(perf.catchUpStepsMax||0),steps);return steps;
   }
   function sampleRafCadence(rawDt){
@@ -356,20 +388,29 @@
     const separateRio=destination==='rio-cartografia';
     const requestedMap=separateRio?'rio-preto':'rio-preto-compacto';
     if(typeof selectOtthiMap==='function'&&await selectOtthiMap(requestedMap))return;
+    const entryStarted=performance.now();otthiBootMetrics.events.push({event:'entry-requested',at:Math.round(entryStarted)});
     await saveState(true);showWorldLoading(12,'Protegendo o progresso...');await nextPaint();showScreen('game');showWorldLoading(28,'Organizando o bairro...');await nextPaint();
     state.ui.quickOpen=false;state.ui.skillsOpen=false;state.ui.needsOpen=false;state.ui.missionOpen=false;syncMobilePanels();els.game.classList.remove('needs-expanded');els.missionCard.classList.remove('expanded');
     try{if(!worldInitializationReady){if(scene||renderer)throw new Error('A inicialização 3D anterior ficou incompleta. Recarregue com segurança para tentar novamente.');showWorldLoading(42,separateRio?'Carregando a malha de Rio Preto...':'Construindo ruas, casas e transportes...');await nextPaint();
       if(separateRio)await loadRioMap();
       if(typeof rioSceneMode==='function')rioSceneMode(requestedMap);
       if(rioCompactWorld())migrateCompactRioProgress();
-      if(!initThree())throw new Error('O navegador não conseguiu iniciar o ambiente 3D.');setupControls();if(!separateRio)await prepareVehicleTemplates();worldInitializationReady=true;showWorldLoading(97,'Ativando controles e personagens...');await nextPaint();}else{applyAvatarCustomization();showWorldLoading(88,'Restaurando seu personagem...');await nextPaint();}}catch(error){worldInitializationReady=false;showWorldLoadFailure(error,resetPosition);return;}
+      const initStarted=performance.now();
+      if(!initThree())throw new Error('O navegador não conseguiu iniciar o ambiente 3D.');
+      otthiBootMetrics.events.push({event:'scene-built',ms:Math.round(performance.now()-initStarted)});
+      setupControls();
+      if(!separateRio){
+        if(new URLSearchParams(location.search).get('cameraFull')==='1')await prepareVehicleTemplates();
+        else await preparePlayableWorld();
+      }
+      worldInitializationReady=true;showWorldLoading(97,'Ativando controles e personagens...');await nextPaint();}else{applyAvatarCustomization();showWorldLoading(88,'Restaurando seu personagem...');await nextPaint();}}catch(error){worldInitializationReady=false;showWorldLoadFailure(error,resetPosition);return;}
     if(els.toolsBtn){els.toolsBtn.firstChild.textContent=equippedTool().icon;$('span',els.toolsBtn).textContent=equippedTool().name;}
     if(resetPosition){player.x=0;player.z=8;player.y=0;}else restorePosition();player.scaleMode=state.abilities?.scaleMode||'normal';player.crouched=!!state.abilities?.crouched;updateAbilityUI();state.usage={totalSeconds:0,sessionSeconds:0,sessionStartedAt:0,lastPlayedAt:0,sessionLockedAt:0,...(state.usage||{}),sessionStartedAt:Number(state.usage?.sessionStartedAt||Date.now()),lastPlayedAt:Date.now()};sessionLimitHandled=false;usageLastTickAt=Date.now();running=true;paused=false;
     if(separateRio)rioResumeActivity();
     else compactRioArrive();
     state.settings.lastWorldMap='rio-preto';updateOtthiMapContinue();saveState();
     if(!separateRio)window.OTTHI_ROOM_WORLD?.apply?.(window.OTTHOS_RTDB?.getRoom?.()||window.OTTHI_CONFIG?.defaultRoom||'bairro-central',{toast:false,teleport:state.multiplayer.room!==(window.OTTHOS_RTDB?.getRoom?.()||window.OTTHI_CONFIG?.defaultRoom||'bairro-central')});
-    clock.start();if(!separateRio)evaluateMissions();updateHUD();updateContext(true);updateNavigation(0,true);resize(true);if(els.modalClose)els.modalClose.hidden=false;closeModal();cancelAnimationFrame(raf);gameLoop();if(new URLSearchParams(location.search).has('ot-games')&&!otGames.linkShown){otGames.linkShown=true;setTimeout(otGamesChoose,500);}
+    clock.start();if(!separateRio)evaluateMissions();updateHUD();updateContext(true);updateNavigation(0,true);resize(true);if(els.modalClose)els.modalClose.hidden=false;closeModal();cancelAnimationFrame(raf);otthiBootMetrics.events.push({event:'controls-ready',ms:Math.round(performance.now()-entryStarted)});gameLoop();if(new URLSearchParams(location.search).has('ot-games')&&!otGames.linkShown){otGames.linkShown=true;setTimeout(otGamesChoose,500);}
     if(separateRio)toast('São José do Rio Preto · abra Mapa para escolher um local','good',3200);
     else toast('Bem-vindo a São José do Rio Preto!','good',2200);
   }

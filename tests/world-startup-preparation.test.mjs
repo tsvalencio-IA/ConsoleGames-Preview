@@ -26,3 +26,19 @@ test('cached fleet preparation keeps all models without spending a separate fram
   await c.prepareVehicleTemplates();assert.equal(prepared.length,44,'resuming an initialized world must reuse its prepared fleet');
  }
 });
+
+
+test('normal startup draws the actual view without full fleet, shader sweep or GPU drain',async()=>{
+ const events=[],calls=[],perf={},worldLightBudget={};
+ const c=vm.createContext({window:{OTBrazilVehicles:{catalog:{a:{},b:{}}}},running:false,performance:{now:()=>10},perf,worldLightBudget,world:{npcs:[{}]},completeTraffic:{created:new Set(['a'])},otthiBootMetrics:{startedAt:0,events},showWorldLoading(){},nextPaint:async()=>{},updateWorldExpansion(){calls.push('expand');assert(c.running);},lockStableSceneVisibility(){},freezeWorldFrustumCulling(){},updateCamera(){},updateVisualLOD(){},worldLightingPreparationPlan:()=>({pointLightBuckets:[0,16,24]}),prepareHomeRender:()=>()=>calls.push('home-restored'),prepareWorldPointLights:()=>()=>calls.push('lights-restored'),renderer:{info:{programs:[]},render(){calls.push('draw');}},scene:{},camera:{}});
+ vm.runInContext(source.slice(source.indexOf('  async function preparePlayableWorld()'),source.indexOf('  async function prepareWorldFirstFrame()')),c);
+ await c.preparePlayableWorld();
+ assert.equal(c.running,false);
+ assert.deepEqual(calls,['expand','draw','lights-restored','home-restored']);
+ assert.equal(perf.vehiclePreparation.models,2);
+ assert.equal(perf.vehiclePreparation.mode,'on-demand');
+ assert.equal(perf.scenePreparation.gpuWarmup.preparedViews,0);
+ assert.equal(worldLightBudget.preparation.mode,'progressive');
+ assert(events.some(e=>e.event==='first-world-frame'));
+ assert(events.some(e=>e.event==='entry-ready'));
+});

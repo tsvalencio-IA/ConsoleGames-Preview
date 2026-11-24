@@ -152,7 +152,7 @@
     tier:initialAutoTier, sessionTier:initialAutoTier, fps:60, frameAcc:0, frameCount:0, sampleMs:0, lastNow:performance.now(),
     lowSamples:0, highSamples:0, recommendationSamples:0, aiAcc:0, trafficAcc:0, cloudAcc:0, lodAcc:0, uiAcc:0, panelAcc:0, modeAuditAcc:0, renderAcc:0, renderedFrames:0, aiTicks:0, trafficTicks:0, mobile:matchMedia('(pointer:coarse)').matches,
     appliedTier:'',appliedDpr:0,recommendation:initialAutoTier,lastRecommendationSaved:0,lastRenderW:0,lastRenderH:0,resizeTimer:0,cullingEnabled:0,cullingBypassed:0,criticalVisible:0,criticalHidden:0,dynamicVisible:0,dynamicHidden:0,
-    renderScale:1,renderScaleMin:matchMedia('(pointer:coarse)').matches?.55:.82,renderScaleMax:1,governorPressure:0,governorRecoveries:0,governorProtections:0,governorReason:'boot',
+    renderScale:1,renderScaleMin:.55,renderScaleMax:1,governorPressure:0,governorRecoveries:0,governorProtections:0,governorReason:'boot',
     cameraAcc:0,loopAcc:0,rafHz:60,rafSampleAcc:0,rafFrames:0,simulationHz:0,simulationFrames:0,simulationSampleAcc:0
   };
   const distanceCullPosition=new THREE.Vector3(),distanceCullScale=new THREE.Vector3();
@@ -227,7 +227,7 @@
     // Pixel work scales with area. Severe mobile pressure must reduce that
     // work promptly instead of spending many samples at an overloaded size.
     // The HUD remains native CSS pixels; geometry, lights and physics stay put.
-    const stressed=reason==='fps-pressure'&&perf.mobile&&perf.fps<24,desired=stressed?before*Math.sqrt(clamp(perf.fps/30,.25,1)):before-step;
+    const stressed=reason==='fps-pressure'&&perf.fps<24,desired=stressed?before*Math.sqrt(clamp(perf.fps/30,.25,1)):before-step;
     perf.renderScale=clamp(Math.min(before-step,desired),perf.renderScaleMin,perf.renderScaleMax);perf.governorPressure=Math.min(100,Number(perf.governorPressure||0)+Math.round(12*strength));perf.governorReason=reason;
     if(Math.abs(before-perf.renderScale)>.015){perf.governorProtections++;applyAdaptiveRenderSettings(true);}
     return performanceGovernorState();
@@ -275,7 +275,7 @@
     if(recommendation===perf.recommendation)perf.recommendationSamples++;else{perf.recommendation=recommendation;perf.recommendationSamples=1;}
     perf.lowSamples=perf.fps<protectFps?perf.lowSamples+1:Math.max(0,perf.lowSamples-1);
     perf.highSamples=perf.fps>=target*.96?perf.highSamples+1:Math.max(0,perf.highSamples-1);
-    if(perf.lowSamples>=(perf.mobile?1:2)){
+    if(perf.lowSamples>=(perf.mobile||perf.fps<severeFps?1:2)){
       // Proteção normal atua na resolução interna. LOW visual fica reservado para colapso real de desempenho.
       performanceGovernorProtect('fps-pressure',perf.fps<target*.7?1.5:1);perf.lowSamples=0;
       if(perf.fps<severeFps&&perf.renderScale<=perf.renderScaleMin+.01&&perf.sessionTier!=='low'){

@@ -27,3 +27,16 @@ test('couriers consume simulation expansion time even when several updates share
  assert(Math.abs(deltas.reduce((a,b)=>a+b,0)-1)<1e-8);
  context.perf.expansionStep=0;now=1050;vm.runInContext('updateWorldPhone()',context);assert(Math.abs(deltas.at(-1)-.05)<1e-8);
 });
+
+
+test('catch-up yields after the CPU budget and preserves unapplied simulation time',()=>{
+ const f=simulation();let now=0;f.c.performance={now:()=>now};
+ f.c.stepWorldSimulation=dt=>{f.steps.push(dt);now+=5;};
+ assert.equal(f.advance(.3),3);
+ assert(f.c.perf.loopAcc>.20);
+ assert.equal(f.c.perf.catchUpBudgetHits,1);
+ const remaining=f.c.perf.loopAcc;
+ f.advance(0);
+ assert(f.c.perf.loopAcc<remaining);
+ assert(f.steps.every(dt=>dt<=1/30));
+});

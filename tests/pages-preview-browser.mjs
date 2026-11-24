@@ -196,8 +196,14 @@ try {
       }
       await page.locator('[data-account-offline]').tap();
       await page.locator('#playerNameInput').fill('Rio Preto QA');
+      const enterAt=Date.now();
       await page.locator('#playerNameInput').press('Enter');
-      await page.waitForFunction(() => OTTHOS_TEST_API.getGame().running && document.querySelector('#modal').hidden, null, {timeout: 160000});
+      await page.waitForFunction(() => OTTHOS_TEST_API.getGame().running && document.querySelector('#modal').hidden && OTTHOS_TEST_API.performance().renderedFrames>0, null, {timeout: 160000});
+      report.worldStartup={profileToRenderedFrameMs:Date.now()-enterAt,boot:await page.evaluate(()=>window.OTTHI_BOOT_METRICS.snapshot()),render:await page.evaluate(()=>OTTHOS_TEST_API.performance())};
+      assert(report.worldStartup.boot.events.some(e=>e.event==='entry-ready'&&e.mode==='progressive'),'normal startup must use the progressive path');
+      assert(report.worldStartup.boot.events.some(e=>e.event==='first-world-frame'));
+      assert(report.worldStartup.boot.events.some(e=>e.event==='controls-ready'));
+      await saveReport();
       assert.equal(await page.evaluate(() => OTTHOS_TEST_API.getState().profile.name), 'Rio Preto QA');
       assert.equal(await page.evaluate(() => OTTHOS_RTDB.configured), firebaseEnabled);
 
@@ -237,6 +243,8 @@ try {
           return Math.hypot(x - player.x, z - player.z) > .15;
         }, p, {timeout: 15000});
       } finally { await page.keyboard.up('KeyD'); }
+      report.worldStartup.movement=await page.evaluate(({x,z})=>{const p=OTTHOS_TEST_API.getGame().player;return {distance:Math.hypot(p.x-x,p.z-z),performance:OTTHOS_TEST_API.performance()};},p);
+      await saveReport();
 
       await page.evaluate(() => {
         const table = OTTHI_VENUES.locations().find(venue => venue.id === 'venue-pingpong');
