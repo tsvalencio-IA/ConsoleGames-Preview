@@ -949,9 +949,18 @@
       toySkinSphere(body,.44,primary,0,.45,-.245,1,.48,.54);
       for(const arm of arms)toySkinBox(arm,.35,.54,.35,secondary,0,-.32,0);
     }
+    if(['rio-torso-run','rio-torso-social','rio-torso-crop'].includes(avatar.torso)){
+      const trim=worldAvatarMaterial(0xf2ede4,{roughness:.72}),crop=avatar.torso==='rio-torso-crop',social=avatar.torso==='rio-torso-social';
+      toySkinBox(body,.76,crop?.43:.74,.09,secondary,0,crop?.23:.03,.40);
+      if(social){for(const side of[-1,1])toySkinBox(body,.20,.18,.055,trim,side*.11,.39,.46).rotation.z=side*.45;for(let i=0;i<4;i++)toySkinSphere(body,.025,trim,0,.20-i*.13,.46);}
+      else if(!crop){toySkinBox(body,.56,.09,.06,trim,0,.23,.47);for(const arm of arms)toySkinBox(arm,.29,.12,.32,trim,0,-.22,0);}
+      else toySkinBox(body,.74,.09,.06,colors.skin,0,-.11,.46);
+    }
     for(const leg of legs){
-      const soleY=theme==='minecraft'?-.94:theme==='playmobil'?-.81:-.9;
-      if(avatar.shoes==='rio-shoes-runner'){
+      if(avatar.legs==='rio-legs-cargo'){toySkinBox(leg,.18,.25,.21,secondary,leg===legs[0]?-.16:.16,-.32,0);toySkinBox(leg,.14,.04,.23,primary,leg===legs[0]?-.16:.16,-.21,0);}
+      else if(avatar.legs==='rio-legs-sport'){toySkinBox(leg,.035,.70,.18,primary,leg===legs[0]?-.15:.15,-.39,0);}
+      const soleY=theme==='minecraft'?-.94:(theme==='playmobil'||theme==='rio-human')?-.81:-.9;
+      if(avatar.shoes==='rio-shoes-social'){const dark=worldAvatarMaterial(0x29252a,{roughness:.35});toySkinSphere(leg,.23,dark,0,soleY+.025,.17,.83,.39,1.30);toySkinBox(leg,.34,.06,.52,dark,0,soleY-.04,.12);}else if(avatar.shoes==='rio-shoes-runner'){
         const sole=worldAvatarMaterial(0xf4e8ce,{roughness:.62});
         toySkinBox(leg,.407,.061,.565,sole,0,soleY-.04,.116);
         toySkinSphere(leg,.245,secondary,0,soleY+.041,.18,.87,.40,1.22);
@@ -5393,7 +5402,7 @@
       /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
     const group=new THREE.Group();group.position.set(x,0,z);worldGroup.add(group);
     const hairPalette=[0x34251c,0x15191f,0x6a4429,0xb36b35,0xd5b36a,0x643e55],skinPalette=[0xffd7b1,0xeab589,0xbd825d,0x8d5b43,0x6f4637];
-    const hash=String(id).split('').reduce((a,c)=>a+c.charCodeAt(0),0),hairColor=hairPalette[hash%hairPalette.length],skin=skinPalette[hash%skinPalette.length];
+    const legacyHash=String(id).split('').reduce((a,c)=>a+c.charCodeAt(0),0),hash=rioModernNpc?Array.from(String(id)).reduce((h,c)=>(Math.imul(h,31)+c.codePointAt(0))>>>0,2166136261):legacyHash,hairColor=hairPalette[hash%hairPalette.length],skin=skinPalette[rioModernNpc?(hash>>>4)%skinPalette.length:hash%skinPalette.length];
     const height=.92+(hash%5)*.025,shoulder=.39+(hash%3)*.025,shirt=renderMat(color,{roughness:.7}),shirtDark=renderMat(shadeColor(color,-32),{roughness:.74}),pants=renderMat(hash%2?0x294b75:0x43365f,{roughness:.78}),shoe=renderMat(hash%3===0?0xf4f5f7:0x202935,{roughness:.6}),skinMat=renderMat(skin,{roughness:.72}),hairMat=renderMat(hairColor,{roughness:.78});
     const torsoGeometry=rioModernNpc?new THREE.LatheGeometry([
       new THREE.Vector2(0,-height*.5),new THREE.Vector2(shoulder*.74,-height*.5),
@@ -5535,7 +5544,14 @@
       }
       // A little natural height/shoulder diversity without touching the
       // existing skeleton, routes, interaction locations or saved character ID.
-      group.scale.setScalar(.965+(hash%6)*.012);
+      group.scale.set(.91+(hash%7)*.029,.91+((hash>>>5)%9)*.024,.92+((hash>>>9)%5)*.032);
+      if(id.startsWith('rio-fotto-')){
+        const cameraMat=renderMat(0x20252a,{roughness:.52}),lensMat=renderMat(0x354d5d,{roughness:.31});
+        box(.37,.28,.22,cameraMat,0,1.40,.52,detailLayer);box(.14,.10,.17,cameraMat,.08,1.57,.49,detailLayer);
+        const lens=new THREE.Mesh(new THREE.CylinderGeometry(.115,.145,.23,12),lensMat);lens.rotation.x=Math.PI/2;lens.position.set(0,1.40,.71);detailLayer.add(lens);
+        for(const side of[-1,1])box(.045,.47,.05,cameraMat,side*.18,1.64,.35,detailLayer);
+        const mark=new THREE.Mesh(new THREE.PlaneGeometry(.43,.13),new THREE.MeshStandardMaterial({map:signTexture('f_OTTO','#152637','#ffffff'),roughness:.7,side:THREE.DoubleSide}));mark.position.set(0,1.19,.38);detailLayer.add(mark);
+      }
       npc.userData={...(npc.userData||{}),toyThemeRoots:[detailLayer]};
       batchNpcVisuals(npc);
     }else if(id!=='michelle-ottovias'&&!OT_CHILD_WORLD)applyNpcToyTheme(npc,npcToyTheme(id));
@@ -6160,7 +6176,10 @@
   function createOttoviasPatrol(){const h=ottoviasHighway();if(!h)return null;const start=h.points[1],patrol=createNPC('ottovias-patrol','Equipe OTTOVIAS',start.x,start.z,0x15745b,1);const route=h.points.map(p=>[p.x,p.z]);route.push([h.points[0].x,h.points[0].z]);createNpcMobility(patrol,'car',route,6.1);patrol.ottoviasRole='inspecao';OTTOVIAS_RUNTIME.patrol=patrol;return patrol;}
   function createOttoviasWorld(){if(OTTOVIAS_RUNTIME.initialized)return world.ottovias;const data=ensureOttoviasState();createOttoviasBiomes();createOttoviasHighwayGeometry();clearOttoviasRoadRocks();createOttoviasPedestrianBridge();const h=ottoviasHighway();for(const toll of h.tolls||[])createOttoviasToll(toll);createOttoviasOperations();createOttoviasPatrol();createOttoviasTrafficFlow();for(const spec of WORLD_LAYOUT_V704.signs||[]){if(spec.kind!=='highway')continue;const point=v704HighwaySignPoint(spec);if(point)createOttoviasHighwaySign(point.x,point.z,spec.title,spec.subtitle,point.heading);}const entry=worldLayoutPoint('ottoviasEntry');registerInteractable({id:'ottovias-entry',type:'transport',icon:'🛣️',label:'Rodovia OTTOVIAS',x:entry.x,z:entry.z,radius:4,priority:170,action:()=>{setWaypoint('ottovias-operations');}});OTTOVIAS_RUNTIME.observedTollAt=Number(data.lastTollAt||0);OTTOVIAS_RUNTIME.observedIncidentId=String(world.activeIncident?.id||'');OTTOVIAS_RUNTIME.observedFireIds=new Set((world.fires||[]).filter(item=>item.active).map(item=>String(item.id)));if(!data.news.length)michelleAddNews('clear','Central de Comunicação conectada','Michelle iniciou o acompanhamento dos eventos reais desta partida.','central-online','good',false);OTTOVIAS_RUNTIME.initialized=true;updateOttoviasVisibility(true);world.ottovias={root:OTTOVIAS_RUNTIME.root,tolls:OTTOVIAS_RUNTIME.tolls,michelle:OTTOVIAS_RUNTIME.michelle,patrol:OTTOVIAS_RUNTIME.patrol,footbridge:OTTOVIAS_RUNTIME.footbridge,traffic:OTTOVIAS_RUNTIME.traffic};return world.ottovias;}
   function updateOttoviasVisibility(force=false){const now=performance.now();if(!force&&now-OTTOVIAS_RUNTIME.cullAt<320)return;OTTOVIAS_RUNTIME.cullAt=now;const tier=typeof qualityTier==='function'?qualityTier():'balanced',range=tier==='low'?68:tier==='high'?135:90,px=otGamesFocus().x,pz=otGamesFocus().z;for(const item of OTTOVIAS_RUNTIME.segments){const nearest=v704DistanceToSegment({x:px,z:pz},item.a,item.b);item.group.visible=item.usesExistingRoad||nearest.distance<range+(otGames.active?Math.max(0,otGames.body.y)*1.2:0);}for(const item of OTTOVIAS_RUNTIME.biomeGroups){item.group.visible=Math.hypot(px-item.cx,pz-item.cz)<range+item.radius;}for(const toll of OTTOVIAS_RUNTIME.tolls.values()){const seg=OTTOVIAS_RUNTIME.segments.find(s=>s.highwayId==='ottovias'&&s.index===toll.routeIndex);toll.group.visible=!!seg?.group.visible;}if(OTTOVIAS_RUNTIME.root)OTTOVIAS_RUNTIME.root.visible=true;}
-  function updateOttoviasHighway(dt){if(!OTTOVIAS_RUNTIME.initialized)return;const now=Date.now(),data=state.ottovias||ensureOttoviasState();updateOttoviasVisibility();if(typeof sharedWorldIsAuthority!=='function'||sharedWorldIsAuthority())updateOttoviasTraffic(dt);michelleObserveWorld();updateMichelleOttovias();for(const toll of OTTOVIAS_RUNTIME.tolls.values()){const open=now<toll.openUntil,target=open?-1.35:0;for(const arm of toll.gates)arm.rotation.z=lerp(arm.rotation.z,target,Math.min(1,dt*7));updateOttoviasTollPassage(toll,now);}
+  // Each bar extends along its hinge's positive local X axis; positive
+  // Z rotation raises its tip in world Y, negative rotation buries it.
+  function ottoviasGateAngle(open){return open?Math.PI*.46:0;}
+  function updateOttoviasHighway(dt){if(!OTTOVIAS_RUNTIME.initialized)return;const now=Date.now(),data=state.ottovias||ensureOttoviasState();updateOttoviasVisibility();if(typeof sharedWorldIsAuthority!=='function'||sharedWorldIsAuthority())updateOttoviasTraffic(dt);michelleObserveWorld();updateMichelleOttovias();for(const toll of OTTOVIAS_RUNTIME.tolls.values()){const open=now<toll.openUntil,target=ottoviasGateAngle(open);for(const arm of toll.gates)arm.rotation.z=lerp(arm.rotation.z,target,Math.min(1,dt*7));updateOttoviasTollPassage(toll,now);}
     if(player.vehicle){const info=ottoviasNearestInfo(player.x,player.z);if(info&&info.distance<Number(info.width||12)/2+3){if(info.biome!==OTTOVIAS_RUNTIME.lastBiome){OTTOVIAS_RUNTIME.lastBiome=info.biome;const labels={city:'Travessia Urbana',desert:'Trecho Deserto',field:'Trecho Campo',snow:'Trecho Neve',beach:'Trecho Praia',country:'Trecho Rural'};if(labels[info.biome]&&now-OTTOVIAS_RUNTIME.lastNoticeAt>2200){OTTOVIAS_RUNTIME.lastNoticeAt=now;toast(`OTTOVIAS • ${labels[info.biome]}`,'good',1300);}}}}
     if(data.tour.active&&now-OTTOVIAS_RUNTIME.tourCheckAt>300){OTTOVIAS_RUNTIME.tourCheckAt=now;const target=ottoviasTourTarget();if(target){const p=worldLayoutPoint(target.point),d=Math.hypot(player.x-p.x,player.z-p.z);if(d<10){if(data.tour.index>=OTTOVIAS_TOUR_STOPS.length-1){completeOttoviasTour();}else{data.tour.index++;saveState(true);const next=ottoviasTourTarget();toast(`Michelle: trecho confirmado. Próximo: ${next.icon} ${next.name}.`,'good',2200);ottoviasSetTourWaypoint();}}}}
     if(data.communication.active&&now-OTTOVIAS_RUNTIME.communicationCheckAt>360){OTTOVIAS_RUNTIME.communicationCheckAt=now;const target=ottoviasCommunicationTarget();if(target){const p=worldLayoutPoint(target.point),d=Math.hypot(player.x-p.x,player.z-p.z),stops=ottoviasCommunicationStops(data.communication.mode);if(d<9){if(data.communication.index>=stops.length-1){completeOttoviasCommunicationMission();}else{data.communication.index++;saveState(true);const next=ottoviasCommunicationTarget();toast(`Michelle: pauta registrada. Próximo: ${next.icon} ${next.name}.`,'good',2300);ottoviasSetCommunicationWaypoint();}}}}
@@ -10234,7 +10253,7 @@
       const tier=qualityTier();pollGamepad();
       // Movimento e câmera permanecem em todo quadro; sistemas pesados usam orçamento próprio.
       const compact=typeof rioCompactWorld==='function'&&rioCompactWorld();
-      const before=compact&&player.vehicle?{x:player.x,z:player.z}:player;
+      const before=compact?{x:player.x,z:player.z}:player;
       if(typeof otGames!=='undefined'&&otGames.active)updateOtGames(dt);else updatePlayer(dt);
       if(compact)updateCompactRio(dt,before);
       if(typeof updateMultiplayerNetworkV2==='function')updateMultiplayerNetworkV2(dt);if(typeof updateMultiplayerRenderV2==='function')updateMultiplayerRenderV2(dt);perf.cameraAcc=Number(perf.cameraAcc||0)+dt;if(typeof updateOtthiWorldEnvironment==='function')updateOtthiWorldEnvironment(dt);if(typeof updateWorldCampaign==='function')updateWorldCampaign(dt);if(typeof updateWorldVenues==='function')updateWorldVenues();perf.expansionAcc=Number(perf.expansionAcc||0)+dt;if(perf.expansionAcc>=1/30){const accumulated=perf.expansionAcc;perf.expansionAcc%=1/30;perf.expansionStep=accumulated-perf.expansionAcc;try{if(typeof updateWorldExpansion==='function')updateWorldExpansion();}finally{perf.expansionStep=0;}}if(typeof updateTrafficVehicleTaking==='function')updateTrafficVehicleTaking();if(typeof updateWorldHeroAdventure==='function')updateWorldHeroAdventure(dt);
@@ -10296,7 +10315,7 @@
     if(otGames.active){const navVisible=!!state.waypoint&&!(otGames.armed&&otGames.mode==='ground');if(world.routeGuide)world.routeGuide.visible=navVisible;if(world.waypointMarker)world.waypointMarker.visible=navVisible;}
     if(world.skyDome)world.skyDome.position.copy(camera.position);
     const drawStart=performance.now(),programsBefore=renderer.info.programs.length;
-    const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
+    const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);if(typeof rioCaptureLandmarkFrame==='function')rioCaptureLandmarkFrame(renderer.domElement);if(typeof rioFottoCaptureFrame==='function')rioFottoCaptureFrame();}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
     const renderMs=performance.now()-drawStart,addedPrograms=renderer.info.programs.length-programsBefore;
     const lastView=perf.lastMeasuredView,view=camera.quaternion;
     const turning=!!lastView&&Math.abs(lastView.x*view.x+lastView.y*view.y+lastView.z*view.z+lastView.w*view.w)<.99995;
@@ -10782,13 +10801,13 @@
 
   // ===== MODULE: 34-avatar-studio-professional-v3.js =====
   const OTTHI_WORLD_AVATAR_CATALOG=Object.freeze({
-    bodyStyle:Object.freeze([['lego','LEGO','🧱'],['family-thiago','Thiago','👨🏻'],['family-thamis','Thamis','👩🏻'],['minecraft','Minecraft / Manycraft','🟩'],['playmobil','Playmobil','🧍'],['mario-world','Mario World — Mario','🧢'],['luigi-world','Mario World — Luigi','🟢']]),
+    bodyStyle:Object.freeze([['lego','LEGO','🧱'],['family-thiago','Thiago','👨🏻'],['family-thamis','Thamis','👩🏻'],['minecraft','Minecraft / Manycraft','🟩'],['playmobil','Playmobil','🧍'],['rio-human','Meu personagem humano','👤'],['mario-world','Mario World — Mario','🧢'],['luigi-world','Mario World — Luigi','🟢']]),
     skinTone:Object.freeze([['tone-03','Tom do modelo','◯'],['rio-tone-claro','Claro','◯'],['rio-tone-oliva','Oliva','◯'],['rio-tone-cobre','Cobre','◯'],['rio-tone-moreno','Moreno','◯'],['rio-tone-escuro','Escuro','◯']]),
     face:Object.freeze([['face-happy-01','Feliz','🙂'],['face-brave-01','Corajoso','😎'],['face-curious-01','Curioso','🤔'],['face-focus-01','Concentrado','🎯'],['rio-face-sardas','Sardas','🙂'],['rio-face-riso','Risada','😁']]),
     hair:Object.freeze([['hair-none','Sem cabelo','◯'],['hair-short-01','Curto','✂'],['hair-spikes-01','Espetado','⚡'],['hair-curls-01','Cacheado','〰'],['rio-hair-bob','Chanel','✂'],['rio-hair-puffs','Coques','◉'],['rio-hair-coils','Cachos curtos','〰'],['rio-hair-ondas','Ondulado','≈']]),
-    torso:Object.freeze([['world-jacket-01','Jaqueta World','🧥'],['world-hoodie-01','Moletom','👕'],['world-explorer-01','Explorador','🧭'],['world-hero-01','Herói OTTHI','⚡'],['world-shadow-guardian','Guardião Noturno','🌙'],['world-web-runner','Corredor de Fios','🕸️'],['world-mushroom-adventurer','Macacão de aventura','🧢'],['world-toy-rescuer','Resgatista Brinquedo','🧸'],['rio-torso-junior','Camiseta juvenil','👕'],['rio-torso-rain','Capa de chuva','🧥']]),
-    legs:Object.freeze([['world-pants-01','Calça urbana','👖'],['world-shorts-01','Bermuda','🩳'],['world-armor-01','Proteção de aventura','🛡']]),
-    shoes:Object.freeze([['world-sneakers-01','Tênis','👟'],['world-boots-01','Botas','🥾'],['world-energy-01','Tênis de energia','✨'],['rio-shoes-runner','Tênis de corrida','👟'],['rio-shoes-boot','Bota de passeio','🥾']]),
+    torso:Object.freeze([['world-jacket-01','Jaqueta World','🧥'],['world-hoodie-01','Moletom','👕'],['world-explorer-01','Explorador','🧭'],['world-hero-01','Herói OTTHI','⚡'],['world-shadow-guardian','Guardião Noturno','🌙'],['world-web-runner','Corredor de Fios','🕸️'],['world-mushroom-adventurer','Macacão de aventura','🧢'],['world-toy-rescuer','Resgatista Brinquedo','🧸'],['rio-torso-junior','Camiseta juvenil','👕'],['rio-torso-rain','Capa de chuva','🧥'],['rio-torso-run','Camiseta de corrida','🏃'],['rio-torso-social','Camisa social','👔'],['rio-torso-crop','Cropped','👕']]),
+    legs:Object.freeze([['world-pants-01','Calça urbana','👖'],['world-shorts-01','Bermuda','🩳'],['world-armor-01','Proteção de aventura','🛡'],['rio-legs-sport','Legging esportiva','👖'],['rio-legs-cargo','Calça cargo','👖']]),
+    shoes:Object.freeze([['world-sneakers-01','Tênis','👟'],['world-boots-01','Botas','🥾'],['world-energy-01','Tênis de energia','✨'],['rio-shoes-runner','Tênis de corrida','👟'],['rio-shoes-boot','Bota de passeio','🥾'],['rio-shoes-social','Sapato social','👞']]),
     back:Object.freeze([['none','Sem item','—'],['world-backpack-01','Mochila modular','🎒'],['world-cape-01','Capa OTTHI','🦸'],['world-jetpack-01','Propulsor de brinquedo','🚀']]),
     pattern:Object.freeze([['none','Sem estampa','□'],['world-stripe','Faixas','≡'],['world-pixels','Pixels','▦'],['world-star','Estrela OTTHI','★']])
   });
@@ -10825,7 +10844,7 @@
   function toySkinApplyFace(headLayer,theme,skin,eye,mouth){
     if(theme==='minecraft'){toySkinBox(headLayer,.13,.08,.04,eye,-.18,.08,.53);toySkinBox(headLayer,.13,.08,.04,eye,.18,.08,.53);toySkinBox(headLayer,.26,.05,.04,mouth,0,-.18,.53);return;}
     if(theme==='lego'){toySkinSphere(headLayer,.052,eye,-.16,.07,.37);toySkinSphere(headLayer,.052,eye,.16,.07,.37);toySkinBox(headLayer,.24,.045,.028,mouth,0,-.14,.38);return;}
-    if(theme==='playmobil'){
+    if(theme==='playmobil'||theme==='rio-human'){
       // O rosto precisa ficar SOBRE a superfície da cabeça, não enterrado dentro da esfera.
       toySkinSphere(headLayer,.057,eye,-.16,.08,.585,1,1.05,.72);toySkinSphere(headLayer,.057,eye,.16,.08,.585,1,1.05,.72);
       toySkinBox(headLayer,.24,.045,.026,mouth,0,-.16,.592);toySkinSphere(headLayer,.045,skin,0,-.035,.59,1.1,.9,.55);return;
@@ -10857,7 +10876,7 @@
       if(avatar.hair!=='hair-none'&&!avatar.hair.startsWith('rio-hair-'))for(const[x,z]of[[-.22,-.15],[0,-.18],[.22,-.15],[-.12,.12],[.12,.12]])toySkinCylinder(headLayer,.08,.07,hairMat,x,.44,z,14);
     }else if(theme==='minecraft'){
       toySkinBox(headLayer,1.02,1.02,1.02,skin,0,0,0);toySkinBox(bodyLayer,1.08,1.04,.78,primary,0,0,0);for(const arm of[leftArm,rightArm])toySkinBox(arm,.34,.9,.34,primary,0,-.44,0);for(const leg of[leftLeg,rightLeg]){toySkinBox(leg,.38,.9,.4,secondary,0,-.43,0);toySkinBox(leg,.4,.18,.5,brown,0,-.98,.08);}if(avatar.hair!=='hair-none'&&!avatar.hair.startsWith('rio-hair-')){toySkinBox(headLayer,1.05,.2,1.05,hairMat,0,.56,0);toySkinBox(headLayer,.18,.42,1.05,hairMat,-.45,.34,0);toySkinBox(headLayer,.18,.42,1.05,hairMat,.45,.34,0);}
-    }else if(theme==='playmobil'){
+    }else if(theme==='playmobil'||theme==='rio-human'){
       toySkinSphere(headLayer,.58,skin,0,0,0,1,1.08,.98);toySkinCylinder(bodyLayer,.48,1.02,primary,0,0,0,24);toySkinCylinder(bodyLayer,.36,.18,secondary,0,-.55,0,22);for(const arm of[leftArm,rightArm]){toySkinCylinder(arm,.13,.68,primary,0,-.34,0,18);toySkinSphere(arm,.16,skin,0,-.76,.02,1,.86,1);}for(const leg of[leftLeg,rightLeg]){toySkinCylinder(leg,.15,.76,secondary,0,-.37,0,18);toySkinBox(leg,.36,.17,.5,brown,0,-.82,.09);}if(avatar.hair!=='hair-none'&&!avatar.hair.startsWith('rio-hair-')){toySkinSphere(headLayer,.62,hairMat,0,.22,-.03,1.02,.58,1.02);if(avatar.hair==='hair-curls-01')for(const[x,y,z]of[[-.38,.25,-.1],[-.18,.43,-.12],[.18,.43,-.12],[.38,.25,-.1]])toySkinSphere(headLayer,.18,hairMat,x,y,z);}
     }else if(isMario){
       // Mario/Luigi reconhecíveis: camisa e boné fixos da variante + jardineira azul.
@@ -10883,11 +10902,11 @@
   const legacyOpenAvatarStudio=openAvatarStudio;
   openAvatarStudio=function openAvatarStudioWorld(){
     ensureOtthiWorldState();
-    openModal(`Personagem — ${playerDisplayName()}`,`<div class="avatar-summary world-avatar-summary"><div class="avatar-face"><i></i><i></i></div><div><b>Escolha seu personagem</b><span>Jogue como Thiago, Thamis ou personalize os outros estilos. Suas escolhas ficam salvas no seu perfil.</span></div></div>${worldAvatarOptions('bodyStyle','Quem você quer controlar?')}<p data-family-avatar-note ${familyCharacterId(state.avatar.bodyStyle)?'':'hidden'}>Thiago e Thamis usam os modelos originais. Abra o guarda-roupa para escolher peças e acessórios para cada um.</p><div data-world-avatar-custom ${familyCharacterId(state.avatar.bodyStyle)?'hidden':''}>${worldAvatarOptions('skinTone','Tom de pele')}${worldAvatarOptions('face','Expressão')}${worldAvatarOptions('hair','Cabelo')}${worldAvatarOptions('torso','Parte superior')}${worldAvatarOptions('legs','Parte inferior')}${worldAvatarOptions('shoes','Calçados')}${worldAvatarOptions('back','Costas')}${worldAvatarOptions('pattern','Estampa')}<section class="avatar-section"><h3>Cores</h3><div class="world-color-grid"><label>Cor principal<input type="color" data-world-avatar-color="primaryColor" value="${state.avatar.primaryColor}"></label><label>Cor secundária<input type="color" data-world-avatar-color="secondaryColor" value="${state.avatar.secondaryColor}"></label><label>Cabelo<input type="color" data-world-avatar-color="hairColor" value="${state.avatar.hairColor}"></label></div></section>${avatarChoiceGroup('uniform','Uniforme')}${avatarChoiceGroup('hat','Chapéu')}${avatarChoiceGroup('accessory','Acessório')}</div><div class="modal-actions">${typeof openRioWardrobe==='function'?'<button type="button" class="btn" data-rio-wardrobe-open>👕 Guarda-roupa da família</button>':''}<button class="btn primary" data-world-avatar-save>Salvar personagem</button></div>`,root=>{
+    openModal(`Personagem — ${playerDisplayName()}`,`<div class="avatar-summary world-avatar-summary"><div class="avatar-face"><i></i><i></i></div><div><b>Escolha seu personagem</b><span>Jogue como Thiago, Thamis ou personalize os outros estilos. Suas escolhas ficam salvas no seu perfil.</span></div></div><section class="avatar-section"><h3>Nome no jogo</h3><label>Apelido do personagem <input data-world-avatar-name maxlength="18" autocomplete="off" value="${escapeHtml(state.profile.name||'')}"></label><p>De 3 a 18 caracteres. Seu nome será salvo no mesmo perfil.</p></section>${worldAvatarOptions('bodyStyle','Quem você quer controlar?')}<p data-family-avatar-note ${familyCharacterId(state.avatar.bodyStyle)?'':'hidden'}>Thiago e Thamis usam os modelos originais. Abra o guarda-roupa para escolher peças e acessórios para cada um.</p><div data-world-avatar-custom ${familyCharacterId(state.avatar.bodyStyle)?'hidden':''}>${worldAvatarOptions('skinTone','Tom de pele')}${worldAvatarOptions('face','Expressão')}${worldAvatarOptions('hair','Cabelo')}${worldAvatarOptions('torso','Parte superior')}${worldAvatarOptions('legs','Parte inferior')}${worldAvatarOptions('shoes','Calçados')}${worldAvatarOptions('back','Costas')}${worldAvatarOptions('pattern','Estampa')}<section class="avatar-section"><h3>Cores</h3><div class="world-color-grid"><label>Cor principal<input type="color" data-world-avatar-color="primaryColor" value="${state.avatar.primaryColor}"></label><label>Cor secundária<input type="color" data-world-avatar-color="secondaryColor" value="${state.avatar.secondaryColor}"></label><label>Cabelo<input type="color" data-world-avatar-color="hairColor" value="${state.avatar.hairColor}"></label></div></section>${avatarChoiceGroup('uniform','Uniforme')}${avatarChoiceGroup('hat','Chapéu')}${avatarChoiceGroup('accessory','Acessório')}</div><div class="modal-actions">${typeof openRioWardrobe==='function'?'<button type="button" class="btn" data-rio-wardrobe-open>👕 Guarda-roupa da família</button>':''}<button class="btn primary" data-world-avatar-save>Salvar personagem</button></div>`,root=>{
       $$('[data-world-avatar-field]',root).forEach(button=>button.onclick=()=>{const field=button.dataset.worldAvatarField,value=button.dataset.worldAvatarValue;state.avatar={...state.avatar,[field]:worldAvatarSafeChoice(field,value),renderMode:'otthi-world-v3'};$$(`[data-world-avatar-field="${field}"]`,root).forEach(item=>{item.classList.toggle('selected',item===button);item.setAttribute('aria-pressed',String(item===button));});root.querySelector('[data-world-avatar-custom]').hidden=!!familyCharacterId(state.avatar.bodyStyle);root.querySelector('[data-family-avatar-note]').hidden=!familyCharacterId(state.avatar.bodyStyle);applyAvatarCustomization();});
       $$('[data-world-avatar-color]',root).forEach(input=>input.oninput=()=>{state.avatar={...state.avatar,[input.dataset.worldAvatarColor]:safeAvatarColor(input.value,state.avatar[input.dataset.worldAvatarColor])};applyAvatarCustomization();});
       $$('[data-avatar-type]',root).forEach(button=>button.onclick=()=>{state.avatar=updateAvatarV2LegacyChoice(state.avatar,button.dataset.avatarType,button.dataset.avatarId);$$(`[data-avatar-type="${button.dataset.avatarType}"]`,root).forEach(item=>item.classList.toggle('selected',item===button));applyAvatarCustomization();});
-      $('[data-world-avatar-save]',root).onclick=()=>{state.avatar=normalizeAvatarV2({...state.avatar,renderMode:'otthi-world-v3'});setFlag('customizedAvatar');setFlag('otthiWorldAvatarV3');saveState(true);closeModal();toast('Personagem salvo no seu perfil.','good',2000);};
+      $('[data-world-avatar-save]',root).onclick=()=>{const name=root.querySelector('[data-world-avatar-name]')?.value;if(!applyPlayerName(name))return;state.avatar=normalizeAvatarV2({...state.avatar,renderMode:'otthi-world-v3'});setFlag('customizedAvatar');setFlag('otthiWorldAvatarV3');saveState(true);closeModal();toast('Personagem salvo no seu perfil.','good',2000);};
       $('[data-rio-wardrobe-open]',root)?.addEventListener('click',()=>openRioWardrobe());
       $('[data-world-avatar-legacy]',root)?.addEventListener('click',legacyOpenAvatarStudio);
     });
@@ -15407,9 +15426,29 @@ function precompile(T,renderer,scene,camera,timings){
    if(rig[key])rig[key].rotation.x=angle;
   }
  }
+ // Use the same approach as the vehicle parking interaction. A player
+ // who leaves a parked vehicle must also be able to walk back into the room.
+ function garagePedestrianApproach(door){
+  return{x:door.x+9,z:door.z,radius:5.5};
+ }
+ function garagePedestrianReturnPoint(door,position,blocked){
+  const a=garagePedestrianApproach(door);
+  const within=p=>Math.hypot(p.x-a.x,p.z-a.z)<a.radius-.25&&Math.hypot(p.x-door.x,p.z-door.z)<14;
+  if(within(position)&&!blocked(position.x,position.z))return{x:position.x,z:position.z};
+  for(const dx of[0,-1,1,-2,2,-3,3])for(const dz of[0,-1,1,-2,2,-3,3]){
+   const p={x:a.x+dx,z:a.z+dz};if(within(p)&&!blocked(p.x,p.z))return p;
+  }
+  return null;
+ }
  function openPersonalGarageRoom(floor=0){
   const door=worldLayoutPoint('homeGarage');if(!running||(paused&&els.modal.hidden)||worldVenues.session||otGames.active||currentHouse||player.boating||Math.hypot(player.x-door.x,player.z-door.z)>14)return false;
-  if(player.vehicle&&!garageStoreHere(player.car.id))return false;closeModal();clearMovementInputs();savePlayerPosition(true);ensurePlayerGarageState();
+  const arrivedByVehicle=player.vehicle;
+  if(arrivedByVehicle&&!garageStoreHere(player.car.id))return false;
+  if(arrivedByVehicle){
+   const p=garagePedestrianReturnPoint(door,player,(x,z)=>positionBlockedForPlayer(x,z,.48));
+   if(p){player.x=p.x;player.z=p.z;player.y=groundHeightAt(p.x,p.z);player.vx=player.vy=player.vz=0;player.grounded=true;rememberSafePlayerPosition(true);}
+  }
+  closeModal();clearMovementInputs();updateContext(true);savePlayerPosition(true);ensurePlayerGarageState();
   const g=ensurePlayerGarageState();for(const key of Object.keys(g.slots)){const id=g.slots[key],v=vehicleById(id);if(id&&v&&!v.occupied&&!v.workshopYardStatus&&(!state.vehicles.parked?.[id]||Math.hypot(v.group.position.x-door.x,v.group.position.z-door.z)<13)){g.stored[id]=true;g.slots[key]='';setGarageVehicleStored(v,true);}}g.privateLayout=1;saveState(true);
   const parked=garageParkedEntries(),floorPlan=garageRoomFloors(parked),floors=floorPlan.length;floor=clamp(floor,0,floors-1);const heavyFloor=floorPlan[floor].heavy,depth=heavyFloor?72:48,edge=depth/2;
   const ui=document.createElement('section');ui.id='privateGarageRoom';ui.setAttribute('role','dialog');ui.setAttribute('aria-label','Interior da minha garagem');ui.innerHTML=`<header><b>MINHA GARAGEM · PISO ${floor+1}/${floors}</b><button data-garage-room-exit>VOLTAR À CASA</button></header><div data-garage-viewport></div><div class="garage-room-info" role="status">Caminhe até um veículo. Use ENTRAR, LIGAR MOTOR e dirija até a saída.</div><div class="garage-room-controls"><div data-garage-stick aria-label="Joystick esquerdo"><i></i></div><div class="garage-room-actions"><button data-garage-board disabled>ENTRAR</button><button data-garage-engine hidden>LIGAR MOTOR</button><button data-garage-gas hidden>ACELERAR</button><button data-garage-brake hidden>FREAR / RÉ</button></div></div><footer><button data-garage-floor-prev ${floor===0?'disabled':''}>PISO ANTERIOR</button><span>${parked.length} unidades estacionadas</span><button data-garage-floor-next ${floor===floors-1?'disabled':''}>PRÓXIMO PISO</button></footer>`;
@@ -15496,6 +15535,11 @@ function precompile(T,renderer,scene,camera,timings){
  const garageOldOpen=openPlayerGarage;openPlayerGarage=function(){if(typeof inRioMap==='function'&&inRioMap())return garageOldOpen();const p=worldLayoutPoint('homeGarage'),home=worldLayoutPoint('home');if(currentHouse&&Math.hypot(currentHouse.x-home.x,currentHouse.z-home.z)<1){closeModal();exitHouse();player.x=p.x+8;player.z=p.z;player.y=groundHeightAt(player.x,player.z);player.vx=player.vy=player.vz=0;rememberSafePlayerPosition(true);return openPersonalGarageRoom();}if(Math.hypot(player.x-p.x,player.z-p.z)<14&&!currentHouse)return openPersonalGarageRoom();return openGarageVehicleManager();};
  const garageOldExpansion=updateWorldExpansion;updateWorldExpansion=function(){garageOldExpansion();garageSyncIgnition();if(!world.playerGarage)return;
   if(!world.playerGarage.privateParkingAction){const p=worldLayoutPoint('homeGarage');registerInteractable({id:'private-garage-park',type:'garage',vehicleOnly:true,icon:'🏠',label:'Estacionar na minha garagem',actionLabel:'Garagem',x:p.x+9,z:p.z,radius:5.5,priority:800,available:()=>player.vehicle&&!player.car.passengerOf&&state.vehicles.owned.includes(player.car.id),action:()=>openPersonalGarageRoom()});world.playerGarage.privateParkingAction=true;}
+  if(!world.playerGarage.privateFootAction){
+   const p=garagePedestrianApproach(worldLayoutPoint('homeGarage'));
+   registerInteractable({id:'private-garage-foot',type:'garage',icon:'🏠',label:'Entrar na minha garagem',actionLabel:'Garagem',x:p.x,z:p.z,radius:p.radius,priority:800,available:()=>!player.vehicle&&!player.boating&&!player.transit.mode&&!currentHouse&&!worldVenues.session,action:()=>openPersonalGarageRoom()});
+   world.playerGarage.privateFootAction=true;
+  }
   for(const i of world.interactables)if(i.id==='player-home-garage'||i.id==='player-home-garage-west'){i.label='Entrar na minha garagem';i.action=()=>openPersonalGarageRoom();}const sign=world.playerGarage.group?.children.find(o=>o.geometry?.type==='PlaneGeometry'&&o.position.y>2);if(sign&&!sign.userData.privateGarage){sign.material.map?.dispose();sign.material.map=signTexture('MINHA GARAGEM · ENTRADA','#173b59','#ffffff');sign.material.needsUpdate=true;sign.userData.privateGarage=true;}};
  window.OT_PERSONAL_GARAGE={diagnostics:()=>({active:!!personalGarage.room,floor:personalGarage.room?.floor,inside:personalGarage.room?{...personalGarage.room.body,vehicle:personalGarage.room.car?.entry.id,engine:personalGarage.room.engine,avatars:(personalGarage.room.avatars||[]).map(a=>({id:a.id,visible:a.host.visible&&!!(a.avatar?.group||a.custom?.group)?.visible,kind:a.avatar?'family':'custom'}))}:null,units:garageOwnedEntries().map(e=>({id:e.id,catalogId:e.catalogId,model:e.model,unit:e.unit,stored:!!state.vehicles.garage.stored[e.id]})),lastDelivery:personalGarage.lastDelivery})};
 
@@ -16859,6 +16903,7 @@ function precompile(T,renderer,scene,camera,timings){
   const phone=bar.querySelector('#worldPhoneBtn');if(phone)bar.insertBefore(phone,els.avatarGameBtn);
   bar.append(shortcut('worldChooseAvatarBtn','👤','Personagens',openAvatarStudio));
   bar.append(shortcut('worldJourneyBtn','🧭','Meu caminho',()=>openObjectivesPanel()));
+  bar.append(shortcut('worldFottoBtn','📷','f_OTTO · Minhas fotos',()=>openRioFottoGallery()));
   bar.append(shortcut('worldClimateBtn','🌦️','Clima',()=>openRioClimate()));
   bar.append(shortcut('worldLobbyBtn','↩️','Menu inicial',stopGame));
   const layout=document.createElement('button');layout.id='worldHudModeBtn';layout.type='button';layout.onclick=()=>setExplorationHudMode(state.settings.worldHud==='full'?'clean':'full');bar.append(layout);
@@ -16952,7 +16997,7 @@ function precompile(T,renderer,scene,camera,timings){
       rioPreto.material ??= new THREE.MeshStandardMaterial({color:0xffffff,roughness:.86,metalness:.04,side:THREE.DoubleSide});
       const shapes = {
         box:()=>new THREE.BoxGeometry(1,1,1), post:()=>new THREE.CylinderGeometry(.5,.5,1,7),
-        canopy:()=>new THREE.IcosahedronGeometry(.5,1), roof:()=>rioRoof(false), hip:()=>rioRoof(true)
+        canopy:()=>new THREE.IcosahedronGeometry(.5,1), sculpture:()=>new THREE.SphereGeometry(.5,24,16), plinth:()=>new THREE.CylinderGeometry(.5,.5,1,32), roof:()=>rioRoof(false), hip:()=>rioRoof(true)
       };
       let primitives=0;
       for (const [shape,allItems] of byShape) for(const items of rioSpatialBatchItems(allItems)) {
@@ -19839,15 +19884,77 @@ function precompile(T,renderer,scene,camera,timings){
       {vehicleOnly:true,icon:'⛽',actionLabel:'Abastecer',radius:2.35});
   }
 
+  // Approximate the actual seated three-metre monument, not a small
+  // four-legged generic animal. All pieces remain in shared instance batches.
+  function rioDonaCapiParts(){
+    const body=0xb77543,chest=0xc78a56,head=0xb87c51,muzzle=0x9f6646,dark=0x59413a;
+    const parts=[
+      ['plinth',0,.08,0,3,.16,3,0xa39d8c],
+      ['sculpture',0,1.02,-.48,1.65,1.71,1.78,body],
+      ['sculpture',0,1.56,.23,1.22,1.83,1.13,chest],
+      ['sculpture',0,2.28,.49,1.19,1.06,1.38,head],
+      ['sculpture',0,2.11,1.03,1.07,.69,.75,muzzle],
+      ['sculpture',0,2.31,1.30,.76,.39,.35,0x51413c],
+      ['sculpture',0,1.90,.99,.83,.32,.62,0xc28459]
+    ];
+    for(const side of [-1,1]){
+      parts.push(
+        ['sculpture',side*.63,.68,-.53,.69,1.03,1.10,body],
+        ['sculpture',side*.41,.77,.50,.42,1.20,.43,chest],
+        ['sculpture',side*.41,.33,.66,.38,.36,.64,dark],
+        ['sculpture',side*.62,.30,-.24,.47,.29,.64,dark],
+        ['sculpture',side*.46,2.81,.15,.37,.37,.28,0x865b45,0,side*-.24],
+        ['sculpture',side*.47,2.82,.28,.23,.24,.11,dark,0,side*-.24],
+        ['sculpture',side*.51,2.45,.79,.26,.29,.23,0x262120],
+        ['sculpture',side*.55,2.51,.87,.072,.08,.07,0xf7eee2],
+        ['sculpture',side*.19,2.30,1.44,.13,.10,.07,0x302724],
+        ['sculpture',side*.38,2.00,1.24,.31,.055,.085,0x674635,0,side*.18]
+      );
+      for(const toe of [-1,0,1])parts.push(['sculpture',side*.41+toe*.104,.23,.91,.105,.13,.23,0x493b35]);
+    }
+    return parts;
+  }
+  const rioLandmarkPhoto={pending:null,busy:false};
+  function requestRioLandmarkPhoto(){
+    if(!running||!els.modal.hidden||rioLandmarkPhoto.pending||rioLandmarkPhoto.busy)return false;
+    const request={until:performance.now()+8000};
+    rioLandmarkPhoto.pending=request;
+    toast('Fotografando a imagem da câmera atual…','info',1500);
+    setTimeout(()=>{if(rioLandmarkPhoto.pending===request){rioLandmarkPhoto.pending=null;toast('Não foi possível fotografar. Tente novamente.','warn',2200);}},8500);
+    return true;
+  }
+  function rioCaptureLandmarkFrame(canvas){
+    const request=rioLandmarkPhoto.pending;if(!request)return;
+    rioLandmarkPhoto.pending=null;
+    if(!running||performance.now()>request.until)return;
+    rioLandmarkPhoto.busy=true;
+    const finish=()=>{rioLandmarkPhoto.busy=false;};
+    try{
+      canvas.toBlob(blob=>{
+        if(!blob){finish();toast('Fotografia indisponível neste aparelho.','warn',2200);return;}
+        const reader=new FileReader();
+        reader.onerror=()=>{finish();toast('Não foi possível preparar a fotografia.','warn',2200);};
+        reader.onload=()=>{
+          finish();if(!running||!els.modal.hidden)return;
+          const data=String(reader.result||'');
+          if(!data.startsWith('data:image/jpeg;base64,')){toast('Fotografia indisponível.','warn',2200);return;}
+          openModal('Minha foto na Dona Capi','<img data-rio-photo-preview alt="Fotografia do jogo" style="display:block;width:100%;height:auto;max-height:55vh;object-fit:contain;border-radius:12px"><div class="modal-actions"><button class="btn primary" data-rio-photo-save>BAIXAR FOTO</button><button class="btn" data-rio-photo-close>VOLTAR AO JOGO</button></div>',root=>{
+            root.querySelector('[data-rio-photo-preview]').src=data;
+            root.querySelector('[data-rio-photo-save]').onclick=()=>{const a=document.createElement('a');a.href=data;a.download='OTThi-Dona-Capi-'+Date.now()+'.jpg';document.body.append(a);a.click();a.remove();};
+            root.querySelector('[data-rio-photo-close]').onclick=closeModal;
+          });
+        };
+        reader.readAsDataURL(blob);
+      },'image/jpeg',.9);
+    }catch(error){finish();toast('Fotografia indisponível: '+String(error.message||error).slice(0,120),'warn',2400);}
+  }
   function rioBuildOpenSite(site,room){
     const {kind,w,d}=site;
     if(kind==='statue'){
-      room.box(0,.22,0,3,.40,3,rioPaint.stone);
-      room.part('canopy',0,1.04,0,2.10,1.22,.89,0x846446);
-      room.part('canopy',.92,1.27,0,.85,.83,.71,0x846446);
-      for(const x of [-.54,.45])for(const z of[-.27,.27])room.box(x,.64,z,.18,.5,.18,0x8a6340);
-      room.collider(0,0,2.7,2.45,1.3);
+      for(const part of rioDonaCapiParts())room.part(...part);
+      room.collider(0,0,2.8,2.8,3.0);
       room.action('observe','Observar Dona Capi',0,d/2+1.1,()=>{rioCountVisit(site);toast('Escultura Dona Capi · Parque da Represa','good',2400);},{icon:'🌿'});
+      room.action('photo','Fotografar Dona Capi · enquadre com a câmera',1.85,d/2+1.1,requestRioLandmarkPhoto,{icon:'📷',actionLabel:'Fotografar',radius:1.4,priority:249});
       return;
     }
     if(kind==='practice'){
@@ -23283,9 +23390,120 @@ function precompile(T,renderer,scene,camera,timings){
     registerInteractable({id:'regional-portaria_damha',type:'race',icon:'🏃',label:'Largar · Represa e Damha',...startDamha,radius:2.8,priority:279,
       available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,
       action:()=>{if(!rioSelectCompactCourse(damha.id))return false;return openRioGeoRun();}});
+    rioFottoBuild();
+  }
+
+
+  const rioFotto={stations:[],pending:null,busy:false,lastAt:-Infinity,db:null};
+  const RIO_FOTTO_PRICE=15;
+  function rioFottoOwner(){const id=String(state.account?.accountId||state.profile?.playerId||'');return id?'player:'+id:'';}
+  function rioFottoDB(){
+    if(!rioFotto.db)rioFotto.db=new Promise((resolve,reject)=>{
+      const req=indexedDB.open('otthi-fotto-album-v1',1);
+      req.onupgradeneeded=()=>{const store=req.result.createObjectStore('photos',{keyPath:'id'});store.createIndex('owner','owner');};
+      req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);req.onblocked=()=>reject(Error('Álbum ocupado'));
+    }).catch(e=>{rioFotto.db=null;throw e;});return rioFotto.db;
+  }
+  async function rioFottoRows(owner){
+    const db=await rioFottoDB();return new Promise((resolve,reject)=>{const t=db.transaction('photos','readonly'),q=t.objectStore('photos').index('owner').getAll(owner);q.onsuccess=()=>resolve(q.result.sort((a,b)=>b.at-a.at));q.onerror=()=>reject(q.error);});
+  }
+  async function rioFottoPut(row){
+    const db=await rioFottoDB();return new Promise((resolve,reject)=>{const t=db.transaction('photos','readwrite');t.objectStore('photos').put(row);t.oncomplete=()=>resolve(true);t.onerror=t.onabort=()=>reject(t.error||Error('Álbum não salvo'));});
+  }
+  function rioFottoReceipts(){state.cityServices.rioMap??={};return state.cityServices.rioMap.fottoReceipts??={};}
+  function rioFottoDistanceToPass(a,b,p){
+    const dx=b.x-a.x,dz=b.z-a.z,dd=dx*dx+dz*dz,t=dd?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/dd)):0;
+    return Math.hypot(a.x+dx*t-p.x,a.z+dz*t-p.z);
+  }
+  function rioFottoBuild(){
+    if(rioFotto.stations.length)return;
+    for(const {course} of compactRio.courses.values())for(const [index,gate] of course.gates.entries()){
+      if(index!==0&&index!==3)continue;if(rioFotto.stations.some(s=>distance2D(s.gate,gate)<12))continue;
+      const prev=index?course.gates[index-1]:course.start,dx=gate.x-prev.x,dz=gate.z-prev.z,len=Math.hypot(dx,dz)||1;let pos=null;
+      for(const offset of[3.8,-3.8,5,-5,6,-6]){
+        const x=gate.x-dz/len*offset,z=gate.z+dx/len*offset;
+        if(!waterAt(x,z)&&!positionBlockedForPlayer(x,z,.65,{ignoreTraffic:true,ignoreParkedVehicles:true})){pos={x,z};break;}
+      }
+      if(!pos)continue;
+      const id='rio-fotto-'+rioFotto.stations.length,name=['Marina','Bruno','Helena','Rafael'][rioFotto.stations.length%4];
+      const person=createNPC(id,'f_OTTO · '+name,pos.x,pos.z,0x213345,0);person.cityLifeManaged=true;person.group.position.y=groundHeightAt(pos.x,pos.z);person.group.rotation.y=Math.atan2(gate.x-pos.x,gate.z-pos.z);
+      rioFotto.stations.push({id,gate:{x:gate.x,z:gate.z},pos,course:course.name,person,armed:true});
+      const talk=world.interactables.find(a=>a.id==='npc-'+id);if(talk){talk.label='f_OTTO · Ver minhas fotos';talk.actionLabel='Fotos';talk.icon='📷';talk.action=openRioFottoGallery;}
+    }
+  }
+  function rioFottoObserveRun(dt,before){
+    if(!rioFotto.stations.length||!before||player.vehicle||player.boating||otGames.active||currentHouse||!running||paused||!els.modal.hidden)return;
+    const moved=Math.hypot(player.x-before.x,player.z-before.z),speed=moved/Math.max(.001,dt),now=performance.now();
+    for(const s of rioFotto.stations){
+      if(Math.hypot(player.x-s.gate.x,player.z-s.gate.z)>9)s.armed=true;
+      if(!s.armed||rioFotto.pending||rioFotto.busy||now-rioFotto.lastAt<12000||moved>2||speed<1.8||(!input.isSprinting&&!activeRace))continue;
+      if(rioFottoDistanceToPass(before,player,s.gate)>2.4)continue;
+      const owner=rioFottoOwner();if(!owner)continue;s.armed=false;rioFotto.lastAt=now;rioFotto.pending={owner,station:s,at:Date.now(),until:now+1800};break;
+    }
+  }
+  function rioFottoCaptureFrame(){
+    const job=rioFotto.pending;if(!job)return;rioFotto.pending=null;
+    if(job.owner!==rioFottoOwner()||performance.now()>job.until||!running||paused||Math.hypot(player.x-job.station.gate.x,player.z-job.station.gate.z)>8)return;
+    rioFotto.busy=true;let target=null;
+    const oldTarget=renderer.getRenderTarget(),oldViewport=renderer.getViewport(new THREE.Vector4()),oldScissor=renderer.getScissor(new THREE.Vector4()),oldScissorTest=renderer.getScissorTest(),oldVisible=playerGroup.visible;
+    try{
+      const w=768,h=512,at=job.station.pos,cam=new THREE.PerspectiveCamera(48,w/h,.1,120);cam.position.set(at.x,groundHeightAt(at.x,at.z)+1.85,at.z);cam.lookAt(player.x,player.y+1.05,player.z);
+      target=new THREE.WebGLRenderTarget(w,h,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;
+      playerGroup.visible=true;renderer.setRenderTarget(target);renderer.setScissorTest(false);renderer.render(scene,cam);
+      const pixels=new Uint8Array(w*h*4);renderer.readRenderTargetPixels(target,0,0,w,h,pixels);
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;const ctx=cv.getContext('2d'),data=ctx.createImageData(w,h);
+      for(let row=0;row<h;row++)data.data.set(pixels.subarray((h-1-row)*w*4,(h-row)*w*4),row*w*4);ctx.putImageData(data,0,0);
+      cv.toBlob(async blob=>{try{
+        if(!blob||job.owner!==rioFottoOwner())return;
+        const id=job.owner+':'+(globalThis.crypto?.randomUUID?.()||String(job.at)+'-'+Math.random().toString(36).slice(2));
+        await rioFottoPut({id,owner:job.owner,at:job.at,course:job.station.course,blob});
+        if(job.owner===rioFottoOwner())toast('📷 f_OTTO registrou sua corrida! Veja no álbum do Menu.','good',2800);
+      }catch(e){toast('f_OTTO: não foi possível salvar a foto.','warn',2400);}finally{rioFotto.busy=false;}},'image/jpeg',.91);
+    }catch(e){rioFotto.busy=false;toast('f_OTTO: captura indisponível neste aparelho.','warn',2300);}
+    finally{renderer.setRenderTarget(oldTarget);renderer.setViewport(oldViewport);renderer.setScissor(oldScissor);renderer.setScissorTest(oldScissorTest);playerGroup.visible=oldVisible;target?.dispose();}
+  }
+  function rioFottoDownload(row){
+    if(row.owner!==rioFottoOwner()||!rioFottoReceipts()[row.id])return false;
+    const a=document.createElement('a'),url=URL.createObjectURL(row.blob);a.href=url;a.download='f_OTTO-'+row.at+'.jpg';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);return true;
+  }
+  async function rioFottoPreview(row,img,paid){
+    const url=URL.createObjectURL(row.blob);try{
+      const source=new Image();source.src=url;await source.decode();if(!img.isConnected||row.owner!==rioFottoOwner())return;
+      const cv=document.createElement('canvas');cv.width=384;cv.height=256;const ctx=cv.getContext('2d');ctx.drawImage(source,0,0,384,256);
+      if(!paid){ctx.fillStyle='rgba(255,255,255,.72)';ctx.font='bold 27px sans-serif';ctx.textAlign='center';for(const y of[52,130,208])ctx.fillText('f_OTTO • PRÉVIA',192,y);}
+      img.src=cv.toDataURL('image/jpeg',.8);
+    }finally{URL.revokeObjectURL(url);}
+  }
+  async function openRioFottoGallery(){
+    const owner=rioFottoOwner();if(!owner){toast('Defina seu personagem antes de usar o álbum.','warn',2200);return;}
+    let rows;try{rows=await rioFottoRows(owner);}catch(e){toast('Álbum local indisponível neste navegador.','warn',2300);return;}if(owner!==rioFottoOwner())return;
+    openModal('📷 f_OTTO · Álbum de corridas','<p>Fotos registradas na pista ao correr. Prévia gratuita; original JPEG por '+RIO_FOTTO_PRICE+' moedas virtuais. As imagens ficam neste aparelho.</p><div data-fotto-list class="choice-grid"></div><div class="modal-actions"><button class="btn" data-fotto-more>Mostrar mais</button></div>',root=>{
+      const list=root.querySelector('[data-fotto-list]'),more=root.querySelector('[data-fotto-more]');let index=0;
+      if(!rows.length)list.textContent='Nenhuma foto ainda. Corra pela pista da Represa e passe pelos fotógrafos.';
+      function show(){
+        for(const row of rows.slice(index,index+12)){
+          const card=document.createElement('article');card.className='choice';const paid=!!rioFottoReceipts()[row.id];
+          const img=document.createElement('img');img.alt='Prévia da corrida';img.loading='lazy';img.style.cssText='width:100%;height:auto;object-fit:contain;border-radius:8px';
+          const caption=document.createElement('b');caption.textContent=row.course+' · '+new Date(row.at).toLocaleString('pt-BR');
+          const action=document.createElement('button');action.type='button';action.className='btn primary';action.textContent=paid?'BAIXAR ORIGINAL':'COMPRAR · '+RIO_FOTTO_PRICE+' moedas';
+          card.append(img,caption,action);list.append(card);rioFottoPreview(row,img,paid).catch(()=>{img.alt='Prévia indisponível';});
+          action.onclick=async()=>{
+            if(owner!==rioFottoOwner()||action.disabled)return;
+            if(rioFottoReceipts()[row.id]){rioFottoDownload(row);return;}action.disabled=true;
+            if(!await confirmModal('Comprar fotografia','Comprar o JPEG original por '+RIO_FOTTO_PRICE+' moedas virtuais?','Comprar','Cancelar')){openRioFottoGallery();return;}
+            if(owner!==rioFottoOwner())return;const receipts=rioFottoReceipts();
+            if(!receipts[row.id]){
+              if(Number(state.profile.coins||0)<RIO_FOTTO_PRICE){toast('Saldo insuficiente.','warn',2200);openRioFottoGallery();return;}
+              receipts[row.id]={at:Date.now(),price:RIO_FOTTO_PRICE};addCoins(-RIO_FOTTO_PRICE);saveState(true);updateHUD();
+            }openRioFottoGallery();
+          };
+        }index+=12;more.hidden=index>=rows.length;
+      }more.onclick=show;show();
+    });
   }
 
   function updateCompactRio(dt,before){
+    rioFottoObserveRun(dt,before);
     if(player.vehicle&&rioFuelCapacity(currentVehicleRef())){
       const vehicle=currentVehicleRef(),metres=distance2D(player,before),fuel=rioFuelLevel(vehicle);
       if(metres>0&&metres<=40&&!player.car.passengerOf){if(fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-metres*.002);rioMaintenanceWear(rioMaintenanceRecord(vehicle),metres);}

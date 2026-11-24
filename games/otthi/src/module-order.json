@@ -19,7 +19,7 @@
     {
       "file": "src/modules/81-rio-wardrobe.js",
       "description": "Guarda-roupa intercambiável e prévia dos personagens",
-      "sha256Body": "775515ebed179bf9c5f0ca0bcf97dcfc2cf41151c885e10f3fe79423088cfc54"
+      "sha256Body": "54b1e5e75db77727dc969d865413f84f48bf549786cb42aa9298a1013a2f1978"
     },
     {
       "file": "src/modules/01-build-persistence.js",
@@ -143,7 +143,7 @@
       "startLine": 2743,
       "endLine": 2991,
       "description": "Casas, interiores, NPCs, inimigos, cristais, veículos e academia",
-      "sha256Body": "dd62e53ec31be51220e5e540db5cf209caa96831cb7f539d3194c58dac8367f1"
+      "sha256Body": "1b6739f03165d209f5b3f597fbc4a70ca77e8e1c48922b91abb901afbf5b712d"
     },
     {
       "file": "src/modules/13a-sports-kart-v705.js",
@@ -164,7 +164,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Rodovia OTTOVIAS integrada: circuito, biomas, pedágios, Michelle e ronda guiada",
-      "sha256Body": "8165e939f6980f5516bfd32df67982b78b9d10d5351e721c252ccdca9e52bbd0"
+      "sha256Body": "7bafa599a84eabded5f5bb820bd7d2c44c0b5ae1be267c103760a73824d8b481"
     },
     {
       "file": "src/modules/15-transit-bus-metro.js",
@@ -290,7 +290,7 @@
       "startLine": 5124,
       "endLine": 5238,
       "description": "Loop principal, controles, gamepad e início do jogo",
-      "sha256Body": "56c96615fd46b16ade1fd0ce657daa41d3ba6bfbfcceb7530430d20faa9dbf24"
+      "sha256Body": "8d3b60f55f0c8ac30c00cdb2c570fdf79676d40040967eb729a142619cdf9aae"
     },
     {
       "file": "src/modules/30-pause-tests-public-api-bootstrap.js",
@@ -318,7 +318,7 @@
       "startLine": 5803,
       "endLine": 5897,
       "description": "Avatar modular V3 sobre o rig procedural preservado",
-      "sha256Body": "0fc173787f6a1b032c39e549481e739d1f4e201825823cbec9cc32269ad43982"
+      "sha256Body": "941af9507fa596b31a88369d6020f52f3302217fc21fc64b9a8e8778c8e8bb64"
     },
     {
       "file": "src/modules/35-world-render-pbr-environment.js",
@@ -569,7 +569,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Garagem física particular e retirada na concessionária",
-      "sha256Body": "2014505eaff4de9859a782987578a8a3fec9ce042664a8500aec97fc4640f082"
+      "sha256Body": "fc291916612f452ec5c5fdd1ef51b1675f2e43bb81419624539a7f8364793d9e"
     },
     {
       "file": "src/modules/63-cordillera-forest.js",
@@ -653,12 +653,12 @@
     {
       "file": "src/modules/77-exploration-hud.js",
       "description": "Recolhe atalhos de exploração mantendo ações contextuais e tela completa opcional",
-      "sha256Body": "49250d414909ba5d2934c96f2815af2f6d4c820d6678ec2a33eb98df35f59684"
+      "sha256Body": "56aa95e2c17c52f6fdcc42da6e32880cbdc1f6153cd3b1376501d91ff6c8be6f"
     },
     {
       "file": "src/modules/79-rio-preto-districts.js",
       "description": "Bairros e pontos urbanos em setores com recursos compartilhados",
-      "sha256Body": "9f4e58b8aa9867b426293e8ff8406b714b16b4b6b669c6dc026d3ce8a61b0955"
+      "sha256Body": "95fb5990de952f4ac5ede9b62bc16ab86310031a6b5c869e2ca5bb7e1e9ee4e8"
     },
     {
       "file": "src/modules/82-rio-preto-expansion.js",
@@ -683,7 +683,7 @@
     },
     {
       "file": "src/modules/88-rio-places.js",
-      "sha256Body": "6225e29d93c2f124219f0b601ea347681b8f24a4b98001f0a9bd26a6976d5cf3"
+      "sha256Body": "9673b4ae2ca47deddb27f159cb5eef3531d551e1a978dfecff00a148c5227d89"
     },
     {
       "file": "src/modules/89-rio-map-world.js",
@@ -734,7 +734,7 @@
     {
       "file": "src/modules/99-rio-compact-world.js",
       "description": "Infraestrutura original e atividades jogáveis da Rio Preto compacta",
-      "sha256Body": "ab66f99d50d083c36f7e80f99e929424259d3ac6390acd28dcd83abe6f694fe0"
+      "sha256Body": "776f954f68d1b2fea2480789e0b2b2ef511c311f270db5a73bd52fd228f387c2"
     },
     {
       "file": "src/modules/100-rio-weather.js",
