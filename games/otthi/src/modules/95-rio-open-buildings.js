@@ -1009,6 +1009,7 @@
 
   const RIO_PREVENTIVE_SERVICES=Object.freeze([
     {id:'oil',label:'Trocar óleo e filtro',price:12,duration:4200},
+    {id:'engine',label:'Revisão do motor',price:12,duration:4600},
     {id:'tires',label:'Trocar conjunto de pneus',price:48,duration:6200},
     {id:'alignment',label:'Alinhamento e balanceamento',price:20,duration:4800},
     {id:'inspection',label:'Inspecionar motor, freios e suspensão',price:8,duration:2800}
@@ -1035,6 +1036,11 @@
     if(service.id==='oil'){
       m.oil=100;
       // An oil change is preventive; it must not magically repair a broken engine.
+    }else if(service.id==='engine'){
+      if(parts.parts.engine>=100)return false;
+      parts.parts.engine=Math.min(100,parts.parts.engine+18);
+      const durability=Math.max(vehicleDurabilityV704(vehicle),workshopPartsOverall(parts.parts));
+      setVehicleDurabilityV704(vehicle,durability,'revisao-motor');parts.lastDurability=durability;
     }else if(service.id==='tires')m.tires=100;
     else if(service.id==='alignment')m.alignment=100;
     else if(service.id!=='inspection')return false;
@@ -1076,6 +1082,7 @@
           for(const button of choices)button.onclick=()=>{
             const service=RIO_PREVENTIVE_SERVICES.find(x=>x.id===button.dataset.rioPreventive);
             if(!service||busy||cancelled||!valid())return;
+            if(service.id==='engine'&&workshopComponentRecord(vehicle).parts.engine>=100){toast('O motor está revisado.','info',1800);return;}
             if(Number(state.profile.coins)<service.price){toast('Moedas insuficientes.','warn',2100);return;}
             busy=true;choices.forEach(x=>x.disabled=true);mechanic.servingUntil=performance.now()+service.duration;
             const start=performance.now();
@@ -1084,7 +1091,7 @@
               if(!valid()||Number(state.profile.coins)<service.price){busy=false;choices.forEach(x=>x.disabled=false);status.textContent='Serviço interrompido, sem cobrança.';return;}
               const ratio=clamp((now-start)/service.duration,0,1);progress.value=ratio;status.textContent=service.label+' · '+Math.floor(ratio*100)+'%';
               if(ratio<1){requestAnimationFrame(tick);return;}
-              cancelled=true;if(!rioCompletePreventive(vehicle,service))return;
+              if(!rioCompletePreventive(vehicle,service)){busy=false;choices.forEach(x=>x.disabled=false);status.textContent='Serviço não realizado; nada cobrado.';return;}cancelled=true;
               rioCountVisit(site);closeModal();toast(service.label+' · concluído e salvo.','good',2400);
             };
             requestAnimationFrame(tick);
