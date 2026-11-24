@@ -14,7 +14,7 @@ function scheduler({hz=60,mobile=true,requested='auto',paused=false}={}){
     perf:{mobile,loopAcc:0,renderAcc:0,renderedFrames:0,rafSampleAcc:0,rafFrames:0,lastRenderW:390,lastRenderH:844},
     requestedQuality:()=>requested,qualityTier:()=>requested==='low'?'low':requested==='high'?'high':'balanced',
     beginWorldQueryFrame:()=>counts.queries++,endWorldQueryFrame(){},samplePerformance(){},applyPendingRenderBuffer(){},
-    renderer:{setScissorTest(){},setViewport(){},render:()=>counts.draws++},scene:{},camera:{},
+    renderer:{info:{programs:[]},setScissorTest(){},setViewport(){},render:()=>counts.draws++},scene:{},camera:{quaternion:{x:0,y:0,z:0,w:1,clone(){return {...this};},copy(q){Object.assign(this,{x:q.x,y:q.y,z:q.z,w:q.w});return this;}}},
     world:{},state:{},otGames:{active:false},els:{},playerGroup:{visible:true},
     updateCamera(){},updateFamilyAdventure(){},updateFamilyPlayableVisuals(){},prepareHomeRender:()=>null,prepareWorldPointLights:()=>null
   });

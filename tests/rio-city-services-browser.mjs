@@ -67,7 +67,7 @@ try{
   const touch=selector=>page.locator(selector).tap();
   async function enter(){
     await page.goto(server.origin+'/games/otthi/?map=rio-preto',{waitUntil:'domcontentloaded'});
-    await touch('#rioPretoPlayBtn');
+    await touch('#playBtn');
     await page.waitForFunction(()=>window.__CITY_QA?.cap()&&OTTHOS_TEST_API.getGame().running&&document.getElementById('modal').hidden);
     assert.equal(await page.locator('body').getAttribute('data-otthi-map'),'rio-preto');
   }

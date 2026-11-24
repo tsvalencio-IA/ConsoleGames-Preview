@@ -7,7 +7,7 @@ const source=fs.readFileSync('games/otthi/src/modules/66-civil-missions.js','utf
 function fixture(saved=null){
  const nodes=new Map(),listeners=new Map();
  function node(id=''){
-  const element={id,parentNode:null,hidden:false,disabled:false,textContent:'',style:{},attributes:{},children:[],setAttribute(k,v){this.attributes[k]=String(v);},removeAttribute(k){delete this.attributes[k];},append(child){child.parentNode?.children.splice(child.parentNode.children.indexOf(child),1);child.parentNode=this;this.children.push(child);if(child.id)nodes.set(child.id,child);},querySelector(){return this.message||null;},click(){if(!this.disabled)return this.onclick?.();}};
+  const element={id,parentNode:null,hidden:false,disabled:false,textContent:'',style:{},attributes:{},children:[],setAttribute(k,v){this.attributes[k]=String(v);},getAttribute(k){return Object.prototype.hasOwnProperty.call(this.attributes,k)?this.attributes[k]:null;},hasAttribute(k){return Object.prototype.hasOwnProperty.call(this.attributes,k);},removeAttribute(k){delete this.attributes[k];},append(child){child.parentNode?.children.splice(child.parentNode.children.indexOf(child),1);child.parentNode=this;this.children.push(child);if(child.id)nodes.set(child.id,child);},querySelector(){return this.message||null;},click(){if(!this.disabled)return this.onclick?.();}};
   if(id)nodes.set(id,element);return element;
  }
  const game=node('game'),hud=node('ot-games-hud');hud.message=node();

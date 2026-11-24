@@ -81,7 +81,7 @@ try{
   const evalQA=(method,...args)=>page.evaluate(({method,args})=>window.__RIO_BUILDINGS_QA[method](...args),{method,args});
   async function start(){
     await page.goto(server.origin+'/games/otthi/?map=rio-preto',{waitUntil:'domcontentloaded'});
-    await tap('#rioPretoPlayBtn');
+    await tap('#playBtn');
     await page.waitForFunction(()=>window.__CITY_QA?.cap()&&OTTHOS_TEST_API.getGame().running&&document.getElementById('modal').hidden);
     assert.equal(await page.locator('body').getAttribute('data-otthi-map'),'rio-preto');
   }
