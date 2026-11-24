@@ -306,18 +306,97 @@
     const moved=Math.hypot(player.x-before.x,player.z-before.z),speed=moved/Math.max(.001,dt),now=performance.now();
     for(const s of rioFotto.stations){
       if(Math.hypot(player.x-s.gate.x,player.z-s.gate.z)>9)s.armed=true;
-      if(!s.armed||rioFotto.pending||rioFotto.busy||now-rioFotto.lastAt<12000||moved>2||speed<1.8||(!input.isSprinting&&!activeRace))continue;
+      if(!s.armed||rioFotto.pending||rioFotto.busy||now-rioFotto.lastAt<3000||now<(s.retryAt||0)||moved>2||speed<1.8||(!input.isSprinting&&!activeRace)||player.swimming)continue;
       if(rioFottoDistanceToPass(before,player,s.gate)>2.4)continue;
-      const owner=rioFottoOwner();if(!owner)continue;s.armed=false;rioFotto.lastAt=now;rioFotto.pending={owner,station:s,at:Date.now(),until:now+1800};break;
+      const owner=rioFottoOwner();if(!owner)continue;s.retryAt=now+1600;rioFotto.pending={owner,station:s,at:Date.now(),until:now+1800,motion:{x:player.x-before.x,z:player.z-before.z}};break;
     }
+  }
+  // The optical origin belongs in front of the photographer, never inside
+  // the head or its camera prop. Candidate positions stay near that station.
+  function rioFottoLensPositions(station,subject,motion){
+    const dx=subject.x-station.x,dz=subject.z-station.z,len=Math.hypot(dx,dz);
+    if(len<2.6)return [];
+    const ux=dx/len,uz=dz/len,poses=[];
+    for(const forward of[1.15,1.55])for(const side of[0,.7,-.7]){
+      const x=station.x+ux*forward-uz*side,z=station.z+uz*forward+ux*side;
+      if(Math.hypot(x-subject.x,z-subject.z)<2.0)continue;
+      const front=(x-subject.x)*(motion?.x||0)+(z-subject.z)*(motion?.z||0);
+      poses.push({x,z,front});
+    }
+    return poses.sort((a,b)=>b.front-a.front);
+  }
+  function rioFottoVisibleMaterial(mesh){
+    const m=mesh.material;return Array.isArray(m)?m.some(x=>x?.visible!==false&&x?.opacity!==0):!!m&&m.visible!==false&&m.opacity!==0;
+  }
+  function rioFottoAvatarBounds(){
+    const bounds=new THREE.Box3(),one=new THREE.Box3();
+    playerGroup.updateMatrixWorld(true);
+    for(const root of[playerModel,avatarLayer]){
+      if(!root||!root.visible)continue;
+      root.traverseVisible(mesh=>{
+        if(!mesh.isMesh||!mesh.geometry||!rioFottoVisibleMaterial(mesh))return;
+        if(!mesh.geometry.boundingBox)mesh.geometry.computeBoundingBox();
+        if(mesh.geometry.boundingBox)bounds.union(one.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrixWorld));
+      });
+    }
+    return bounds;
+  }
+  function rioFottoChooseCamera(job){
+    const bounds=rioFottoAvatarBounds();if(bounds.isEmpty())return null;
+    const centre=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
+    if(!Number.isFinite(size.y)||size.y<.3||size.y>12)return null;
+    const obstacles=[],sphere=new THREE.Sphere(),reach=12;
+    // One traversal per shutter attempt, never during ordinary movement.
+    scene.traverseVisible(mesh=>{
+      if(!mesh.isMesh||!mesh.geometry||!rioFottoVisibleMaterial(mesh))return;
+      for(let p=mesh;p;p=p.parent)if(p===playerGroup||p===world.skyDome)return;
+      const g=mesh.geometry;
+      if(!mesh.isInstancedMesh||mesh.userData.otthiBoundedInstances){
+        if(!g.boundingSphere)g.computeBoundingSphere();
+        if(g.boundingSphere){
+          sphere.copy(g.boundingSphere).applyMatrix4(mesh.matrixWorld);
+          if(sphere.center.distanceTo(centre)>sphere.radius+reach)return;
+        }
+      }
+      obstacles.push(mesh);
+    });
+    const points=[.23,.51,.82].map(f=>new THREE.Vector3(centre.x,bounds.min.y+size.y*f,centre.z));
+    const ray=new THREE.Raycaster(),direction=new THREE.Vector3(),hitPoint=new THREE.Vector3();
+    const subject={x:centre.x,z:centre.z};
+    for(const pos of rioFottoLensPositions(job.station.pos,subject,job.motion)){
+      if(positionBlockedForPlayer(pos.x,pos.z,.12,{ignoreTraffic:true,ignoreParkedVehicles:true}))continue;
+      const cam=new THREE.PerspectiveCamera(48,768/512,.05,120);
+      cam.position.set(pos.x,groundHeightAt(pos.x,pos.z)+Math.max(1.6,Math.min(2.35,size.y*.63)),pos.z);
+      cam.lookAt(centre);cam.updateMatrixWorld(true);
+      let fits=false;
+      for(const fov of[48,54,60,66,72]){
+        cam.fov=fov;cam.updateProjectionMatrix();fits=true;
+        for(const x of[bounds.min.x,bounds.max.x])for(const y of[bounds.min.y,bounds.max.y])for(const z of[bounds.min.z,bounds.max.z]){
+          hitPoint.set(x,y,z).project(cam);
+          if(Math.abs(hitPoint.x)>.88||Math.abs(hitPoint.y)>.88||hitPoint.z< -1||hitPoint.z>1)fits=false;
+        }
+        if(fits)break;
+      }
+      if(!fits)continue;
+      const clear=points.every(point=>{
+        direction.subVectors(point,cam.position);const distance=direction.length();
+        ray.set(cam.position,direction.normalize());ray.near=.05;ray.far=Math.max(.05,distance-.05);
+        return !ray.intersectObjects(obstacles,false).some(hit=>{
+          const material=Array.isArray(hit.object.material)?hit.object.material[hit.face?.materialIndex||0]:hit.object.material;
+          return material?.visible!==false&&material?.opacity!==0;
+        });
+      });
+      if(clear)return cam;
+    }
+    return null;
   }
   function rioFottoCaptureFrame(){
     const job=rioFotto.pending;if(!job)return;rioFotto.pending=null;
-    if(job.owner!==rioFottoOwner()||performance.now()>job.until||!running||paused||Math.hypot(player.x-job.station.gate.x,player.z-job.station.gate.z)>8)return;
+    if(job.owner!==rioFottoOwner()||performance.now()>job.until||!running||paused||player.vehicle||player.boating||player.swimming||player.transit.mode||Math.hypot(player.x-job.station.gate.x,player.z-job.station.gate.z)>8)return;
     rioFotto.busy=true;let target=null;
     const oldTarget=renderer.getRenderTarget(),oldViewport=renderer.getViewport(new THREE.Vector4()),oldScissor=renderer.getScissor(new THREE.Vector4()),oldScissorTest=renderer.getScissorTest(),oldVisible=playerGroup.visible;
     try{
-      const w=768,h=512,at=job.station.pos,cam=new THREE.PerspectiveCamera(48,w/h,.1,120);cam.position.set(at.x,groundHeightAt(at.x,at.z)+1.85,at.z);cam.lookAt(player.x,player.y+1.05,player.z);
+      const w=768,h=512;playerGroup.visible=true;const cam=rioFottoChooseCamera(job);if(!cam){rioFotto.busy=false;return;}
       target=new THREE.WebGLRenderTarget(w,h,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;
       playerGroup.visible=true;renderer.setRenderTarget(target);renderer.setScissorTest(false);renderer.render(scene,cam);
       const pixels=new Uint8Array(w*h*4);renderer.readRenderTargetPixels(target,0,0,w,h,pixels);
@@ -327,6 +406,7 @@
         if(!blob||job.owner!==rioFottoOwner())return;
         const id=job.owner+':'+(globalThis.crypto?.randomUUID?.()||String(job.at)+'-'+Math.random().toString(36).slice(2));
         await rioFottoPut({id,owner:job.owner,at:job.at,course:job.station.course,blob});
+        job.station.armed=false;rioFotto.lastAt=performance.now();
         if(job.owner===rioFottoOwner())toast('📷 f_OTTO registrou sua corrida! Veja no álbum do Menu.','good',2800);
       }catch(e){toast('f_OTTO: não foi possível salvar a foto.','warn',2400);}finally{rioFotto.busy=false;}},'image/jpeg',.91);
     }catch(e){rioFotto.busy=false;toast('f_OTTO: captura indisponível neste aparelho.','warn',2300);}
