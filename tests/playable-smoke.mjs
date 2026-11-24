@@ -442,7 +442,31 @@ try{
     // asserting only an old snapshot. A hidden HUD still fails the test.
     assert.equal(state.game,id,"Motor não iniciou corretamente");
     assert.equal(state.loaded,true,"HUD não exibido após inicialização");
-    await page.locator("#game-ui:not(.hidden)").waitFor({state:"visible",timeout:10000});
+    // The stage has fixed-position children and can have a zero-height box.
+    // The native HUD is painted on the canvas, not on the stage wrapper.
+    await page.locator("#game-ui:not(.hidden)").waitFor({state:"attached",timeout:10000});
+    await page.locator("#game-canvas").waitFor({state:"visible",timeout:10000});
+    await page.locator("#arcade-pause").waitFor({state:"visible",timeout:10000});
+    const hudMethod={kart:"renderRaceHUD",boxe:"drawHUD",tenis:"renderHUD",ar:"drawHUD",voo:"_drawHUD"}[slug];
+    // Observe the actual renderer for two frames without manually rendering,
+    // changing its return value, or advancing the game state.
+    await page.evaluate(({id,method})=>{
+      const game=window.System.activeGame,logic=game?.logic,original=logic?.[method];
+      if(game?.id!==id||typeof original!=="function")throw Error("Native HUD renderer missing: "+method);
+      const hadOwn=Object.prototype.hasOwnProperty.call(logic,method);
+      const probe={frames:0,restore:()=>{if(hadOwn)logic[method]=original;else delete logic[method];}};
+      logic[method]=function(...args){
+        const result=original.apply(this,args);
+        if(window.System.activeGame===game&&!window.System.paused&&args[0]?.canvas===window.System.canvas)probe.frames++;
+        return result;
+      };
+      window.__nativeHUDProbe=probe;
+    },{id,method:hudMethod});
+    try{
+      await page.waitForFunction(()=>window.__nativeHUDProbe?.frames>=2,null,{timeout:15000});
+    }finally{
+      await page.evaluate(()=>{window.__nativeHUDProbe?.restore();delete window.__nativeHUDProbe;});
+    }
     const finalState=await page.evaluate(()=>({game:window.System?.activeGame?.id,loaded:!document.getElementById("game-ui")?.classList.contains("hidden"),paused:window.System?.paused,width:document.documentElement.scrollWidth,viewport:window.innerWidth}));
     assert.equal(finalState.game,id,"Motor foi encerrado inesperadamente");
     assert.equal(finalState.loaded,true,"HUD de jogo não exibido");
