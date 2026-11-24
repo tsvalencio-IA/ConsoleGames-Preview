@@ -52,7 +52,7 @@
       rioPreto.material ??= new THREE.MeshStandardMaterial({color:0xffffff,roughness:.86,metalness:.04,side:THREE.DoubleSide});
       const shapes = {
         box:()=>new THREE.BoxGeometry(1,1,1), post:()=>new THREE.CylinderGeometry(.5,.5,1,7),
-        canopy:()=>new THREE.IcosahedronGeometry(.5,1), roof:()=>rioRoof(false), hip:()=>rioRoof(true)
+        canopy:()=>new THREE.IcosahedronGeometry(.5,1), sculpture:()=>new THREE.SphereGeometry(.5,24,16), plinth:()=>new THREE.CylinderGeometry(.5,.5,1,32), roof:()=>rioRoof(false), hip:()=>rioRoof(true)
       };
       let primitives=0;
       for (const [shape,allItems] of byShape) for(const items of rioSpatialBatchItems(allItems)) {

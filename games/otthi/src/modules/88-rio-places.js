@@ -684,15 +684,77 @@
       {vehicleOnly:true,icon:'⛽',actionLabel:'Abastecer',radius:2.35});
   }
 
+  // Approximate the actual seated three-metre monument, not a small
+  // four-legged generic animal. All pieces remain in shared instance batches.
+  function rioDonaCapiParts(){
+    const body=0xb77543,chest=0xc78a56,head=0xb87c51,muzzle=0x9f6646,dark=0x59413a;
+    const parts=[
+      ['plinth',0,.08,0,3,.16,3,0xa39d8c],
+      ['sculpture',0,1.02,-.48,1.65,1.71,1.78,body],
+      ['sculpture',0,1.56,.23,1.22,1.83,1.13,chest],
+      ['sculpture',0,2.28,.49,1.19,1.06,1.38,head],
+      ['sculpture',0,2.11,1.03,1.07,.69,.75,muzzle],
+      ['sculpture',0,2.31,1.30,.76,.39,.35,0x51413c],
+      ['sculpture',0,1.90,.99,.83,.32,.62,0xc28459]
+    ];
+    for(const side of [-1,1]){
+      parts.push(
+        ['sculpture',side*.63,.68,-.53,.69,1.03,1.10,body],
+        ['sculpture',side*.41,.77,.50,.42,1.20,.43,chest],
+        ['sculpture',side*.41,.33,.66,.38,.36,.64,dark],
+        ['sculpture',side*.62,.30,-.24,.47,.29,.64,dark],
+        ['sculpture',side*.46,2.81,.15,.37,.37,.28,0x865b45,0,side*-.24],
+        ['sculpture',side*.47,2.82,.28,.23,.24,.11,dark,0,side*-.24],
+        ['sculpture',side*.51,2.45,.79,.26,.29,.23,0x262120],
+        ['sculpture',side*.55,2.51,.87,.072,.08,.07,0xf7eee2],
+        ['sculpture',side*.19,2.30,1.44,.13,.10,.07,0x302724],
+        ['sculpture',side*.38,2.00,1.24,.31,.055,.085,0x674635,0,side*.18]
+      );
+      for(const toe of [-1,0,1])parts.push(['sculpture',side*.41+toe*.104,.23,.91,.105,.13,.23,0x493b35]);
+    }
+    return parts;
+  }
+  const rioLandmarkPhoto={pending:null,busy:false};
+  function requestRioLandmarkPhoto(){
+    if(!running||!els.modal.hidden||rioLandmarkPhoto.pending||rioLandmarkPhoto.busy)return false;
+    const request={until:performance.now()+8000};
+    rioLandmarkPhoto.pending=request;
+    toast('Fotografando a imagem da câmera atual…','info',1500);
+    setTimeout(()=>{if(rioLandmarkPhoto.pending===request){rioLandmarkPhoto.pending=null;toast('Não foi possível fotografar. Tente novamente.','warn',2200);}},8500);
+    return true;
+  }
+  function rioCaptureLandmarkFrame(canvas){
+    const request=rioLandmarkPhoto.pending;if(!request)return;
+    rioLandmarkPhoto.pending=null;
+    if(!running||performance.now()>request.until)return;
+    rioLandmarkPhoto.busy=true;
+    const finish=()=>{rioLandmarkPhoto.busy=false;};
+    try{
+      canvas.toBlob(blob=>{
+        if(!blob){finish();toast('Fotografia indisponível neste aparelho.','warn',2200);return;}
+        const reader=new FileReader();
+        reader.onerror=()=>{finish();toast('Não foi possível preparar a fotografia.','warn',2200);};
+        reader.onload=()=>{
+          finish();if(!running||!els.modal.hidden)return;
+          const data=String(reader.result||'');
+          if(!data.startsWith('data:image/jpeg;base64,')){toast('Fotografia indisponível.','warn',2200);return;}
+          openModal('Minha foto na Dona Capi','<img data-rio-photo-preview alt="Fotografia do jogo" style="display:block;width:100%;height:auto;max-height:55vh;object-fit:contain;border-radius:12px"><div class="modal-actions"><button class="btn primary" data-rio-photo-save>BAIXAR FOTO</button><button class="btn" data-rio-photo-close>VOLTAR AO JOGO</button></div>',root=>{
+            root.querySelector('[data-rio-photo-preview]').src=data;
+            root.querySelector('[data-rio-photo-save]').onclick=()=>{const a=document.createElement('a');a.href=data;a.download='OTThi-Dona-Capi-'+Date.now()+'.jpg';document.body.append(a);a.click();a.remove();};
+            root.querySelector('[data-rio-photo-close]').onclick=closeModal;
+          });
+        };
+        reader.readAsDataURL(blob);
+      },'image/jpeg',.9);
+    }catch(error){finish();toast('Fotografia indisponível: '+String(error.message||error).slice(0,120),'warn',2400);}
+  }
   function rioBuildOpenSite(site,room){
     const {kind,w,d}=site;
     if(kind==='statue'){
-      room.box(0,.22,0,3,.40,3,rioPaint.stone);
-      room.part('canopy',0,1.04,0,2.10,1.22,.89,0x846446);
-      room.part('canopy',.92,1.27,0,.85,.83,.71,0x846446);
-      for(const x of [-.54,.45])for(const z of[-.27,.27])room.box(x,.64,z,.18,.5,.18,0x8a6340);
-      room.collider(0,0,2.7,2.45,1.3);
+      for(const part of rioDonaCapiParts())room.part(...part);
+      room.collider(0,0,2.8,2.8,3.0);
       room.action('observe','Observar Dona Capi',0,d/2+1.1,()=>{rioCountVisit(site);toast('Escultura Dona Capi · Parque da Represa','good',2400);},{icon:'🌿'});
+      room.action('photo','Fotografar Dona Capi · enquadre com a câmera',1.85,d/2+1.1,requestRioLandmarkPhoto,{icon:'📷',actionLabel:'Fotografar',radius:1.4,priority:249});
       return;
     }
     if(kind==='practice'){

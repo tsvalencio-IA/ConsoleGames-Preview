@@ -320,7 +320,7 @@
     if(otGames.active){const navVisible=!!state.waypoint&&!(otGames.armed&&otGames.mode==='ground');if(world.routeGuide)world.routeGuide.visible=navVisible;if(world.waypointMarker)world.waypointMarker.visible=navVisible;}
     if(world.skyDome)world.skyDome.position.copy(camera.position);
     const drawStart=performance.now(),programsBefore=renderer.info.programs.length;
-    const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
+    const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);if(typeof rioCaptureLandmarkFrame==='function')rioCaptureLandmarkFrame(renderer.domElement);}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
     const renderMs=performance.now()-drawStart,addedPrograms=renderer.info.programs.length-programsBefore;
     const lastView=perf.lastMeasuredView,view=camera.quaternion;
     const turning=!!lastView&&Math.abs(lastView.x*view.x+lastView.y*view.y+lastView.z*view.z+lastView.w*view.w)<.99995;
