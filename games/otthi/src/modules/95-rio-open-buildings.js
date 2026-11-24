@@ -893,10 +893,75 @@
     dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';room.root.add(dish);room.servedDish=dish;
     room.action('food-court-counter','Pedir lanche na praça de alimentação',x,z+1.02,
       ()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍔'});
+    const guestSeat=rioDiningChair(room,tableX,tableZ,-1);
+    const guestX=tableX-.9;
+    rioPublicGuest(site,room,'foodcourt-guest','Cliente da praça de alimentação',guestX,tableZ,
+      {seat:.51,yaw:guestSeat.yaw,action:'eat',color:0x8c687c});
+    room.box(tableX,.926,tableZ-.30,.29,.06,.24,0xe5cba3);
+    room.box(tableX-.30,.97,tableZ-.27,.12,.17,.12,0xc7a569);
     room.action('food-court-table','Sentar e consumir na praça de alimentação',tableX+.9,tableZ+1.02,
       ()=>rioEatAtTable(site,room,seat),{inside:true,icon:'🍽️',available:()=>rioMap.order?.site===site.id&&dish.visible});
   }
 
+  // Scaled cinema attraction with an original in-game short film. It uses
+  // the existing seat/animation/save system and never opens an external site.
+  function rioCinemaFrame(cinema,elapsed=null){
+    const {canvas,ctx,texture}=cinema,w=canvas.width,h=canvas.height;
+    ctx.fillStyle='#172e43';ctx.fillRect(0,0,w,h);
+    if(elapsed===null){
+      ctx.fillStyle='#fff0d0';ctx.font='bold 28px sans-serif';ctx.textAlign='center';
+      ctx.fillText('CINEMA OTTHI',w/2,58);ctx.font='18px sans-serif';ctx.fillText('Aventura na cidade',w/2,92);ctx.textAlign='left';
+    }else{
+      const t=Math.max(0,elapsed);
+      ctx.fillStyle='#6eaec2';ctx.fillRect(0,0,w,h*.68);
+      ctx.fillStyle='#f7da8b';ctx.beginPath();ctx.arc(w*.8-t*6,33,18,0,Math.PI*2);ctx.fill();
+      for(let i=0;i<7;i++){const x=((i*88-t*26)%(w+88)+w+88)%(w+88)-88;ctx.fillStyle=i%2?'#668a6d':'#587962';ctx.fillRect(x,65+(i%3)*10,64,44);}
+      ctx.fillStyle='#706b66';ctx.fillRect(0,107,w,h-107);
+      ctx.fillStyle='#f0dc9b';for(let i=-1;i<8;i++){const x=((i*68-t*78)%(w+68)+w+68)%(w+68)-68;ctx.fillRect(x,135,36,4);}
+      const carX=65+Math.sin(t*.9)*48,carY=108-Math.abs(Math.sin(t*4))*2;
+      ctx.fillStyle='#b94e48';ctx.fillRect(carX,carY,75,21);ctx.fillRect(carX+15,carY-14,44,15);
+      ctx.fillStyle='#c4e5e5';ctx.fillRect(carX+21,carY-11,31,11);
+      ctx.fillStyle='#26333b';for(const dx of[15,60]){ctx.beginPath();ctx.arc(carX+dx,carY+21,8,0,Math.PI*2);ctx.fill();}
+      if(t>=7){ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,w,h);ctx.fillStyle='#fff';ctx.font='bold 25px sans-serif';ctx.textAlign='center';ctx.fillText('FIM',w/2,h/2);ctx.textAlign='left';}
+    }
+    texture.needsUpdate=true;
+  }
+  function rioUpdateCinema(room,time){
+    const cinema=room.cinema;
+    if(!cinema?.session)return;
+    if(characterActivities.session!==cinema.session){cinema.session=null;rioCinemaFrame(cinema);return;}
+    if(cinema.session.phase!=='perform'||time-(cinema.lastFrame||0)<.10)return;
+    cinema.lastFrame=time;rioCinemaFrame(cinema,cinema.session.elapsed);
+  }
+  function rioBuildShoppingCinema(site,room){
+    if(site.w<24||site.d<16)return;
+    // Use the front-side alcove, not the central entrance or store counters.
+    const x=-site.w*.43,z=site.d*.36,screenZ=site.d*.45;
+    room.bench(x,z);
+    room.sign('CINEMA',x,2.76,screenZ,2.1,.34,'#463b56');
+    const canvas=document.createElement('canvas');canvas.width=320;canvas.height=160;
+    const ctx=canvas.getContext('2d');if(!ctx)return;
+    const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;
+    const screen=new THREE.Mesh(new THREE.PlaneGeometry(2.05,1.03),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
+    const point=room.point(x,screenZ);screen.position.set(point.x,room.floorY+1.72,point.z);screen.rotation.y=site.yaw+Math.PI;
+    room.root.add(screen);
+    const cinema=room.cinema={canvas,ctx,texture,screen,session:null,lastFrame:0};rioCinemaFrame(cinema);
+    const approach=room.point(x,z+.81),seat=room.point(x,z),price=15;
+    room.action('cinema','Cinema · sessão de 15 moedas',x,z+.81,()=>{
+      if(!rioPlayerAt(approach)||Number(state.profile.coins)<price){toast('Aproxime-se do cinema com 15 moedas.','info',2100);return false;}
+      CHARACTER_ACTIVITIES['rio-cinema']=['Assistindo ao filme',8];
+      let paid=false;
+      const started=beginCharacterActivity('rio-cinema',{target:approach,pose:{...seat,y:room.floorY+.535,yaw:site.yaw,sitting:true},
+        commit:()=>{
+          if(paid||!room.root.visible||!rioPlayerAt(approach,.30)||Number(state.profile.coins)<price)return false;
+          paid=true;addCoins(-price);state.needs.fun=clamp(Number(state.needs.fun||0)+22,0,100);
+          const visits=rioMapSave().cinemaVisits??={};visits[site.id]=(Number(visits[site.id])||0)+1;
+          rioCountVisit(site);updateHUD();return true;
+        }});
+      if(started)cinema.session=characterActivities.session;
+      return started;
+    },{inside:true,icon:'🎬',radius:1.4});
+  }
   function rioBuildShopping(site,room){
     const x=site.w*.28,z=site.d*.15,w=Math.min(5.5,site.w*.24);
     for(const [index,title,slot] of [[-1,'MODA', 'top'],[1,'CALÇADOS','shoes']]){
@@ -939,6 +1004,7 @@
     rioBuildMarket(site,room);
     rioBuildFoodCourt(site,room);
     rioBuildFurnitureShowroom(site,room);
+    rioBuildShoppingCinema(site,room);
   }
 
   function rioBuildOilShop(site,room){
