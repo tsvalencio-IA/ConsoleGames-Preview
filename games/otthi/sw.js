@@ -1,4 +1,4 @@
-const REVISION = '86e18c5d7051e6f1';
+const REVISION = '73932d0a491bf6bd';
 const CACHE = `otthi-v70674-${REVISION}`;
 const CACHE_PREFIXES = ['otthi-','otthi-game-web-','otthos-life-world-main-'];
 const CACHE_SCOPE = new URL(self.registration.scope);

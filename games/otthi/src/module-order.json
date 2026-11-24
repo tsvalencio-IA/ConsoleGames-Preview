@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.47-rio-preto-vida-completa",
+  "build": "705.28.49-rio-preto-represa-damha",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "484f2baab91f1134c5b652ba67624f78f2ae3475ff20ea40b73be8fd1fbe84a3"
+      "sha256Body": "823aae33c189a1dba1be958cfd344f633b8797de3c71b2eb52d56372bf6f726d"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -73,14 +73,14 @@
     {
       "file": "src/modules/78a-rio-compact-layout.js",
       "description": "Lotes, ruas e referências de Rio Preto no terreno original",
-      "sha256Body": "cd4131bcecbc95468430212432a491dd4bf89bea136f2c2ee23e03334172734f"
+      "sha256Body": "4a55c78db73e7696e0dfc1558eb9791f6ece5f1dc41518a7ce6d83504c520c22"
     },
     {
       "file": "src/modules/05a-world-layout-v704.js",
       "startLine": 0,
       "endLine": 0,
       "description": "Fonte central de verdade do layout mundial V704",
-      "sha256Body": "aa887a5dff3d04f6c1f9877843db025610f61b2f615c5ff577571aacfa85f6a5"
+      "sha256Body": "1f125edd6ffed422563cfd22176c9648e69542bbfd6daf5d2b9188c429285477"
     },
     {
       "file": "src/modules/06-missions-profile-hud-inventory-tools.js",
@@ -136,7 +136,7 @@
       "startLine": 2514,
       "endLine": 2741,
       "description": "Interações do mundo, árvores, rochas, mina, poço, ruas, água e móveis",
-      "sha256Body": "604283cbc1fad16173895f5232608639f4eb2e797d470f7fbb913d157c3a0bdf"
+      "sha256Body": "cb6f7e7fbd0a44ccf0770d9c2922679671b3f744f623cdf1c17ccc29d09cef8f"
     },
     {
       "file": "src/modules/13-houses-npcs-vehicles-base.js",
@@ -157,7 +157,7 @@
       "startLine": 2993,
       "endLine": 3085,
       "description": "Cogumelos, portais, praça, distrito e decoração urbana",
-      "sha256Body": "9051c0169ffadf64df3dbb35cd917dd1822d3590b8a23ba4d4457ea145497630"
+      "sha256Body": "4dbe3a0b2a343333fc05a934569d8340b3eb93a088d27005ae3c6ba6bcac7fbb"
     },
     {
       "file": "src/modules/14a-ottovias-highway-v7054.js",
@@ -248,7 +248,7 @@
       "startLine": 4495,
       "endLine": 4635,
       "description": "Three.js, qualidade, viewport, resize, posição segura e colisões",
-      "sha256Body": "12aed28ecc2bbcb24c716762e85a681866a1a409528a96a2a2eabe4b3434f0ff"
+      "sha256Body": "86745267f9ddb3844845c0cfdf8184e1dd2c07f8558aa8edf98dd71809461de3"
     },
     {
       "file": "src/modules/26-input-player-physics.js",
@@ -525,7 +525,7 @@
     {
       "file": "src/modules/56-city-coast-life.js",
       "description": "Comércio ativo, semáforos e praia ligada à Costa Verde",
-      "sha256Body": "91de96ab0fd127036fa17ef860b6b7c3ff70e14c70d5cb233c7fcb42bcb8535a",
+      "sha256Body": "27e0ac29f1678158b017bca8c92d6c68962af971d6581b926b2ca05e0918f3ee",
       "startLine": 0,
       "endLine": 0
     },
@@ -667,7 +667,7 @@
     },
     {
       "file": "src/modules/84-rio-v51-world.js",
-      "sha256Body": "31bbd7f318df8775a2e0e9a816695e5d9621d7513b623542b9614740b218ff9d"
+      "sha256Body": "928ead679bbc130f17651978cc4f310a4c8830e88408177be8bf0b5bbfab9918"
     },
     {
       "file": "src/modules/85-rio-city-activities.js",
@@ -691,7 +691,7 @@
     },
     {
       "file": "src/modules/90-rio-map-activities.js",
-      "sha256Body": "6820befaffc5d6b849ad8f860bb128498e93ee9b21a7edae8966bb6f727cf960"
+      "sha256Body": "40ff592559dc19456839038d5e4732423ec922c07dfbd2d0957f1ca65d5fa840"
     },
     {
       "file": "src/modules/91-rio-map-entry-and-ui.js",
@@ -714,7 +714,7 @@
     {
       "file": "src/modules/95-rio-open-buildings.js",
       "description": "Playable residences, shops, bakery and oil service",
-      "sha256Body": "e328d25bda15196212bd0f5105c28f9bf07d1a08f85890495dba6253d3401946"
+      "sha256Body": "cc05d70c57e41c5d844a2b9374d232b1b6407e80df1f781923473d19569ac8b3"
     },
     {
       "file": "src/modules/96-rio-airport.js",
@@ -734,7 +734,7 @@
     {
       "file": "src/modules/99-rio-compact-world.js",
       "description": "Infraestrutura original e atividades jogáveis da Rio Preto compacta",
-      "sha256Body": "a8c3772460700ebd1f3d1599911d6b656897a32ae211ee07b34f283a31f3eaa3"
+      "sha256Body": "83af114a7d3592cf7b7490076cbd181d56aabe2280af60d699e56cc793ee62dc"
     },
     {
       "file": "src/modules/100-rio-weather.js",

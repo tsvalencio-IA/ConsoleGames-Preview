@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.47-rio-preto-vida-completa';
+  const OTTHI_GAME_WEB_BUILD = '705.28.49-rio-preto-represa-damha';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -2741,6 +2741,43 @@
     sections:[[-65,40],[-116.8,40],[-118.7,43],[-118.7,76.5],[-115.7,78.2],[-90.4,78.2],
       [-89.1,74.5],[-89.1,68.7],[-63,68.7],[-61.4,65],[-61.4,42],[-63,40],[-65,40]]
   };
+  // One datum for visible bridge deck, ramps and walking/vehicle physics.
+  const RIO_COMPACT_BRIDGE=Object.freeze({x:-104,z:69,deckLength:26.4,rampLength:4.5,width:4.8,top:.815});
+  function rioCompactBridgeSurface(x,z){
+    const b=RIO_COMPACT_BRIDGE,dx=Math.abs(x-b.x);
+    if(Math.abs(z-b.z)>b.width/2||dx>b.deckLength/2+b.rampLength)return 0;
+    return b.top*Math.max(0,Math.min(1,(b.deckLength/2+b.rampLength-dx)/b.rampLength));
+  }
+  const RIO_COMPACT_LAKES=Object.freeze([
+    {id:'lake',name:'Lago 1 · Represa',x:-88,z:54,w:50,d:22},
+    {id:'lakeNorth',name:'Lago 3 · Ponte Estaiada',x:-104,z:71.25,w:24,d:9.5},
+    {id:'lakeEast',name:'Lago 2 · Parque da Represa',x:-77,z:73.5,w:16,d:6}
+  ]);
+  const RIO_COMPACT_UPPER_PATH=Object.freeze([[-90.4,78.2],[-67,78.2],[-63,76.5],[-61.4,74],[-61.4,65]]);
+  // Closed route with the historic race's save key and six ordered gates.
+  // The compact city has a smaller scale than the original laboratory.
+  const RIO_COMPACT_DAMHA_COURSE=Object.freeze([[-108,78.2],[-90.4,78.2],...RIO_COMPACT_UPPER_PATH.slice(1),[-61.4,42],[-63,40],[-65,40],[-116.8,40],[-118.7,43],[-118.7,76.5],[-115.7,78.2],[-108,78.2]]);
+  function rioCompactCourseReservations(){
+    const paths=[RIO_COMPACT_LAYOUT.sections,RIO_COMPACT_UPPER_PATH];
+    return paths.flatMap((p,n)=>p.slice(1).map((b,i)=>{const a=p[i];return{id:'rio-compact-track-'+n+'-'+i,x:(a[0]+b[0])/2,z:(a[1]+b[1])/2,w:Math.abs(a[0]-b[0])+3.1,d:Math.abs(a[1]-b[1])+3.1};}));
+  }
+  const RIO_COMPACT_PARK_STALLS=Object.freeze([
+    {id:'rio-represa-coco',kind:'coconut',name:'Água de coco · Represa',seller:'Vendedor de coco',x:-123.2,z:61.5,yaw:Math.PI/2,color:0x588657},
+    {id:'rio-represa-milho',kind:'corn',name:'Milho verde · Represa',seller:'Vendedor de milho',x:-65.2,z:73.4,yaw:Math.PI/2,color:0xc19a46}
+  ]);
+  // The snow resort keeps its cabins, cableway and civilian activities.
+  // The legacy decorative urban towers are not part of this region.
+  function rioCompactSnowBackdrop(p){return p.z>=147&&p.z<480&&p.x>-220&&p.x<200;}
+  function rioCompactPoolPlan(site){
+    const {w,d}=site,pw=Math.min(3.8,w*.23),pd=Math.min(2.8,d*.19);
+    return {x:0,z:-d/2-pd/2-1.6,w:pw,d:pd};
+  }
+  function rioCompactPoolReservation(lot){
+    const [key,x,z,w,d,facing]=lot;
+    if(!key.startsWith('rios_')&&!key.startsWith('casa-damha'))return null;
+    const yaw=rioCompactYaw[facing],p=rioCompactPoolPlan({w,d}),s=Math.sin(yaw),c=Math.cos(yaw),side=Math.abs(s)>.5;
+    return {id:'rio-compact-pool-'+key,x:x+s*p.z,z:z+c*p.z,w:(side?p.d:p.w)+1.6,d:(side?p.w:p.d)+1.6,margin:.25};
+  }
   const rioCompactYaw={s:0,n:Math.PI,w:-Math.PI/2,e:Math.PI/2};
   function rioCompactWorld(){return typeof rioMap!=='undefined'&&!!rioMap?.compact;}
   function rioCompactLotRect([key,x,z,w,d,facing]){
@@ -3165,7 +3202,7 @@
   function otthiPersonalHomeLot(){const base=OTTHI_PERSONAL_HOME_LOTS[otthiHomeLotIndex()]||OTTHI_PERSONAL_HOME_LOTS[0],north=base.z<38;return{index:otthiHomeLotIndex(),home:{x:base.x,z:base.z},spawn:{x:base.x,z:base.z+5.2},garage:{x:Math.abs(base.x)<20?Math.sign(base.x)*23:Math.abs(base.x)===22?Math.sign(base.x)*25:base.x,z:base.z+(north?13:-13)}};}
   function v704PersonalHomeLotAt(x,z,margin=0){return OTTHI_PERSONAL_HOME_LOTS.some(lot=>Math.abs(Number(x)-lot.x)<=5.2+margin&&Math.abs(Number(z)-lot.z)<=4.3+margin);}
   function worldLayoutPoint(id,fallback={x:0,z:0}){if(typeof inRioMap==='function'&&inRioMap()){if(id==='workshop')return {...RIO_WORKSHOP};if(id==='farm')return {...RIO_FARM};if(id==='playground'){const park=rioSiteByKey('parque-da-represa');return {x:park.entry[0],z:park.entry[1]};}if(id==='repairParking')return {x:RIO_WORKSHOP.x+11,z:RIO_WORKSHOP.z+2};}if(id==='home'||id==='spawn'||id==='homeGarage'){const personal=otthiPersonalHomeLot();return{...(id==='home'?personal.home:id==='spawn'?personal.spawn:personal.garage)};}const p=WORLD_LAYOUT_V704.points[id];return p?{x:Number(p.x),z:Number(p.z)}:{x:Number(fallback.x||0),z:Number(fallback.z||0)};}
-  function worldLayoutRect(id){const zone=WORLD_LAYOUT_V704.zones[id];return zone?{...zone}:null;}
+  function worldLayoutRect(id){if(typeof rioCompactWorld==='function'&&rioCompactWorld()&&typeof RIO_COMPACT_LAKES!=='undefined'){const lake=RIO_COMPACT_LAKES.find(l=>l.id===id);if(lake)return {...lake};}const zone=WORLD_LAYOUT_V704.zones[id];return zone?{...zone}:null;}
   function worldLayoutStructure(id){const item=WORLD_LAYOUT_V704.structures.find(entry=>entry.id===id);if(!item)return null;const p=item.point?worldLayoutPoint(item.point):item;return{...item,x:Number(item.x??p.x),z:Number(item.z??p.z)};}
   function v704RectOverlap(a,b,margin=0){return Math.abs(Number(a.x)-Number(b.x))<(Number(a.w)+Number(b.w))/2+margin&&Math.abs(Number(a.z)-Number(b.z))<(Number(a.d)+Number(b.d))/2+margin;}
   function v704PointInRect(point,rect,margin=0){return Math.abs(Number(point.x)-Number(rect.x))<=Number(rect.w)/2+margin&&Math.abs(Number(point.z)-Number(rect.z))<=Number(rect.d)/2+margin;}
@@ -3215,7 +3252,7 @@
   }
   function v704ZoneAt(x,z,margin=0){return Object.values(WORLD_LAYOUT_V704.zones).filter(zone=>v704PointInRect({x,z},zone,margin)).map(zone=>zone.id);}
   function v704ConstructionAt(x,z,margin=0){return v704PointInRect({x,z},WORLD_LAYOUT_V704.zones.construction,-Math.abs(margin));}
-  const compactRioReservations=compactRioLayout?.lots.map(rioCompactLotRect)||[];
+  const compactRioReservations=compactRioLayout?[...compactRioLayout.lots.map(rioCompactLotRect),...compactRioLayout.lots.map(rioCompactPoolReservation).filter(Boolean),...rioCompactCourseReservations(),...RIO_COMPACT_LAKES.map(l=>({...l,id:'rio-compact-lake-'+l.id}))]:[];
   function v704ProtectedRectangles(){return [{id:'civil-airport',x:91,z:-188,w:132,d:68,margin:.3},{id:'balloon-launch',x:-66,z:89,w:12,d:12,margin:.3},...WORLD_LAYOUT_V704.structures.filter(item=>item.kind!=='sport-inner'&&item.kind!=='construction').map(item=>worldLayoutStructure(item.id)),...rioProtectedRects,...compactRioReservations];}
   function v704ReservedAt(x,z,margin=0){if(v704RoadAt(x,z,margin,true))return true;return v704ProtectedRectangles().some(rect=>v704PointInRect({x,z},rect,Number(rect.margin||0)+margin));}
   function v704BuildAllowedAt(x,z,w=1.5,d=1.5){const zone=WORLD_LAYOUT_V704.zones.construction,rect={x,z,w,d};if(x-w/2<zone.x-zone.w/2||x+w/2>zone.x+zone.w/2||z-d/2<zone.z-zone.d/2||z+d/2>zone.z+zone.d/2)return false;if(WORLD_LAYOUT_V704.roads.some(road=>v704RectOverlap(rect,v704RoadFootprint(road,true),.25)))return false;return !(WORLD_LAYOUT_V704.highways||[]).some(highway=>v704HighwayIntersectsRect(highway.id,rect,.25));}
@@ -4947,7 +4984,23 @@
 
   function createWater(x,z,w,d,options={}){const water=stableBox(w,.12,d,materials.water,x,.04,z,worldGroup,1);water.material.depthWrite=false;water.userData={...(water.userData||{}),waterId:options.id||'',reservoir:!!options.reservoir};if(options.shore!==false)for(let px=x-w/2+2;px<x+w/2;px+=4){stableBox(3.2,.18,.7,0x9fadb8,px,.09,z-d/2-.35,worldGroup,2);stableBox(3.2,.18,.7,0x9fadb8,px,.09,z+d/2+.35,worldGroup,2);}world.hazards.push({type:'water',id:options.id||'',reservoir:!!options.reservoir,x,z,w,d});return water;}
   function createReservoirBasin(main,north){
-    if(!main||!north)return null;const root=new THREE.Group();root.name='OTTHI_RESERVOIR_SINGLE_CONNECTED';worldGroup.add(root);const bank=renderMat(0xc9b77f,{roughness:.96}),stone=renderMat(0x73808a,{roughness:.92});
+    if(!main||!north)return null;
+    if(typeof rioCompactWorld==='function'&&rioCompactWorld()){
+      const root=new THREE.Group();root.name='RIO_REPRESA_TRES_LAGOS';worldGroup.add(root);
+      const bank=renderMat(0xb8b39b,{roughness:.96}),waters=[];
+      const lakes=RIO_COMPACT_LAKES.map(l=>({...l}));
+      for(const l of lakes){
+        const water=createWater(l.x,l.z,l.w,l.d,{id:l.id,reservoir:true,shore:false});
+        waters.push(water);
+        for(const side of[-1,1]){
+          stableBox(l.w+.38,.12,.24,bank,l.x,.06,l.z+side*(l.d/2+.13),root,2);
+          stableBox(.24,.12,l.d+.38,bank,l.x+side*(l.w/2+.13),.06,l.z,root,2);
+        }
+      }
+      world.reservoir={id:'otthi-reservoir',group:root,waters,main:lakes[0],north:lakes[1],third:lakes[2]};
+      return world.reservoir;
+    }
+    const root=new THREE.Group();root.name='OTTHI_RESERVOIR_SINGLE_CONNECTED';worldGroup.add(root);const bank=renderMat(0xc9b77f,{roughness:.96}),stone=renderMat(0x73808a,{roughness:.92});
     const mainWater=createWater(main.x,main.z,main.w,main.d,{id:'lake',reservoir:true,shore:false}),northWater=createWater(north.x,north.z,north.w,north.d,{id:'lakeNorth',reservoir:true,shore:false});
     const banks=[
       [main.x,main.z-main.d/2-.55,main.w+1.8,1.15],[main.x+main.w/2+.55,main.z,1.15,main.d+2.1],
@@ -5883,7 +5936,10 @@
     const coinMat=mat(0xffd52e,{emissive:0xb26b00,emissiveIntensity:.32,metalness:.18,roughness:.3});points.forEach(([x,z],i)=>{const c=new THREE.Mesh(new THREE.TorusGeometry(.34,.11,7,14),coinMat);c.position.set(x,1.15+Math.sin(i*.7)*.18,z);c.rotation.y=Math.PI/2;worldGroup.add(c);world.landmarks.push(c);});
   }
   function createCommercialDistrict(){
-    for(const p of WORLD_LAYOUT_V704.skyline)createBackdropBuilding(p.x,p.z,p.w,p.h,p.d,p.color,p.accent);
+    for(const p of WORLD_LAYOUT_V704.skyline){
+      if(typeof rioCompactWorld==='function'&&rioCompactWorld()&&rioCompactSnowBackdrop(p))continue;
+      createBackdropBuilding(p.x,p.z,p.w,p.h,p.d,p.color,p.accent);
+    }
     createFloatingIsland(-188,36,-294,.75);createFloatingIsland(18,48,-315,.9);createFloatingIsland(190,30,-305,.65);
     [[-28,-28],[-38,-28],[38,-28],[48,-28],[-28,44],[-38,44],[22,44],[32,44]].forEach(([x,z])=>{if(!v704ReservedAt(x,z,.8))createStreetTree(x,z,.72);});
     createCoinTrail([[72,-35],[77,-39],[82,-43],[87,-47],[92,-51],[97,-55]]);
@@ -8827,7 +8883,7 @@
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){if(running)savePlayerPosition(true);else commitState();}});
 
   function groundHeightAt(x,z){
-    let top=typeof inRioMap==='function'&&inRioMap()?rioTerrainY(x,z):typeof professionalTerrainHeightAt==='function'?professionalTerrainHeightAt(x,z):0;if(typeof rioCompactWorld==='function'&&rioCompactWorld())top=Math.max(top,rioDockSurface(x,z));for(const p of world.platforms){if(p.bridgePart!==undefined&&!state.flags.bridgeFixed&&p.bridgePart%2===1)continue;if(Math.abs(x-p.x)<=p.w/2+.35&&Math.abs(z-p.z)<=p.d/2+.35&&p.top>top&&player.y>=p.top-.75)top=p.top;}
+    let top=typeof inRioMap==='function'&&inRioMap()?rioTerrainY(x,z):typeof professionalTerrainHeightAt==='function'?professionalTerrainHeightAt(x,z):0;if(typeof rioCompactWorld==='function'&&rioCompactWorld())top=Math.max(top,rioDockSurface(x,z),rioCompactBridgeSurface(x,z));for(const p of world.platforms){if(p.bridgePart!==undefined&&!state.flags.bridgeFixed&&p.bridgePart%2===1)continue;if(Math.abs(x-p.x)<=p.w/2+.35&&Math.abs(z-p.z)<=p.d/2+.35&&p.top>top&&player.y>=p.top-.75)top=p.top;}
     const room=typeof rioMap!=='undefined'?rioMap.indoorRoom:null;
     if(room?.floorMesh&&room.root.visible&&room.forSite(x,z,-.24)&&Number.isFinite(room.floorY))top=Math.max(top,room.floorY);
     return top;
@@ -14456,7 +14512,7 @@ function precompile(T,renderer,scene,camera,timings){
   for(const j of CITY_SIGNALS)for(const axis of['ns','ew'])for(const direction of[-1,1]){const h=axis==='ns'?j.ew/2:j.ns/2,w=axis==='ns'?j.ns/2:j.ew/2,x=j.x+(axis==='ns'?direction*(w+1.1):direction*(h+2.2)),z=j.z+(axis==='ns'?direction*(h+2.2):-direction*(w+1.1)),heading=axis==='ns'?(direction===1?0:Math.PI):(direction===1?Math.PI/2:-Math.PI/2),g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=heading;root.add(g);campaignCylinder(g,steel,0,1.65,0,.055,3.3);campaignBox(g,dark,0,3,.03,.34,.92,.23);cityCoast.signals.push({signal:j,axis,x,z,heading});}
   mergeTrafficStatic(root);const bulbs=new THREE.InstancedMesh(new THREE.SphereGeometry(.105,10,8),new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}),cityCoast.signals.length*3),m=new THREE.Object3D();for(const[i,head]of cityCoast.signals.entries())for(let k=0;k<3;k++){m.position.set(head.x+Math.sin(head.heading)*.16,3.29-k*.29,head.z+Math.cos(head.heading)*.16);m.scale.set(1,1,.60);m.rotation.y=head.heading;m.updateMatrix();bulbs.setMatrixAt(i*3+k,m.matrix);bulbs.setColorAt(i*3+k,new THREE.Color(0x111e24));}bulbs.name='CITY_SIGNAL_LAMPS';bulbs.instanceMatrix.needsUpdate=true;bulbs.frustumCulled=false;root.add(bulbs);cityCoast.lights=bulbs;
  }
- const CITY_SHOP_STOCK=Object.freeze({fastfood:[{id:'burger',name:'Hambúrguer da casa',price:14,hunger:38},{id:'combo',name:'Combo para a viagem',price:28,hunger:48,food:2},{id:'juice',name:'Suco gelado',price:6,hunger:10,water:1}],market:[{id:'groceries',name:'Sacola de alimentos',price:20,food:5},{id:'water',name:'Água para a viagem',price:8,water:3},{id:'snack',name:'Lanche fresco',price:9,hunger:25}],cafe:[{id:'bread',name:'Pão na chapa',price:7,hunger:22},{id:'breakfast',name:'Café da manhã',price:15,hunger:40},{id:'pack',name:'Pães para levar',price:12,food:3}]});
+ const CITY_SHOP_STOCK=Object.freeze({coconut:[{id:'coconut-water',name:'Água de coco natural',price:6,water:1,hunger:8}],corn:[{id:'green-corn',name:'Espiga de milho verde',price:8,hunger:26}],fastfood:[{id:'burger',name:'Hambúrguer da casa',price:14,hunger:38},{id:'combo',name:'Combo para a viagem',price:28,hunger:48,food:2},{id:'juice',name:'Suco gelado',price:6,hunger:10,water:1}],market:[{id:'groceries',name:'Sacola de alimentos',price:20,food:5},{id:'water',name:'Água para a viagem',price:8,water:3},{id:'snack',name:'Lanche fresco',price:9,hunger:25}],cafe:[{id:'bread',name:'Pão na chapa',price:7,hunger:22},{id:'breakfast',name:'Café da manhã',price:15,hunger:40},{id:'pack',name:'Pães para levar',price:12,food:3}]});
  function cityPurchase(id,itemId){const shop=cityCoast.shops.get(id),item=shop&&CITY_SHOP_STOCK[shop.kind]?.find(x=>x.id===itemId);if(!item||!Number.isSafeInteger(item.price)||item.price<1)return false;if(Number(state.profile.coins)<item.price){toast('Moedas insuficientes.','warn');return false;}addCoins(-item.price);for(const key of['food','water'])if(item[key])state.inventory[key]=Math.min(999,Math.max(0,Number(state.inventory[key]||0))+item[key]);if(item.hunger)state.needs.hunger=clamp(Number(state.needs.hunger||0)+item.hunger,0,100);cityCoast.purchases++;saveState(true);updateHUD();toast(item.name+' comprado.','good');return true;}
  function openCityShop(id){const shop=cityCoast.shops.get(id);if(!shop||player.vehicle||otGames.active)return false;const stock=CITY_SHOP_STOCK[shop.kind];openModal(shop.label,'<p>'+shop.description+'</p><p>Saldo: <b>'+state.profile.coins+' moedas</b></p><div class="choice-grid">'+stock.map(item=>'<button class="choice" data-city-order="'+item.id+'"><b>'+item.name+'</b><span>'+item.price+' moedas'+(item.hunger?' · recupera a fome':' · para sua mochila')+'</span></button>').join('')+'</div><button class="btn" data-city-close>VOLTAR À RUA</button>',root=>{let busy=false;root.querySelectorAll('[data-city-order]').forEach(button=>button.onclick=()=>{if(busy||button.disabled||!root.isConnected)return;busy=true;button.disabled=true;if(cityPurchase(id,button.dataset.cityOrder)){const item=stock.find(i=>i.id===button.dataset.cityOrder);closeModal();cityOrderPerformance(shop,item);}else{busy=false;button.disabled=false;}});root.querySelector('[data-city-close]').onclick=closeModal;});return true;}
  function citySign(root,text,x,y,z,width,face=1,background='#173d48',height=.65){const canvas=document.createElement('canvas');canvas.width=768;canvas.height=128;const c=canvas.getContext('2d');c.fillStyle=background;c.fillRect(0,0,768,128);c.fillStyle='#fff2d8';c.font='800 72px Arial';c.textAlign='center';c.textBaseline='middle';c.fillText(text,384,65,735);const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;texture.generateMipmaps=false;texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;texture.wrapS=THREE.ClampToEdgeWrapping;texture.wrapT=THREE.ClampToEdgeWrapping;texture.needsUpdate=true;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,height),new THREE.MeshStandardMaterial({map:texture,roughness:.7,side:THREE.DoubleSide}));m.position.set(x,y,z);m.rotation.y=face===1?0:Math.PI;root.add(m);return m;}
@@ -17985,8 +18041,8 @@ function precompile(T,renderer,scene,camera,timings){
   function rioUsesMappedCourse(){return typeof inRioMap==='function'&&inRioMap()||typeof rioCompactWorld==='function'&&rioCompactWorld();}
   function rioStreetRecord(){const course=rioUsesMappedCourse()?rioMap.course:RIO_V51.course;return state.races?.streetRuns?.[course?.id];}
   function openRioStreetRun(){
-    const separateRio=rioUsesMappedCourse();const {name}=separateRio?rioMap.course:RIO_V51.course,record=rioStreetRecord();
-    openModal(name,(separateRio?'<p>Percorra 300 metros na pista de caminhada da Represa e passe pelos seis pontos.</p>':'<p>Passe pelos seis pontos na ordem. Siga a calçada em volta dos lagos e termine no pórtico da Damha.</p>')+
+    const separateRio=rioUsesMappedCourse();const selected=separateRio?rioMap.course:RIO_V51.course;if(!selected)return false;const {name}=selected,record=rioStreetRecord();
+    openModal(name,(separateRio?'<p>Percorra '+Math.round(selected.distance||300)+' metros na pista da Represa e passe pelos seis pontos na ordem.</p>':'<p>Passe pelos seis pontos na ordem. Siga a calçada em volta dos lagos e termine no pórtico da Damha.</p>')+
       (record?'<p>Melhor tempo: '+Number(record.best).toFixed(2)+' s</p>':'')+
       '<button class="btn primary" data-rio-run-start>Largar a pé</button>',root=>{
         root.querySelector('[data-rio-run-start]').onclick=()=>{
@@ -19898,14 +19954,14 @@ function precompile(T,renderer,scene,camera,timings){
     const start=route[0];
     createSignpost(start.x+.3,start.z+.7,'CORRIDA A PÉ • REPRESA',0);
     registerInteractable({id:'rio-orla-largada',type:'race',icon:'🏃',label:'Largar na pista da Represa',x:start.x,z:start.z,radius:2.7,priority:279,
-      available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,action:openRioGeoRun});
+      available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,action:()=>{if(rioMap.compact&&typeof rioSelectCompactCourse==='function')rioSelectCompactCourse(id);return openRioGeoRun();}});
     rioMap.course={id,name:'Corrida a pé · Represa',start,route,gates};
   }
   function openRioGeoRun(){
     const course=rioMap.course;
     if(!course)return false;
     if(Math.hypot(player.x-course.start.x,player.z-course.start.z)>3.2){
-      setWaypoint('rio-orla-largada');
+      setWaypoint(course.startId||'rio-orla-largada');
       toast('Siga até a largada junto à pista da orla.','info',2200);
       return true;
     }
@@ -20887,8 +20943,14 @@ function precompile(T,renderer,scene,camera,timings){
       const batch=rioCreateBatch(exterior);
       batch.root=exterior;
       const outdoor=rioLocal(batch,site);
-      const px=w*.245,pz=d*.405;
+      const compactPool=typeof rioCompactWorld==='function'&&rioCompactWorld()?rioCompactPoolPlan(site):null;
+      const px=compactPool?.x??w*.245,pz=compactPool?.z??d*.405;
       const pw=Math.min(3.8,w*.23),pd=Math.min(2.8,d*.19);
+      if(compactPool){
+        outdoor.box(px,.045,pz,pw+1.30,.075,pd+1.50,0xbec5aa);
+        // Both sides of the house remain passable; pool is behind the shell.
+        for(const side of[-1,1])outdoor.box(px+side*(pw/2+.47),.09,pz,.54,.13,pd+1.05,0xd6cbb3);
+      }
       outdoor.box(px,.065,pz,pw+.40,.13,pd+.40,0xe1d9ca);
       outdoor.box(px,.075,pz,pw,.04,pd,0x2787b3);
       outdoor.box(px,.13,pz-pd*.47,pw,.045,.11,0xa8dee1);
@@ -20906,11 +20968,12 @@ function precompile(T,renderer,scene,camera,timings){
       }
       batch.commit();
       room.poolExterior=exterior;
-      const approach=outdoor.point(px-pw*.45,pz-pd*.46);
+      const approach=compactPool?outdoor.point(px,pz+pd/2+.80):outdoor.point(px-pw*.45,pz-pd*.46);
       const water=outdoor.point(px,pz);
       // A pool shares the address of its house, but not the interior.
       // The former indoor-flag check made the exterior pool impossible to use.
-      room.isOutdoorLeisurePoint=(x,z)=>Math.hypot(x-water.x,z-water.z)<Math.max(pw,pd)*.62+1.55;
+      room.isOutdoorLeisurePoint=(x,z)=>(!compactPool||!room.forSite(x,z,-.05))&&Math.hypot(x-water.x,z-water.z)<Math.max(pw,pd)*.62+1.55;
+      room.poolPlan={...water,w:pw,d:pd,approach};
       registerInteractable({
         id:site.id+'-outdoor-pool',type:'activity',icon:'🏊',
         label:condominium?'Usar piscina da área comum do condomínio':'Nadar na piscina da casa',
@@ -22153,7 +22216,8 @@ function precompile(T,renderer,scene,camera,timings){
   }
 
   // ===== MODULE: 99-rio-compact-world.js =====
-  const compactRio={sites:[],nextUpdate:0};
+  const compactRio={sites:[],nextUpdate:0,courses:new Map()};
+  function rioSelectCompactCourse(id){const record=compactRio.courses.get(id);if(!record||activeRace)return false;for(const m of rioMap.courseMarkers||[])m.visible=false;rioMap.course=record.course;rioMap.courseMarkers=record.markers;return true;}
   const compactRioStreets=[
     ['bady','Avenida Bady Bassitt',-95,0],
     ['andalo','Avenida Alberto Andaló',0,-52],
@@ -22245,17 +22309,25 @@ function precompile(T,renderer,scene,camera,timings){
     // Native lightweight bridge over Lago 3, never replaces existing OT bridges.
     const root=new THREE.Group();root.name='RIO_PRETO_PONTE_JULIO_ZACARIN';worldGroup.add(root);
     const steel=renderMat(0xd1d7d7,{roughness:.67,metalness:.22}),cable=renderMat(0xb6c1c4,{roughness:.48,metalness:.38});
-    const bx=-104,bz=69,deckY=.65;
-    stableBox(36,.22,4.8,0x788890,bx,deckY,bz,root,2);
-    stableBox(36,.05,3.2,0x58626b,bx,deckY+.14,bz,root,3);
-    registerPlatform(bx,bz,36,4.8,deckY+.15,{rioBridge:'julio-zacarin'});
+    const b=RIO_COMPACT_BRIDGE,bx=b.x,bz=b.z,deckY=b.top-.165;
+    stableBox(b.deckLength,.22,b.width,0x788890,bx,deckY,bz,root,2);
+    stableBox(b.deckLength,.05,3.2,0x58626b,bx,deckY+.14,bz,root,3);
+    // Ramps and deck share the height function used by resolveWaterWalking.
+    // No generic platform threshold is allowed to drop the actor into water.
     for(const side of[-1,1]){
-      stableBox(36,.58,.12,steel,bx,deckY+.55,bz+side*2.35,root);
-      for(let i=-8;i<=8;i++)stableBox(.085,.56,.10,steel,bx+i*2,deckY+.38,bz+side*2.35,root);
+      const run=b.rampLength,rise=b.top,angle=Math.atan2(rise,run);
+      const mesh=new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(run,rise),.16,b.width),renderMat(0x788890,{roughness:.9}));
+      mesh.position.set(bx+side*(b.deckLength/2+run/2),rise/2-.08,bz);
+      mesh.rotation.z=-side*angle;mesh.receiveShadow=true;root.add(mesh);
+      registerCollider(bx,bz+side*(b.width/2-.045),b.deckLength,.12,{height:1.4,rioBridge:'julio-zacarin-rail'});
+    }
+    for(const side of[-1,1]){
+      stableBox(b.deckLength,.58,.12,steel,bx,deckY+.55,bz+side*2.35,root);
+      for(let i=-6;i<=6;i++)stableBox(.085,.56,.10,steel,bx+i*2,deckY+.38,bz+side*2.35,root);
     }
     for(const z of[bz-1.45,bz+1.45]){
       stableBox(.64,13.4,.67,steel,bx,7.25,z,root);
-      for(const dx of[-16,-12,-8,-4,4,8,12,16]){
+      for(const dx of[-12,-9,-6,-3,3,6,9,12]){
         const start=new THREE.Vector3(bx,13.9,z),end=new THREE.Vector3(bx+dx,deckY+.82,z);
         const vec=end.clone().sub(start),length=vec.length();
         const line=new THREE.Mesh(new THREE.CylinderGeometry(.032,.032,length,6),cable);
@@ -22264,10 +22336,68 @@ function precompile(T,renderer,scene,camera,timings){
         line.castShadow=false;root.add(line);
       }
     }
-    createSignpost(-122,64.6,'PONTE ESTAIADA JÚLIO ZACARIN · LAGO 3',Math.PI/2);
+    createSignpost(-126,64.6,'PONTE ESTAIADA JÚLIO ZACARIN · LAGO 3',Math.PI/2);
     registerInteractable({id:'rio-ponte-julio-zacarin',type:'activity',icon:'🌉',
-      label:'Ponte Estaiada Júlio Zacarin · Lago 3',x:-121,z:65.8,radius:4.5,priority:200,
+      label:'Ponte Estaiada Júlio Zacarin · Lago 3',x:-126.5,z:65.8,radius:4.5,priority:200,
       action:()=>toast('Ponte Júlio Zacarin · Lago 3 da Represa Municipal de Rio Preto.','info',2600)});
+  }
+
+  function buildRioCompactParkStalls(){
+    for(const spec of RIO_COMPACT_PARK_STALLS){
+      const root=new THREE.Group();root.name='RIO_PARK_STALL_'+spec.kind;worldGroup.add(root);
+      const site={...spec,w:2.1,d:1.3},batch=rioCreateBatch(root);batch.root=root;
+      const draw=rioLocal(batch,site),{box,part,point,sign}=draw;
+      box(0,.68,0,1.9,1.02,1.05,spec.color);
+      box(0,1.23,0,2.02,.12,1.23,0xe5d5b0);
+      for(const x of[-.83,.83])for(const z of[-.43,.43])part('post',x,1.72,z,.075,1.0,.075,0x79827b);
+      box(0,2.23,0,2.18,.17,1.40,spec.color);
+      for(let i=0;i<5;i++)box(-.82+i*.41,2.18,.72,.21,.12,.05,0xece3ca);
+      for(const x of[-.69,.69])part('post',x,.27,0,.44,.13,.44,0x323d42,0,Math.PI/2);
+      if(spec.kind==='coconut'){
+        for(let i=0;i<5;i++)part('canopy',-.72+i*.35,1.40,-.12,.31,.29,.31,i%2?0x77974b:0x63854d);
+        box(.52,1.39,.26,.34,.26,.28,0xe7e2cf);
+      }else{
+        box(0,1.43,-.14,1.48,.18,.65,0xb3b9b3);
+        for(let i=0;i<5;i++)part('post',-.60+i*.30,1.61,-.14,.16,.39,.16,0xeac351,0,.50);
+      }
+      sign(spec.kind==='coconut'?'ÁGUA DE COCO':'MILHO VERDE',0,2.04,.74,1.92,.32,spec.kind==='coconut'?'#47734b':'#a47b36');
+      batch.commit();
+      draw.collider(0,0,1.95,1.1,1.35,spec.id);
+      const counter=point(0,1.47),seller=point(0,-1.13);
+      const shop={id:spec.id,label:spec.name,kind:spec.kind,x:spec.x,z:spec.z,navX:counter.x,navZ:counter.z,description:'Comércio de rua do Parque da Represa.'};
+      cityCoast.shops.set(shop.id,shop);
+      const npc=cityCommercialNPC('rio-park-vendor-'+spec.kind,spec.seller,seller.x,seller.z,spec.color,null,shop.id);
+      npc.stationaryHeading=spec.yaw;npc.group.rotation.y=spec.yaw;root.add(npc.group);
+      const native=world.interactables.find(a=>a.id==='npc-'+npc.id);
+      if(native)native.available=()=>root.visible&&!player.vehicle&&!player.boating&&distance2D(player,counter)<3.4;
+      registerInteractable({id:shop.id,type:'shop',icon:spec.kind==='coconut'?'🥥':'🌽',label:spec.name,...counter,radius:2.35,priority:276,
+        available:()=>root.visible&&!player.vehicle&&!player.boating&&!player.swimming&&!activeRace,
+        action:()=>openCityShop(shop.id)});
+      cityCoast.roots.push({root,x:spec.x,z:spec.z,range:120});
+    }
+  }
+
+  function buildRioCompactDamha(){
+    // Place the existing Damha destination at the access to its two
+    // playable properties, rather than reintroducing a duplicate city.
+    const root=new THREE.Group();root.name='RIO_DAMHA_ACESSO';worldGroup.add(root);
+    const x=205,z=97,batch=rioCreateBatch(root);batch.root=root;
+    const stone=0xe0dacd,trim=0x5c7467;
+    for(const side of[-1,1]){
+      batch.part('box',x+side*7.75,2.15,z,.62,4.3,.72,stone);
+      batch.part('box',x+side*7.75,4.22,z,.84,.20,.94,trim);
+      registerCollider(x+side*7.75,z,.62,.72,{height:4.3,rioDamhaGate:true});
+    }
+    // No boom, collision slab or barrier across the live traffic lanes.
+    batch.part('box',x,4.43,z,16.2,.36,.55,trim);batch.commit();
+    citySign(root,'DAMHA · AV. NADIMA DAMHA',x,4.46,z+.30,12,1,'#48665a',.56);
+    citySign(root,'DAMHA · AV. NADIMA DAMHA',x,4.46,z-.30,12,-1,'#48665a',.56);
+    registerInteractable({id:'rio-damha-residencias',type:'viewpoint',icon:'🏡',label:'Acesso aos imóveis Damha',x:213.8,z:100.5,radius:3.2,priority:218,
+      available:()=>!player.vehicle&&!player.boating,
+      action:()=>openModal('Damha · Rio Preto','<p>Visite as duas residências e as respectivas áreas de lazer. A pista da Represa continua disponível no mapa.</p><div class="choice-grid">'+
+      '<button class="choice" data-damha-route="regional-casa-damha">Casa contemporânea</button><button class="choice" data-damha-route="regional-casa-damha-varanda">Casa com varanda</button><button class="choice" data-damha-route="regional-portaria_damha">Corrida Represa e Damha</button></div>',modal=>{
+        for(const button of modal.querySelectorAll('[data-damha-route]'))button.onclick=()=>{closeModal();setWaypoint(button.dataset.damhaRoute);};
+      })});
   }
 
   function buildCompactRioWaterfront(){
@@ -22277,10 +22407,55 @@ function precompile(T,renderer,scene,camera,timings){
     const walk=new THREE.Group();
     walk.name='RIO_PRETO_PASSEIO_DA_REPRESA';
     worldGroup.add(walk);
-    for(let i=1;i<shore.length;i++)compactRioWalk(walk,shore[i-1],shore[i],2.15,materials.sidewalk);
+    const track=renderMat(0xae5848,{roughness:.94,metalness:0}),stripe=renderMat(0xf0e8d5,{roughness:.9});
+    // Continuous red running surface with two lanes and marked edges.
+    // Use the existing six-checkpoint 300m route; no reset of race records.
+    const batch=rioCreateBatch(walk);batch.root=walk;
+    const paths=[shore,RIO_COMPACT_UPPER_PATH.map(([x,z])=>({x,z}))];
+    for(const path of paths)for(let i=1;i<path.length;i++){
+      const a=path[i-1],b=path[i],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz),yaw=Math.atan2(dx,dz),x=(a.x+b.x)/2,z=(a.z+b.z)/2;
+      batch.part('box',x,.080,z,2.7,.10,len+.20,0xae5848,yaw);
+      for(const side of[-1,0,1]){
+        const offset=side*1.22;
+        batch.part('box',x+Math.cos(yaw)*offset,.141,z-Math.sin(yaw)*offset,.065,.016,len+.12,0xf0e8d5,yaw);
+      }
+    }
+    batch.commit();
+    const start=shore[0],gate=new THREE.Group();gate.name='RIO_REPRESA_LARGADA';walk.add(gate);
+    for(const side of[-1,1])stableBox(.18,2.8,.18,0x526b60,start.x,1.4,start.z+side*1.65,gate);
+    stableBox(.24,.24,3.55,0x526b60,start.x,2.87,start.z,gate);
+    const sign=citySign(gate,'PISTA DE CORRIDA · REPRESA',start.x,2.88,start.z,3.4,1,'#3c6156',.38);sign.rotation.y=Math.PI/2;
+    buildRioCompactParkStalls();
+    buildRioCompactDamha();
     // Two passes around the shore provide six checkpoints at the same 50 m spacing.
     rioPrepareWaterfrontRun([...RIO_COMPACT_LAYOUT.sections,...RIO_COMPACT_LAYOUT.sections.slice(1)],
       'represa_rio_preto_compacta_300m');
+    compactRio.courses.set(rioMap.course.id,{course:rioMap.course,markers:rioMap.courseMarkers});
+    const route=RIO_COMPACT_DAMHA_COURSE.map(([x,z])=>({x,z})),startDamha=route[0];
+    const length=route.slice(1).reduce((sum,p,i)=>sum+distance2D(route[i],p),0);
+    const labels=['Orla superior','Lago 2','Orla do Canecão','Retorno Swift','Lago 3','Chegada · Damha'];
+    const gates=[];
+    let traversed=0;
+    for(let i=1;i<route.length;i++){
+      const a=route[i-1],b=route[i],span=distance2D(a,b);
+      while(gates.length<6&&(gates.length+1)*length/6<=traversed+span+1e-6){
+        const t=clamp(((gates.length+1)*length/6-traversed)/span,0,1);
+        gates.push({x:lerp(a.x,b.x,t),z:lerp(a.z,b.z,t),label:labels[gates.length]});
+      }
+      traversed+=span;
+    }
+    const marks=new THREE.Group();marks.name='RIO_DAMHA_CHECKPOINTS';walk.add(marks);
+    const markerGeo=new THREE.RingGeometry(1.22,1.75,22),markerMat=new THREE.MeshBasicMaterial({color:0xffd850,side:THREE.DoubleSide});
+    const markers=gates.map(p=>{const mesh=new THREE.Mesh(markerGeo,markerMat);mesh.rotation.x=-Math.PI/2;mesh.position.set(p.x,groundHeightAt(p.x,p.z)+.18,p.z);mesh.visible=false;marks.add(mesh);return mesh;});
+    const damha={id:'corrida_rua_represa_damha',name:'Corrida de Rua · Represa e Damha',startId:'regional-portaria_damha',start:startDamha,route,gates,distance:length};
+    compactRio.courses.set(damha.id,{course:damha,markers});
+    const portico=new THREE.Group();portico.name='RIO_DAMHA_LARGADA_SUPERIOR';walk.add(portico);
+    for(const side of[-1,1])stableBox(.20,2.8,.20,0x536f61,startDamha.x,1.4,startDamha.z+side*1.72,portico);
+    stableBox(.24,.26,3.68,0x536f61,startDamha.x,2.88,startDamha.z,portico);
+    const board=citySign(portico,'DAMHA · LARGADA',startDamha.x,2.88,startDamha.z,3.4,1,'#3c6156',.38);board.rotation.y=Math.PI/2;
+    registerInteractable({id:'regional-portaria_damha',type:'race',icon:'🏃',label:'Largar · Represa e Damha',...startDamha,radius:2.8,priority:279,
+      available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,
+      action:()=>{if(!rioSelectCompactCourse(damha.id))return false;return openRioGeoRun();}});
   }
 
   function updateCompactRio(dt,before){
@@ -22303,6 +22478,7 @@ function precompile(T,renderer,scene,camera,timings){
         // native room is visible only to the player who entered the door.
         const inside=!!room.legacyRecord?.inside;
         room.root.visible=inside;
+        if(room.poolExterior)room.poolExterior.visible=distance2D(focus,site)<(qualityTier()==='low'?142:195);
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
@@ -22339,10 +22515,12 @@ function precompile(T,renderer,scene,camera,timings){
     if(!rioCompactWorld())return existing;
     const places=compactRio.sites.map(compactRioDestination);
     const streets=compactRioStreets.map(([id,name,x,z])=>({id:'rio-via-'+id,name,x,z,icon:'🛣️',group:'Ruas e rodovias'}));
-    const dock=rioMap.waterfront?.entry,course=rioMap.course;
-    places.push({id:'rio-ponte-julio-zacarin',name:'Ponte Estaiada Júlio Zacarin · Lago 3',group:'Represa de Rio Preto',icon:'🌉',x:-121,z:65.8,navX:-121,navZ:65.8,description:'Ponte estaiada, orla e passeio do Lago 3'});
+    const dock=rioMap.waterfront?.entry,course=compactRio.courses.get('represa_rio_preto_compacta_300m')?.course||rioMap.course;
+    places.push({id:'rio-ponte-julio-zacarin',name:'Ponte Estaiada Júlio Zacarin · Lago 3',group:'Represa de Rio Preto',icon:'🌉',x:-126.5,z:65.8,navX:-126.5,navZ:65.8,description:'Ponte estaiada, orla e passeio do Lago 3'});
     if(dock)places.push({id:'rio-represa-cais',name:'Mirante da Represa Municipal',group:'Represa de Rio Preto',icon:'🌳',...dock});
-    if(course)places.push({id:'rio-orla-largada',name:'Corrida a pé na Represa',group:'Rio Preto',icon:'🏃',...course.start});
+    if(course)places.push({id:'rio-orla-largada',name:'Pista de corrida a pé · Represa',group:'Represa de Rio Preto',icon:'🏃',...course.start});
+    places.push({id:'regional-portaria_damha',name:'Portaria Damha · Corrida da Represa',group:'Represa de Rio Preto',icon:'🏃',x:-108,z:78.2,navX:-108,navZ:78.2,description:'Pórtico da pista superior, seis pontos e chegada'});
+    places.push({id:'rio-damha-residencias',name:'Damha · Av. Nadima Damha',group:'Rio Preto',icon:'🏡',x:213.8,z:100.5,navX:213.8,navZ:100.5,description:'Acesso às residências e piscinas exteriores'});
     const hall=places.find(place=>place.id==='regional-prefeitura_andalo');
     if(hall)places.push({...hall,id:'castle'});
     return [...existing,...places,...streets];
