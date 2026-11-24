@@ -4,11 +4,14 @@ try {
   'use strict';
   const mount = '/ConsoleGames-Preview/';
   const prefix = 'consolegames-preview:';
+  const embedded = scope.location.href === 'about:srcdoc';
+  const address = new URL(embedded ? scope.document.baseURI : scope.location.href);
+  if (embedded && scope.parent.CONSOLEGAMES_PREVIEW?.mount !== mount) throw new Error('Atividade fora da homologação.');
   const ownsUrl = (url) => {
-    const target = new URL(url, scope.location.href);
-    return target.origin === scope.location.origin && target.pathname.startsWith(mount);
+    const target = new URL(url, address);
+    return target.origin === address.origin && target.pathname.startsWith(mount);
   };
-  if (!ownsUrl(scope.location.href)) throw new Error('Endereço da homologação inválido.');
+  if (!ownsUrl(address)) throw new Error('Endereço da homologação inválido.');
 
   function namespaceStorage(property) {
     let storage;
@@ -98,12 +101,12 @@ try {
     const getRegistration = workers.getRegistration.bind(workers);
     const getRegistrations = workers.getRegistrations.bind(workers);
     workers.register = async (script, options = {}) => {
-      const workerUrl = new URL(script, scope.location.href);
+      const workerUrl = new URL(script, address);
       const registrationScope = options.scope === undefined ? new URL('./', workerUrl) : options.scope;
       if (!ownsUrl(workerUrl) || !ownsUrl(registrationScope)) throw new Error('Escopo fora da homologação.');
       return register(script, options);
     };
-    workers.getRegistration = async (url = scope.location.href) => {
+    workers.getRegistration = async (url = address.href) => {
       if (!ownsUrl(url)) return undefined;
       const registration = await getRegistration(url);
       return registration && ownsUrl(registration.scope) ? registration : undefined;

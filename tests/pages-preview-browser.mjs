@@ -203,6 +203,22 @@ try {
           return Math.hypot(x - player.x, z - player.z) > .15;
         }, p, {timeout: 15000});
       } finally { await page.keyboard.up('KeyD'); }
+
+      await page.evaluate(() => {
+        const table = OTTHI_VENUES.locations().find(venue => venue.id === 'venue-pingpong');
+        OTTHOS_TEST_API.teleport(table.navX, table.navZ);
+      });
+      await page.waitForFunction(() => OTTHOS_TEST_API.getContext()?.id === 'activity-venue-pingpong');
+      await page.locator('#actionBtn').tap();
+      const table = page.frameLocator('#worldVenueDialog iframe');
+      await table.locator('#phase-screen:not(.hidden)').waitFor();
+      const embedded = await table.locator('body').evaluate(() => ({
+        preview: window.CONSOLEGAMES_PREVIEW?.mount, base: document.baseURI, console: window.OTTHI_CANONICAL?.consoleUrl,
+      }));
+      assert.deepEqual(embedded, {preview: mount, base: href('games/tenis/'), console: href('arcade/')});
+      await page.locator('[data-venue-close]').tap();
+      await page.waitForFunction(() => !OTTHI_VENUES.diagnostics().active && !OTTHOS_TEST_API.getGame().paused);
+      report.checks.push('world-pingpong-portal-and-return');
       await page.evaluate(() => OTTHI_NAVIGATION.toConsole());
       await inspectConsole();
       await go(relative);

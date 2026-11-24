@@ -8988,7 +8988,18 @@
     if(!npc)return false;const current=kind==='boat'?player.boat:player.car;if(current.passengerBotId||(kind==='boat'?!!current.passengerUid:!vehicleHasPassengerSeat()))return false;current.passengerBotId=npc.id;npc.passengerMode=kind;npc.pendingRide=false;npc.following=false;if(npc.mobility?.ride)npc.mobility.ride.visible=false;toast(`${npc.name} entrou como passageiro no ${kind==='boat'?'barco':'carro'}.`,'good',2300);saveState();return true;
   }
   function releaseNpcPassenger(kind){
-    const current=kind==='boat'?player.boat:player.car,id=current.passengerBotId;if(!id)return;const npc=world.npcs.find(n=>n.id===id);if(npc){const exitX=kind==='boat'?BOAT_DOCK.exitX+1.2:player.x+1.8,exitZ=kind==='boat'?clamp(player.z,BOAT_DOCK.minZ+.25,BOAT_DOCK.maxZ-.25):player.z;npc.passengerMode='';npc.group.position.set(exitX,groundHeightAt(exitX,exitZ),exitZ);npc.baseX=npc.group.position.x;npc.baseZ=npc.group.position.z;if(npc.mobility?.ride)npc.mobility.ride.visible=true;}current.passengerBotId='';
+    const current=kind==='boat'?player.boat:player.car,id=current.passengerBotId;
+    if(!id)return;
+    const npc=world.npcs.find(n=>n.id===id);
+    if(npc){
+      const dock=kind==='boat'?safeBoatExitPoint():null;
+      const exit=dock?safePointNear(dock.x,dock.z+1.2,{ignoreTraffic:true,allowWater:false,radius:.3}):
+        {x:player.x+1.8,z:player.z,y:groundHeightAt(player.x+1.8,player.z)};
+      npc.passengerMode='';npc.group.position.set(exit.x,exit.y,exit.z);
+      npc.baseX=exit.x;npc.baseZ=exit.z;
+      if(npc.mobility?.ride)npc.mobility.ride.visible=true;
+    }
+    current.passengerBotId='';
   }
   function updateNpcSociety(dt){
     updateNpcSociety.acc=(updateNpcSociety.acc||0)+dt;if(updateNpcSociety.acc<9)return;updateNpcSociety.acc=0;if(!world.npcs.length)return;
