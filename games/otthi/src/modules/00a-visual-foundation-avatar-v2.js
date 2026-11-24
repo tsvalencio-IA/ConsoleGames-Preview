@@ -234,7 +234,9 @@
   function updateManagedOutlineVisibility(){
     if(!world?.outlines||!camera)return;
     const profile=visualFoundation.qualityProfile||visualQualityProfile(qualityTier?.()||'balanced');
-    const position=new THREE.Vector3(),visited=new Set();
+    const position=new THREE.Vector3(),visited=new Set(),ancestorHidden=new Map();
+    const maxDistanceSq=profile.outlineDistance*profile.outlineDistance;
+    function hiddenBranch(node){if(!node)return false;if(ancestorHidden.has(node))return ancestorHidden.get(node);const hidden=node.visible===false||hiddenBranch(node.parent);ancestorHidden.set(node,hidden);return hidden;}
     let visible=0,hidden=0;
     for(const line of world.outlines){
       if(!line?.parent)continue;
@@ -244,8 +246,9 @@
         visible++;
         continue;
       }
+      if(hiddenBranch(line.parent)){line.visible=false;hidden++;continue;}
       position.setFromMatrixPosition(visualWorldMatrix(line,visited));
-      const show=position.distanceTo(camera.position)<=profile.outlineDistance;
+      const show=position.distanceToSquared(camera.position)<=maxDistanceSq;
       line.visible=show;
       if(show)visible++;else hidden++;
     }
