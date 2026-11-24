@@ -89,6 +89,21 @@
   const g=ensurePlayerGarageState(),p=g.roomParking?.[id];if(!p)return{...bay};const finite=[p.x,p.z,p.heading,p.at].every(Number.isFinite),dx=finite?Math.abs(p.x-bay.x):Infinity,dz=finite?Math.abs(p.z-bay.z):Infinity,angle=finite?Math.abs(Math.atan2(Math.sin(p.heading-bay.heading),Math.cos(p.heading-bay.heading))):Infinity,inBay=dx<(heavy?2.5:1.8)&&dz<(heavy?5:2.6)&&angle<.45,grace=finite&&Date.now()-p.at<30000&&dx<(heavy?5:3)&&dz<(heavy?8:4.5);
   if(p.heavy!==!!heavy||!finite||(!inBay&&!grace))return{...bay};return{...bay,x:p.x,z:p.z,heading:p.heading};
  }
+ function garageRoomVehicleExtent(record,heading){
+  const data=record?.group?.userData?.brazilRoot?.userData||{};
+  const wide=Math.max(.65,Number(data.halfWidth)||record?.assignedBay?.w||1.05);
+  const long=Math.max(.95,Math.abs(Number(data.front)||0),Math.abs(Number(data.rear)||0),record?.assignedBay?.l||2.1);
+  return {x:Math.abs(Math.cos(heading))*wide+Math.abs(Math.sin(heading))*long,z:Math.abs(Math.sin(heading))*wide+Math.abs(Math.cos(heading))*long};
+ }
+ function garageRoomBlocked(vehicles,car,x,z,yaw,edge){
+  const e=car?garageRoomVehicleExtent(car,yaw):{x:.35,z:.35};
+  if(Math.abs(x)+e.x>33.6||z-e.z<-edge+.3||z+e.z>edge-.15&&Math.abs(x)+e.x>9.6)return true;
+  return vehicles.some(v=>{
+   if(v===car)return false;
+   const p=v.group?.position||v.bay,h=v.group?.rotation?.y??v.bay.heading,other=garageRoomVehicleExtent(v,h);
+   return Math.abs(x-p.x)<e.x+other.x+.07&&Math.abs(z-p.z)<e.z+other.z+.07;
+  });
+ }
  function garageDriveOutPoint(vehicle,door){
   const d=vehicle.group?.userData?.brazilRoot?.userData||{},rear=Math.max(1.8,-Number(d.rear||-1.8)),front=Math.max(1.8,Number(d.front||1.8)),wide=Math.max(.8,Number(d.halfWidth||.9)),long=Math.max(front,rear),bounds=v704WorldBounds();
   for(const extra of[0,3,6,9,13])for(const side of[0,-3,3,-6,6]){const x=door.x+9.8+rear+extra,z=door.z+side;if(x-long<bounds.minX+1||x+long>bounds.maxX-1||z-wide<bounds.minZ+1||z+wide>bounds.maxZ-1||waterAt(x,z))continue;if((world.colliders||[]).some(c=>!c.disabled&&c.vehicleId!==vehicle.id&&Math.abs(c.x-x)<c.w/2+long+.25&&Math.abs(c.z-z)<c.d/2+wide+.25))continue;if((world.vehicles||[]).some(v=>v!==vehicle&&!v.garageStored&&v.group&&Math.abs(v.group.position.x-x)<long+2.1&&Math.abs(v.group.position.z-z)<wide+1.2))continue;return{x,z,heading:Math.PI/2};}return null;
@@ -125,14 +140,23 @@
    const ix=clamp(s.move.x+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft')),-1,1),iz=clamp(s.move.z+Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp')),-1,1);let nx=s.body.x,nz=s.body.z;
    if(s.car){const accel=s.gas||keys.has('KeyW')||keys.has('ArrowUp'),back=s.brake||keys.has('KeyS')||keys.has('ArrowDown'),heavy=brazilDepotVehicle(s.car.entry.id),target=s.engine?(accel?(heavy?3.5:6):back?(heavy?-1.8:-3):0):0;s.speed+=clamp(target-s.speed,-dt*5,dt*(heavy?2.3:4));s.body.yaw+=ix*dt*(heavy?.48:1.5)*clamp(s.speed/3,-1,1);nx+=Math.sin(s.body.yaw)*s.speed*dt;nz+=Math.cos(s.body.yaw)*s.speed*dt;s.voice?.update(s.speed,accel?1:0,false,true);}
    else{const angle=s.cameraYaw,speed=3.3,dx=ix*Math.cos(angle)+iz*Math.sin(angle),dz=-ix*Math.sin(angle)+iz*Math.cos(angle);nx+=dx*dt*speed;nz+=dz*dt*speed;if(Math.hypot(dx,dz)>.1)s.body.yaw=Math.atan2(dx,dz);}
-   const radius=s.car?1.1:.35,blocked=Math.abs(nx)>32-radius||nz<-edge+2+radius||nz>edge-1&&Math.abs(nx)>9||vehicles.some(v=>v!==s.car&&v.group&&Math.abs(nx-v.bay.x)<v.bay.w+radius&&Math.abs(nz-v.bay.z)<v.bay.l+radius);
-   if(!blocked){s.body.x=nx;s.body.z=nz;}else if(s.car)s.speed=0;
+   const blocked=(x,z)=>garageRoomBlocked(vehicles,s.car,x,z,s.body.yaw,edge);
+   if(!blocked(nx,nz)){s.body.x=nx;s.body.z=nz;}
+   else{
+    // Slide along a clear wall or parking aisle instead of freezing on
+    // diagonal motion. Do not pass through parked or still-loading cars.
+    const oldX=s.body.x,oldZ=s.body.z;
+    if(!blocked(nx,oldZ))s.body.x=nx;
+    if(!blocked(s.body.x,nz))s.body.z=nz;
+    if(s.car&&s.body.x===oldX&&s.body.z===oldZ)s.speed=0;
+   }
    if(s.car){s.car.group.position.set(s.body.x,.02,s.body.z);s.car.group.rotation.y=s.body.yaw;for(const w of s.car.group.userData.wheels||[])w.rotation.x-=s.speed*dt*3;for(const w of s.car.group.userData.frontWheels||[])w.rotation.y=-ix*.35;animateBrazilTransport(s.car.group);
-    if(s.body.z>edge&&Math.abs(s.body.x)<8){const id=s.car.entry.id,v=vehicleById(id)||ensureCatalogVehicle(id),point=v&&garageDriveOutPoint(v,door);if(point){close();garageDriveOut(id,point);return;}s.speed=0;s.body.z=edge-.8;ui.querySelector('.garage-room-info').textContent='Saída ocupada. Aguarde a passagem dos veículos.';}}
+    if(s.body.z>edge&&Math.abs(s.body.x)+garageRoomVehicleExtent(s.car,s.body.yaw).x<9.6){const id=s.car.entry.id,v=vehicleById(id)||ensureCatalogVehicle(id),point=v&&garageDriveOutPoint(v,door);if(point){close();garageDriveOut(id,point);return;}s.speed=0;s.body.z=edge-.8;s.exitBlockedUntil=now+2500;ui.querySelector('.garage-room-info').textContent='Saída ocupada. Aguarde a passagem dos veículos.';}}
    nearest=vehicles.filter(v=>v.group).sort((a,b)=>Math.hypot(a.bay.x-s.body.x,a.bay.z-s.body.z)-Math.hypot(b.bay.x-s.body.x,b.bay.z-s.body.z))[0];if(nearest&&Math.hypot(nearest.bay.x-s.body.x,nearest.bay.z-s.body.z)>4.8)nearest=null;board.disabled=!s.car&&!nearest;
-   const info=ui.querySelector('.garage-room-info');info.textContent=s.car?(s.engine?'Motor ligado · dirija até a saída amarela':'Ligue o motor para sair dirigindo'):nearest?nearest.entry.label+' · unidade '+nearest.entry.unit+' · ENTRAR':`${parked.length} veículos nos pisos da garagem · caminhe até uma vaga`;
+   const info=ui.querySelector('.garage-room-info');info.textContent=s.car?(now<(s.exitBlockedUntil||0)?'Saída ocupada · aguarde e tente novamente':s.engine?'Motor ligado · dirija até a saída amarela':'Ligue o motor para sair dirigindo'):nearest?nearest.entry.label+' · unidade '+nearest.entry.unit+' · ENTRAR':`${parked.length} veículos nos pisos da garagem · caminhe até uma vaga`;
    for(const [i,a]of avatars.entries()){if(['thiago','thamis'].includes(a.id))familyAnimateAvatar(a.avatar,null,{speed:!s.car&&Math.hypot(ix,iz)>.1?3.3:0,sitting:!!s.car,time:now/1000});if(s.car){const seat=brazilSeatOffset(s.car.entry.model,i-1),scale=brazilSeatScale(s.car.entry.model);a.host.position.copy(s.car.group.position);a.host.rotation.y=s.body.yaw;a.avatar.group.position.set(seat.x,seat.y,seat.z);a.avatar.group.scale.setScalar(a.avatar.source.scale*scale);}
     else{a.host.position.set(s.body.x+(i?Math.cos(s.body.yaw)*i:0),0,s.body.z-(i?Math.sin(s.body.yaw)*i:0));a.host.rotation.y=s.body.yaw;a.avatar.group.scale.setScalar(a.avatar.source.scale);a.avatar.group.position.set(0,.006-a.avatar.mesh.geometry.boundingBox.min.y*a.avatar.source.scale,0);}}
+   if(!look&&now>(s.lookUntil||0))s.freeCamera=false;
    if(s.car&&!s.freeCamera&&!look&&now>(s.lookUntil||0))s.cameraYaw=lerpAngle(s.cameraYaw,s.body.yaw+Math.PI,Math.min(1,dt*3));const distance=s.car?11:10,y=1.2;cam.position.set(s.body.x+Math.sin(s.cameraYaw)*distance*Math.cos(s.cameraPitch),y+Math.sin(s.cameraPitch)*distance,s.body.z+Math.cos(s.cameraYaw)*distance*Math.cos(s.cameraPitch));cam.lookAt(s.body.x-Math.sin(s.cameraYaw)*4,y,s.body.z-Math.cos(s.cameraYaw)*4);render.render(room,cam);
   };
   s.cleanup=()=>{if(closed)return;if(s.car)garageRememberRoomPose(s.car,heavyFloor);closed=true;cancelAnimationFrame(raf);reset();s.voice?.dispose();window.removeEventListener('keydown',key,true);window.removeEventListener('keyup',key,true);window.removeEventListener('blur',reset);for(const a of avatars)releaseFamilyAvatarVisual(a.avatar.group);for(const v of vehicles)if(v.group)brazilDetach(v.group);for(const g of geo)g.dispose();for(const m of mats){m.map?.dispose();m.dispose();}render.dispose();render.forceContextLoss();personalGarage.room=null;};raf=requestAnimationFrame(frame);return true;
