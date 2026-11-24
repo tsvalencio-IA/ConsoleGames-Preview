@@ -81,6 +81,18 @@ async function inspectConsole() {
 }
 
 try {
+  if (hosted) {
+    let available = false;
+    for (let attempt = 0; attempt < 12 && !available; attempt++) {
+      const response = await context.request.get(href('preview-release.json'), {timeout: 10000}).catch(() => null);
+      if (response?.ok()) {
+        const metadata = await response.json().catch(() => null);
+        available = Boolean(metadata?.revision && (!process.env.GITHUB_SHA || metadata.commit === process.env.GITHUB_SHA));
+      }
+      if (!available) await new Promise(resolve => setTimeout(resolve, 2500));
+    }
+    assert(available, 'The deployed commit never became available at the Pages URL');
+  }
   if (!hosted) {
     await page.goto(new URL('/ConsoleGames/qa.html', base).href);
     await page.evaluate(async () => {
@@ -98,6 +110,7 @@ try {
   await go('arcade/');
   await inspectConsole();
   report.release = await (await context.request.get(href('preview-release.json'))).json();
+  if (process.env.GITHUB_SHA) assert.equal(report.release.commit, process.env.GITHUB_SHA);
   const releaseUrl = href('games/otthi/release-manifest.json');
   const release = await (await context.request.get(releaseUrl)).json();
   assert.equal(release.revision, report.release.revision);

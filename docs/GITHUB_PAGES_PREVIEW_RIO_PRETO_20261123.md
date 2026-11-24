@@ -1,5 +1,7 @@
 # OTThi World — GitHub Pages de testes (23/11/2026)
 
+Este roteiro registra a preparação da versão `.40`. O repositório de destino já existe. A implementação e o estado atual estão no [registro da homologação 705.28.41](HOMOLOGACAO_CONSOLEGAMES_705_28_41.md).
+
 ## Regra de preservação
 **NÃO PUBLICAR a branch experimental na `main` do repositório original `ConsoleGames`.**
 A página principal do console já é utilizada para jogos e PWAs; trocar a fonte
