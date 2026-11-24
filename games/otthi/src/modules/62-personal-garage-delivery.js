@@ -162,9 +162,29 @@
    if(rig[key])rig[key].rotation.x=angle;
   }
  }
+ // Use the same approach as the vehicle parking interaction. A player
+ // who leaves a parked vehicle must also be able to walk back into the room.
+ function garagePedestrianApproach(door){
+  return{x:door.x+9,z:door.z,radius:5.5};
+ }
+ function garagePedestrianReturnPoint(door,position,blocked){
+  const a=garagePedestrianApproach(door);
+  const within=p=>Math.hypot(p.x-a.x,p.z-a.z)<a.radius-.25&&Math.hypot(p.x-door.x,p.z-door.z)<14;
+  if(within(position)&&!blocked(position.x,position.z))return{x:position.x,z:position.z};
+  for(const dx of[0,-1,1,-2,2,-3,3])for(const dz of[0,-1,1,-2,2,-3,3]){
+   const p={x:a.x+dx,z:a.z+dz};if(within(p)&&!blocked(p.x,p.z))return p;
+  }
+  return null;
+ }
  function openPersonalGarageRoom(floor=0){
   const door=worldLayoutPoint('homeGarage');if(!running||(paused&&els.modal.hidden)||worldVenues.session||otGames.active||currentHouse||player.boating||Math.hypot(player.x-door.x,player.z-door.z)>14)return false;
-  if(player.vehicle&&!garageStoreHere(player.car.id))return false;closeModal();clearMovementInputs();savePlayerPosition(true);ensurePlayerGarageState();
+  const arrivedByVehicle=player.vehicle;
+  if(arrivedByVehicle&&!garageStoreHere(player.car.id))return false;
+  if(arrivedByVehicle){
+   const p=garagePedestrianReturnPoint(door,player,(x,z)=>positionBlockedForPlayer(x,z,.48));
+   if(p){player.x=p.x;player.z=p.z;player.y=groundHeightAt(p.x,p.z);player.vx=player.vy=player.vz=0;player.grounded=true;rememberSafePlayerPosition(true);}
+  }
+  closeModal();clearMovementInputs();updateContext(true);savePlayerPosition(true);ensurePlayerGarageState();
   const g=ensurePlayerGarageState();for(const key of Object.keys(g.slots)){const id=g.slots[key],v=vehicleById(id);if(id&&v&&!v.occupied&&!v.workshopYardStatus&&(!state.vehicles.parked?.[id]||Math.hypot(v.group.position.x-door.x,v.group.position.z-door.z)<13)){g.stored[id]=true;g.slots[key]='';setGarageVehicleStored(v,true);}}g.privateLayout=1;saveState(true);
   const parked=garageParkedEntries(),floorPlan=garageRoomFloors(parked),floors=floorPlan.length;floor=clamp(floor,0,floors-1);const heavyFloor=floorPlan[floor].heavy,depth=heavyFloor?72:48,edge=depth/2;
   const ui=document.createElement('section');ui.id='privateGarageRoom';ui.setAttribute('role','dialog');ui.setAttribute('aria-label','Interior da minha garagem');ui.innerHTML=`<header><b>MINHA GARAGEM · PISO ${floor+1}/${floors}</b><button data-garage-room-exit>VOLTAR À CASA</button></header><div data-garage-viewport></div><div class="garage-room-info" role="status">Caminhe até um veículo. Use ENTRAR, LIGAR MOTOR e dirija até a saída.</div><div class="garage-room-controls"><div data-garage-stick aria-label="Joystick esquerdo"><i></i></div><div class="garage-room-actions"><button data-garage-board disabled>ENTRAR</button><button data-garage-engine hidden>LIGAR MOTOR</button><button data-garage-gas hidden>ACELERAR</button><button data-garage-brake hidden>FREAR / RÉ</button></div></div><footer><button data-garage-floor-prev ${floor===0?'disabled':''}>PISO ANTERIOR</button><span>${parked.length} unidades estacionadas</span><button data-garage-floor-next ${floor===floors-1?'disabled':''}>PRÓXIMO PISO</button></footer>`;
@@ -251,5 +271,10 @@
  const garageOldOpen=openPlayerGarage;openPlayerGarage=function(){if(typeof inRioMap==='function'&&inRioMap())return garageOldOpen();const p=worldLayoutPoint('homeGarage'),home=worldLayoutPoint('home');if(currentHouse&&Math.hypot(currentHouse.x-home.x,currentHouse.z-home.z)<1){closeModal();exitHouse();player.x=p.x+8;player.z=p.z;player.y=groundHeightAt(player.x,player.z);player.vx=player.vy=player.vz=0;rememberSafePlayerPosition(true);return openPersonalGarageRoom();}if(Math.hypot(player.x-p.x,player.z-p.z)<14&&!currentHouse)return openPersonalGarageRoom();return openGarageVehicleManager();};
  const garageOldExpansion=updateWorldExpansion;updateWorldExpansion=function(){garageOldExpansion();garageSyncIgnition();if(!world.playerGarage)return;
   if(!world.playerGarage.privateParkingAction){const p=worldLayoutPoint('homeGarage');registerInteractable({id:'private-garage-park',type:'garage',vehicleOnly:true,icon:'🏠',label:'Estacionar na minha garagem',actionLabel:'Garagem',x:p.x+9,z:p.z,radius:5.5,priority:800,available:()=>player.vehicle&&!player.car.passengerOf&&state.vehicles.owned.includes(player.car.id),action:()=>openPersonalGarageRoom()});world.playerGarage.privateParkingAction=true;}
+  if(!world.playerGarage.privateFootAction){
+   const p=garagePedestrianApproach(worldLayoutPoint('homeGarage'));
+   registerInteractable({id:'private-garage-foot',type:'garage',icon:'🏠',label:'Entrar na minha garagem',actionLabel:'Garagem',x:p.x,z:p.z,radius:p.radius,priority:800,available:()=>!player.vehicle&&!player.boating&&!player.transit.mode&&!currentHouse&&!worldVenues.session,action:()=>openPersonalGarageRoom()});
+   world.playerGarage.privateFootAction=true;
+  }
   for(const i of world.interactables)if(i.id==='player-home-garage'||i.id==='player-home-garage-west'){i.label='Entrar na minha garagem';i.action=()=>openPersonalGarageRoom();}const sign=world.playerGarage.group?.children.find(o=>o.geometry?.type==='PlaneGeometry'&&o.position.y>2);if(sign&&!sign.userData.privateGarage){sign.material.map?.dispose();sign.material.map=signTexture('MINHA GARAGEM · ENTRADA','#173b59','#ffffff');sign.material.needsUpdate=true;sign.userData.privateGarage=true;}};
  window.OT_PERSONAL_GARAGE={diagnostics:()=>({active:!!personalGarage.room,floor:personalGarage.room?.floor,inside:personalGarage.room?{...personalGarage.room.body,vehicle:personalGarage.room.car?.entry.id,engine:personalGarage.room.engine,avatars:(personalGarage.room.avatars||[]).map(a=>({id:a.id,visible:a.host.visible&&!!(a.avatar?.group||a.custom?.group)?.visible,kind:a.avatar?'family':'custom'}))}:null,units:garageOwnedEntries().map(e=>({id:e.id,catalogId:e.catalogId,model:e.model,unit:e.unit,stored:!!state.vehicles.garage.stored[e.id]})),lastDelivery:personalGarage.lastDelivery})};

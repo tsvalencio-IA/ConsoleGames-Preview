@@ -21,3 +21,9 @@ test('garage creates the selected avatar without requiring a family walk owner',
  assert.deepEqual(roster('',{members:[],controller:''}),['player']);
  assert.deepEqual(roster('thiago',{members:['thiago','luna','luna'],controller:'thiago'}),['thiago','luna']);
 });
+
+test('garage pedestrian return preserves a valid position and never chooses a blocked or distant point',()=>{
+ const fn=new Function(named('garagePedestrianApproach')+';'+named('garagePedestrianReturnPoint')+';return garagePedestrianReturnPoint;')();
+ const door={x:100,z:20};assert.deepEqual(fn(door,{x:108,z:21},()=>false),{x:108,z:21});
+ const p=fn(door,{x:122,z:20},(x,z)=>x===109&&z===20);assert(p);assert(Math.hypot(p.x-109,p.z-20)<5.25);assert.notDeepEqual(p,{x:109,z:20});assert.equal(fn(door,{x:122,z:20},()=>true),null);
+});
