@@ -73,6 +73,9 @@ try{
     await page.waitForFunction(id=>window.System?.activeGame?.id===id,id,{timeout:11000});
     assert.equal(await page.evaluate(()=>window.ArcadeControls?.mode),"controls","Modo controle não ativo");
     assert.equal(await page.evaluate(()=>window.__cameraRequests),0,"Solicitou câmera sem escolha");
+    // activeGame is assigned BEFORE async preparation finishes. Do not
+    // snapshot the HUD until the actual startup contract is satisfied.
+    await page.waitForFunction(id=>window.System?.activeGame?.id===id&&!window.System.isStarting&&!document.getElementById("game-ui")?.classList.contains("hidden")&&document.getElementById("loading")?.classList.contains("hidden"),id,{timeout:60000});
     await page.waitForTimeout(1100);
     const state=await page.evaluate(()=>({
       game:window.System?.activeGame?.id,
@@ -435,8 +438,16 @@ try{
     await page.locator('#play-settings [data-studio-audio]').click();
     assert.equal(await audioControl.getAttribute("aria-pressed"),"true","Studio FX enable not applied");
     await page.locator('#play-settings [data-close]').last().click();
-    assert.equal(state.game,id,"Motor foi encerrado inesperadamente");
-    assert.equal(state.loaded,true,"HUD de jogo não exibido");
+    // Re-read the actual game and HUD after closing settings, rather than
+    // asserting only an old snapshot. A hidden HUD still fails the test.
+    assert.equal(state.game,id,"Motor não iniciou corretamente");
+    assert.equal(state.loaded,true,"HUD não exibido após inicialização");
+    await page.locator("#game-ui:not(.hidden)").waitFor({state:"visible",timeout:10000});
+    const finalState=await page.evaluate(()=>({game:window.System?.activeGame?.id,loaded:!document.getElementById("game-ui")?.classList.contains("hidden"),paused:window.System?.paused,width:document.documentElement.scrollWidth,viewport:window.innerWidth}));
+    assert.equal(finalState.game,id,"Motor foi encerrado inesperadamente");
+    assert.equal(finalState.loaded,true,"HUD de jogo não exibido");
+    assert.equal(finalState.paused,false,"Motor permaneceu pausado após configurações");
+    assert(finalState.width<=finalState.viewport+3,JSON.stringify({slug,finalState}));
     assert(state.width<=state.viewport+3,JSON.stringify({slug,state}));
     await page.screenshot({path:join("test-results/playable",slug+"-game.png")});
     await page.locator("#arcade-pause").click();
