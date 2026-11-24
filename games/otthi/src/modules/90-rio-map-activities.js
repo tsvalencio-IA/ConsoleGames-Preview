@@ -24,30 +24,68 @@
     Object.assign(rioRoadVehicleSave(vehicle.id),{x:+x.toFixed(2),z:+z.toFixed(2),heading:+heading.toFixed(3)});
     vehicle.x=x;vehicle.z=z;vehicle.heading=heading;
   }
+  function rioFuelQuote(tank,fuel,coins,requested){
+    if(![tank,fuel,coins,requested].every(Number.isFinite)||tank<=0||coins<0||requested<=0)return{litres:0,price:0};
+    const tenths=Math.max(0,Math.min(Math.floor((tank-fuel)*10+1e-6),Math.floor(coins/RIO_FUEL_PRICE*10+1e-6),Math.floor(requested*10+1e-6)));
+    return{litres:tenths/10,price:Math.round(tenths*RIO_FUEL_PRICE/10*100)/100};
+  }
   function rioOpenFuel(site,room,pump){
     const vehicle=currentVehicleRef(),tank=rioFuelCapacity(vehicle);
-    const parked=()=>player.vehicle&&currentVehicleRef()===vehicle&&tank&&Math.abs(player.car.speed)<.55&&
+    const parked=()=>player.vehicle&&!player.car.passengerOf&&currentVehicleRef()===vehicle&&tank&&Math.abs(player.car.speed)<.55&&
       room.root.visible&&Math.hypot(player.x-pump.x,player.z-pump.z)<2.65;
     if(!parked()){
       toast('Pare um veículo a motor na faixa ao lado da bomba.','warn',2000);return false;
     }
-    const fuel=rioFuelLevel(vehicle),litres=Math.min(10,Math.floor(tank-fuel));
-    if(litres<=0){toast('O tanque está cheio.','info',1800);return false;}
-    const price=litres*RIO_FUEL_PRICE;
-    openModal('Posto Chiesa Brasília','<p>'+escapeHtml(vehicle.label)+' parado na bomba. O tanque tem '+fuel.toFixed(1)+' de '+tank+
-      ' litros.</p><button class="btn primary" data-rio-refuel>Abastecer '+litres+' l por '+price+' moedas</button>',root=>{
-      const button=root.querySelector('[data-rio-refuel]');
+    const fuel=rioFuelLevel(vehicle),max=rioFuelQuote(tank,fuel,Number(state.profile.coins),tank).litres;
+    if(tank-fuel<.1){toast('O tanque está cheio.','info',1800);return false;}
+    if(max<=0){toast('Moedas insuficientes.','warn',2000);return false;}
+    openModal(site.name,'<p>'+escapeHtml(vehicle.label)+' · tanque '+fuel.toFixed(1)+' / '+tank+' L</p>'+
+      '<label class="field">Quantidade em litros<input data-rio-litres type="number" min="0.1" max="'+max+'" step="0.1" inputmode="decimal" value="'+Math.min(10,max)+'"></label>'+
+      '<div class="modal-actions"><button class="btn" data-rio-fill>Completar tanque</button></div>'+
+      '<p data-rio-fuel-total></p><progress data-rio-fuel-progress max="1" value="0" style="width:100%"></progress>'+
+      '<div class="modal-actions"><button class="btn primary" data-rio-refuel>Abastecer</button><button class="btn" data-rio-fuel-cancel>Cancelar</button></div>',root=>{
+      const amount=root.querySelector('[data-rio-litres]'),total=root.querySelector('[data-rio-fuel-total]'),progress=root.querySelector('[data-rio-fuel-progress]'),button=root.querySelector('[data-rio-refuel]'),fill=root.querySelector('[data-rio-fill]');
+      let active=false,cancelled=false;
+      const quote=()=>rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),Number(amount.value));
+      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price.toFixed(2)+' moedas';button.disabled=q.litres<=0||active;};
+      amount.oninput=refresh;fill.onclick=()=>{amount.value=String(rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),tank).litres);refresh();};
+      root.querySelector('[data-rio-fuel-cancel]').onclick=()=>{cancelled=true;closeModal();};
+      refresh();
       button.onclick=()=>{
-        const current=rioFuelLevel(vehicle);
-        if(button.disabled||!parked()||current+litres>tank+.001)return;
-        if(Number(state.profile.coins)<price){toast('Moedas insuficientes.','warn',2000);return;}
-        button.disabled=true;
-        closeModal();rioRoadVehicleSave(vehicle.id).fuel=current+litres;addCoins(-price);
-        rioCountVisit(site);toast(litres+' litros no tanque.','good',2100);
+        if(active||cancelled||!parked())return;
+        const q=quote(),initial=rioFuelLevel(vehicle);
+        if(q.litres<=0)return;
+        active=true;button.disabled=amount.disabled=fill.disabled=true;
+        const start=performance.now(),duration=Math.max(1500,Math.min(6500,q.litres*120));
+        const tick=now=>{
+          if(cancelled||!button.isConnected||els.modal.hidden)return;
+          if(!parked()||Math.abs(rioFuelLevel(vehicle)-initial)>.001||Number(state.profile.coins)<q.price){
+            active=false;amount.disabled=fill.disabled=false;refresh();toast('Abastecimento interrompido; nada foi cobrado.','warn',2200);return;
+          }
+          const fraction=clamp((now-start)/duration,0,1);progress.value=fraction;
+          total.textContent=(q.litres*fraction).toFixed(1)+' / '+q.litres.toFixed(1)+' L · '+(q.price*fraction).toFixed(2)+' moedas';
+          if(fraction<1){requestAnimationFrame(tick);return;}
+          cancelled=true;rioRoadVehicleSave(vehicle.id).fuel=Math.min(tank,initial+q.litres);addCoins(-q.price);
+          rioCountVisit(site);saveState(true);updateHUD();closeModal();toast(q.litres.toFixed(1)+' litros abastecidos.','good',2200);
+        };
+        requestAnimationFrame(tick);
       };
     });
     return true;
   }
+
+  // A dry tank is a genuine mobility constraint, not merely a HUD number.
+  const rioVehiclePhysicsBeforeFuel=updateVehiclePhysics;
+  updateVehiclePhysics=function(dt,...args){
+    if(typeof inRioMap==='function'&&inRioMap()&&player.vehicle&&!player.car.passengerOf&&rioFuelCapacity(currentVehicleRef())&&rioFuelLevel()<=.001){
+      player.car.speed=0;player.vx=player.vz=0;
+      const now=performance.now();if(now-(rioVehiclePhysicsBeforeFuel.emptyTankNotice||0)>5000){
+        rioVehiclePhysicsBeforeFuel.emptyTankNotice=now;toast('Sem combustível. Solicite socorro ou abasteça no posto.','warn',2400);
+      }
+      return;
+    }
+    return rioVehiclePhysicsBeforeFuel(dt,...args);
+  };
 
   function rioAtFleetCounter(){
     return !player.vehicle&&!player.boating&&!player.swimming&&rioMap.garage&&distance2D(player,rioMap.garage.counter)<2.65;
