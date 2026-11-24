@@ -12,7 +12,12 @@
       ['hoodie', 'Moletom com capuz', '#66739c'],
       ['rio-polo', 'Polo vinho da cidade', '#862e4a'],
       ['rio-lavanda', 'Camiseta lavanda', '#9f86b2'],
-      ['rio-social', 'Camisa social azul', '#446a8a']
+      ['rio-social', 'Camisa social azul', '#446a8a'],
+      ['rio-blazer','Blazer grafite','#404955'],
+      ['rio-cropped','Cropped vermelho','#bf293e'],
+      ['rio-vestido-rosa','Vestido rosa','#d77ba1'],
+      ['rio-polo-branco','Polo branca','#ede9df'],
+      ['rio-jaqueta-couro','Jaqueta de couro','#443631']
     ],
     legs: [
       ['original', 'Roupa original'],
@@ -23,7 +28,10 @@
       ['rio-alfaiataria', 'Calça de alfaiataria', '#383b43'],
       ['rio-cargo', 'Calça cargo', '#6c7351'],
       ['rio-jeans-preto', 'Jeans preto', '#252a35'],
-      ['rio-bermuda-jeans', 'Bermuda jeans', '#456786']
+      ['rio-bermuda-jeans', 'Bermuda jeans', '#456786'],
+      ['rio-legging','Legging preta','#262b34'],
+      ['rio-legging-vinho','Legging vinho','#71374e'],
+      ['rio-sarja-clara','Calça bege','#d4bf9f']
     ],
     shoes: [
       ['original', 'Calçado original'],
@@ -34,7 +42,9 @@
       ['rio-sapato', 'Sapato azul-marinho', '#263a58'],
       ['rio-sneaker', 'Tênis urbano', '#b6a088'],
       ['rio-bota', 'Bota preta', '#282b35'],
-      ['rio-salto', 'Sapato de festa', '#b66d76']
+      ['rio-salto', 'Sapato de festa', '#b66d76'],
+      ['rio-tenis-vermelho','Tênis vermelho','#b43639'],
+      ['rio-bota-caramelo','Bota caramelo','#a26b43']
     ],
     hat: [
       ['original', 'Sem chapéu novo'],
@@ -43,21 +53,25 @@
       ['beanie', 'Gorro de tricô', '#496b61'],
       ['headphones', 'Fones de ouvido', '#4b5970'],
       ['rio-bone-azul', 'Boné azul', '#375c96'],
-      ['rio-panama-claro', 'Chapéu verão', '#e6cda3']
+      ['rio-panama-claro', 'Chapéu verão', '#e6cda3'],
+      ['rio-bone-preto','Boné preto','#282e38'],
+      ['rio-gorro-rosa','Gorro rosa','#cc7299']
     ],
     glasses: [
       ['original', 'Óculos originais'],
       ['copper', 'Armação cobre', '#b87955'],
       ['sun', 'Óculos de sol', '#304255'],
       ['rio-armacao', 'Óculos pretos', '#25292e'],
-      ['rio-sol', 'Óculos escuros', '#1a2435']
+      ['rio-sol', 'Óculos escuros', '#1a2435'],
+      ['rio-sol-ambar','Óculos de sol âmbar','#986439']
     ],
     jewel: [
       ['original', 'Acessórios originais'],
       ['necklace', 'Colar pingente', '#d8ae61'],
       ['earrings', 'Brincos pequenos', '#d8ae61'],
       ['rio-brinco-prata', 'Brincos de prata', '#b7c8d2'],
-      ['rio-colar-prata', 'Colar de prata', '#b9cad2']
+      ['rio-colar-prata', 'Colar de prata', '#b9cad2'],
+      ['rio-colar-ouro','Colar dourado','#d8b365']
     ],
     wrist: [
       ['original', 'Acessório original'],
@@ -83,7 +97,10 @@
     'rio-social':96,'rio-alfaiataria':88,'rio-cargo':70,'rio-jeans-preto':78,'rio-bermuda-jeans':52,
     'rio-sneaker':72,'rio-bota':98,'rio-salto':94,'rio-bone-azul':39,'rio-panama-claro':55,
     'rio-armacao':65,'rio-sol':69,'rio-brinco-prata':48,'rio-colar-prata':60,
-    'rio-smartwatch':110,'rio-pulseira-prata':50,'rio-mochila-escola':72,'rio-bolsa-cidade':86});
+    'rio-smartwatch':110,'rio-pulseira-prata':50,'rio-mochila-escola':72,'rio-bolsa-cidade':86,
+    'rio-blazer':125,'rio-cropped':59,'rio-vestido-rosa':110,'rio-polo-branco':70,'rio-jaqueta-couro':140,
+    'rio-legging':62,'rio-legging-vinho':65,'rio-sarja-clara':78,'rio-tenis-vermelho':75,'rio-bota-caramelo':99,
+    'rio-bone-preto':39,'rio-gorro-rosa':42,'rio-sol-ambar':69,'rio-colar-ouro':88});
   function rioWardrobeHasItem(id){return !RIO_WARDROBE_STORE[id]||!!state.cityServices?.rioMap?.wardrobePurchases?.[id];}
   const RIO_WARDROBE_PRESETS = Object.freeze({
     original: {label:'Visual original', outfit:{}},
@@ -106,12 +123,12 @@
   function rioWardrobeToken(value) {
     const outfit=normalizeRioWardrobeOutfit(value);
     const slots=Object.entries(RIO_WARDROBE_CATALOG).map(([slot,choices])=>choices.findIndex(choice=>choice[0]===outfit[slot]));
-    return slots.some(Boolean) ? 'rio1-'+slots.join('') : '';
+    return slots.some(Boolean) ? (slots.every(n=>n<10)?'rio1-'+slots.join(''):'rio2-'+slots.map(n=>n.toString(36)).join('')) : '';
   }
   function rioWardrobeFromToken(value) {
-    const match=/^rio1-([0-9]{8})$/.exec(typeof value==='string'?value:'');
+    const match=/^(?:rio1-([0-9]{8})|rio2-([0-9a-z]{8}))$/.exec(typeof value==='string'?value:'');
     if(!match)return normalizeRioWardrobeOutfit();
-    return normalizeRioWardrobeOutfit(Object.fromEntries(Object.entries(RIO_WARDROBE_CATALOG).map(([slot,choices],i)=>[slot,choices[Number(match[1][i])]?.[0]])));
+    return normalizeRioWardrobeOutfit(Object.fromEntries(Object.entries(RIO_WARDROBE_CATALOG).map(([slot,choices],i)=>[slot,choices[parseInt((match[1]||match[2])[i],36)]?.[0]])));
   }
   function rioWardrobeTint(slot,id) {
     return RIO_WARDROBE_CATALOG[slot].find(choice=>choice[0]===id)?.[2];
@@ -150,7 +167,7 @@
       if(tints.top&&(tag===id&&y>1.22&&y<2.13||/^shoulder[+-]?\d/.test(tag))&&!matches(i,neck))tint=tints.top;
       if(tints.legs&&/^(hips|hip[+-]?\d|knee[+-]?\d)$/.test(tag)){
         tint=tints.legs;
-        if(outfit.legs==='bermuda'&&y<.78){tint=neck;keepDetail=false;}
+        if(['bermuda','rio-bermuda-jeans'].includes(outfit.legs)&&y<.78){tint=neck;keepDetail=false;}
       }
       else if(outfit.top==='festival'&&outfit.legs==='original'&&/^(hips|hip[+-]?\d|knee[+-]?\d)$/.test(tag))tint=joggers;
       if(tints.shoes&&/^ankle[+-]?\d/.test(tag)&&y>.255&&colors.getX(i)<.73)tint=tints.shoes;
@@ -242,7 +259,7 @@
     const top=tint('top');
     if(top){
       const torso=add('top',rootKey);
-      if(['denim','rain','hoodie','rio-social'].includes(outfit.top)){
+      if(['denim','rain','hoodie','rio-social','rio-blazer','rio-jaqueta-couro'].includes(outfit.top)){
         // The sleeves pivot at the existing elbows and leave the tool hand clear.
         for(const side of [-1,1]){
           const sleeve=add('sleeve','elbow'+side);
@@ -265,7 +282,7 @@
       }else if(outfit.top==='linen'){
         piece(torso,'box','#c5b2a0',[.13,.105,.015],[-.16,1.775,.227]);
         piece(torso,'box','#ead8c0',[.46,.024,.026],[0,1.31,.19]);
-      }else if(outfit.top==='festival'){
+      }else if(['festival','rio-vestido-rosa'].includes(outfit.top)){
         state.skirt=add('skirt',rootKey);
         state.skirt.position.set(0,1.14,0);
         piece(state.skirt,'flare',top,[.84,.33,.57],[0,0,0]);
@@ -277,7 +294,7 @@
       const stripe=add('track-stripe','hip'+side);
       piece(stripe,'box','#e0d7ee',[.022,.38,.036],[side*.159,-.252,.04]).rotation.z=-side*.075;
     }
-    if(outfit.shoes==='boot')for(const side of [-1,1]){
+    if(['boot','rio-bota','rio-bota-caramelo'].includes(outfit.shoes))for(const side of [-1,1]){
       const boot=add('boot','ankle'+side);
       piece(boot,'disc',tint('shoes'),[.232,.25,.248],[0,.221,-.04]);
       piece(boot,'disc','#9e7a5b',[.242,.028,.255],[0,.338,-.04]);
@@ -285,7 +302,7 @@
     const hat=tint('hat');
     if(hat){
       const head=add('hat','head');
-      if(['cap','rio-bone-azul'].includes(outfit.hat)){
+      if(['cap','rio-bone-azul','rio-bone-preto'].includes(outfit.hat)){
         piece(head,'sphere',hat,[.81,.28,.72],[0,.444,-.012]);
         piece(head,'sphere',hat,[.58,.06,.34],[0,.393,.38]);
         piece(head,'box','#ead9b3',[.102,.043,.018],[0,.49,.335]);
@@ -305,10 +322,10 @@
         piece(head,'sphere',hat,[.119,.124,.118],[0,.593,-.019]);
       }
     }
-    if(['sun','rio-sol'].includes(outfit.glasses)){
+    if(['sun','rio-sol','rio-sol-ambar'].includes(outfit.glasses)){
       const glasses=add('glasses','head');
       for(const side of [-1,1]){
-        piece(glasses,'sphere','#203744',[.242,.181,.035],[side*.176,.065,.414],'lens');
+        piece(glasses,'sphere',outfit.glasses==='rio-sol-ambar'?'#986439':'#203744',[.242,.181,.035],[side*.176,.065,.414],'lens');
         piece(glasses,'box','#b79267',[.061,.025,.024],[side*.305,.113,.426],'metal');
       }
     }
@@ -316,7 +333,7 @@
     if(['earrings','rio-brinco-prata'].includes(outfit.jewel)){
       const ears=add('earrings','head');
       for(const side of [-1,1])piece(ears,'ring',jewel,[.075,.105,.048],[side*.424,-.127,.039],'metal');
-    }else if(outfit.jewel==='necklace'){
+    }else if(['necklace','rio-colar-prata','rio-colar-ouro'].includes(outfit.jewel)){
       const neck=add('necklace',rootKey);
       const chain=piece(neck,'ring',jewel,[.356,.29,.10],[0,1.92,.188],'metal');
       chain.rotation.x=-.36;
@@ -327,7 +344,7 @@
       piece(watch,'disc',tint('wrist'),[.169,.069,.174],[0,-.283,.006],'metal');
       piece(watch,'box','#253845',[.087,.047,.039],[0,-.283,.101],'metal');
       piece(watch,'box','#98c5c4',[.013,.021,.005],[0,-.279,.124]);
-    }else if(outfit.wrist==='bracelet'){
+    }else if(['bracelet','rio-pulseira-prata'].includes(outfit.wrist)){
       const bracelet=add('bracelet','elbow1');
       piece(bracelet,'disc',tint('wrist'),[.155,.039,.16],[0,-.302,0]);
       piece(bracelet,'sphere','#efcf99',[.055,.052,.035],[0,-.30,.083]);
