@@ -65,6 +65,27 @@ test('one building fire leaves a second fire truck free to respond on the road',
  assert.deepEqual(movement,['near','near']);
 });
 
+test('a stalled responder can be replaced once while both vehicles keep their actual poses',()=>{
+ const f=fixture(),i=f.context.i=incident();
+ i.required={police:true};i.lastDispatchAt=0;i.dispatches={police:[{vehicleId:'police1'}]};
+ const current={id:'police1',incidentTargetId:i.id,responseJob:{stationaryFor:8.5},group:{position:{x:4,z:0}}};
+ const spare={id:'police2',group:{position:{x:-8,z:1}}};
+ f.world.policeCars.push(current,spare);
+ let attempts=0;
+ Object.assign(f.context,{serviceVehiclePools:()=>f.world.policeCars,dispatchIncidentResponder:(incident,kind,clear)=>{
+  attempts++;assert.equal(clear,true);spare.incidentTargetId=incident.id;spare.responseJob={stationaryFor:0};
+  incident.responders[kind]=spare.id;incident.dispatches[kind].push({vehicleId:spare.id});return spare;
+ }});
+ f.run(section(source,'  function releaseIncidentResponder(','  function recordIncidentContingency('));
+ f.run('retryIncidentResponders(i,2500)');
+ assert.equal(i.responders.police,spare.id);assert.equal(current.incidentTargetId,'');
+ assert.deepEqual(current.group.position,{x:4,z:0});assert.deepEqual(spare.group.position,{x:-8,z:1});
+ assert.deepEqual(i.physicalArrivals,{});assert.deepEqual(i.contingencyEvents,[]);
+ spare.responseJob.stationaryFor=10;
+ f.run('retryIncidentResponders(i,5500)');
+ assert.equal(attempts,1);
+});
+
 test('hidden parked instances do not become phantom blockers, and visible bodies still block',()=>{
  const f=fixture();f.context.vehicle={serviceType:'firefighter'};
  const other={id:'parked',group:{visible:false},body:{x:0,z:0,w:1,l:2,s:0,c:1}};f.world.vehicles.push(other);

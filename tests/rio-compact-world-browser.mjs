@@ -57,7 +57,7 @@ try{
       url.searchParams.set('entrada',name);history.replaceState(history.state,'',url);
     },entrance);
     await page.locator('#playBtn').tap();
-    await page.waitForFunction(()=>OTTHOS_TEST_API.getGame().running&&document.getElementById('modal').hidden);
+    await page.waitForFunction(()=>window.OTTHOS_TEST_API?.getGame().running&&document.getElementById('modal').hidden);
     assert(!new URL(page.url()).searchParams.has('entrada'));
   };
 
@@ -302,13 +302,39 @@ try{
   await page.waitForFunction(()=>OTTHOS_TEST_API.getContext()?.id==='regional-shopping_cidade_norte-store-top',null,{timeout:9000});
   await page.locator('#actionBtn').tap();
   await page.locator('[data-rio-clothing-buy]').first().waitFor({timeout:10000});
+  const product=page.locator('[data-rio-clothing-buy]:not([disabled])').first();
+  const sku=await product.getAttribute('data-rio-clothing-buy');
+  await product.tap();
+  assert.equal((await state()).cityServices.rioMap.wardrobePurchases[sku],true);
+  assert(await page.locator(`[data-rio-clothing-buy="${sku}"]`).isDisabled());
   await shot('shopping-cidade-norte-loja-roupas');
-  await close();
+  await page.locator('[data-rio-clothing-try]').tap();
+  await page.locator('[data-rio-wardrobe-character="thamis"]').tap();
+  const slot=page.locator('[data-rio-wardrobe-slot]').filter({has:page.locator(`option[value="${sku}"]`)});
+  const slotKey=await slot.getAttribute('data-rio-wardrobe-slot');
+  await slot.selectOption(sku);
+  await page.locator('[data-rio-wardrobe-save]').tap();
+  assert.equal((await state()).avatar.rioWardrobe.thamis[slotKey],sku);
   await page.evaluate(()=>OTTHOS_TEST_API.teleport(376,-315));
   await page.waitForFunction(()=>OTTHOS_TEST_API.getContext()?.id==='regional-shopping_cidade_norte-exit-regional-mall',null,{timeout:9000});
   await page.locator('#actionBtn').tap();
   await page.waitForFunction(()=>OTTHOS_TEST_API.getContext()?.id==='regional-shopping_cidade_norte',null,{timeout:10000});
-  report.shopping={realInterior:true,clothesShop:true,exit:true};
+  report.shopping={realInterior:true,clothesShop:true,wardrobe:{sku,slot:slotKey,character:'thamis'},exit:true};
+
+  await resumeAt('rios_candelaro');
+  await page.waitForFunction(()=>OTTHOS_TEST_API.getContext()?.id==='regional-rios-italia-candelaro-entrance');
+  await page.locator('#actionBtn').tap();
+  await page.locator('[data-rio-apartment="102"]').waitFor();
+  assert.equal(await page.locator('[data-rio-apartment]').count(),20);
+  await page.locator('[data-rio-apartment="102"]').tap();
+  await page.locator('[data-rio-property-buy]').tap();
+  const properties=(await state()).cityServices.rioMap.properties;
+  assert.equal(properties['regional-rios-italia-candelaro-unit-102'].owned,true);
+  assert(!properties['regional-rios-italia-candelaro']?.owned);
+  await page.locator('[data-rio-property-enter]').tap();
+  await page.waitForFunction(()=>{const p=OTTHOS_TEST_API.getGame().player;return Math.hypot(p.x-280,p.z-147)<10;});
+  await shot('rio-candelaro-unidade-102');
+  report.apartments={units:20,independentOwnership:true,entered:'102'};
 
   // Outdoor water cannot be in the apartment: verify the actual 3D pool
   // interactable from the exterior leisure court of Rio Candelaro.

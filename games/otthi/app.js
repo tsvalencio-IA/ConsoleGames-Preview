@@ -6538,7 +6538,7 @@
   }
   function setIncidentResponderRoute(vehicle,target,points=null){
     const route=points||incidentResponderRoute(vehicle,target),motion=new PhoneDriveRoute(route,Number(vehicle.group.rotation.y||0));
-    vehicle.responseJob={vehicle,target:{...target},route:motion,blockedFor:0,replanIn:0,reroutes:0,pathSearch:null};vehicle.responseRoute=motion.points;vehicle.responseIndex=motion.index;
+    vehicle.responseJob={vehicle,target:{...target},route:motion,blockedFor:0,stationaryFor:0,replanIn:0,reroutes:0,pathSearch:null};vehicle.responseRoute=motion.points;vehicle.responseIndex=motion.index;
     vehicle.group.userData.roadPath=motion.points;vehicle.group.userData.roadPathClosed=false;
     return vehicle.responseJob;
   }
@@ -6567,7 +6567,7 @@
     if(distance<arrival){vehicle.currentSpeed=0;if(vehicle.responseJob)vehicle.responseJob.route.speed=0;return distance;}
     let job=vehicle.responseJob;if(!job||Math.hypot(job.target.x-target.x,job.target.z-target.z)>.2)job=setIncidentResponderRoute(vehicle,target);
     const motion=job.route;motion.x=vehicle.group.position.x;motion.z=vehicle.group.position.z;
-    if(performance.now()<Number(vehicle.trafficHoldUntil||0)){vehicle.currentSpeed=0;motion.speed=0;return Math.hypot(motion.x-target.x,motion.z-target.z);}
+    if(performance.now()<Number(vehicle.trafficHoldUntil||0)){vehicle.currentSpeed=0;motion.speed=0;job.stationaryFor+=dt;return Math.hypot(motion.x-target.x,motion.z-target.z);}
     const point=motion.points[motion.index]||target,heading=Math.atan2(point.x-motion.x,point.z-motion.z),factor=trafficSpeedFactor(vehicle,heading,8),oldX=motion.x,oldZ=motion.z;
     motion.step(dt,(x,z,yaw)=>incidentResponderPoseClear(vehicle,x,z,yaw,true),Math.max(0,vehicle.speed*factor));
     // A traffic stop also needs a bounded search after waiting; it must not be
@@ -6575,13 +6575,14 @@
     motion.blocked||=factor<.035&&!motion.arrived;
     vehicle.group.position.set(motion.x,groundHeightAt(motion.x,motion.z)+.02,motion.z);vehicle.group.rotation.y=motion.yaw;vehicle.currentSpeed=motion.speed;
     const travel=Math.hypot(motion.x-oldX,motion.z-oldZ);for(const wheel of vehicle.wheels||[])wheel.rotation.x-=travel*2.3;
+    job.stationaryFor=travel>.015?0:job.stationaryFor+dt;
     const incident=world.activeIncident;if(incident&&incident.id===vehicle.incidentTargetId){
       incident.travelProgress||={};const key=target.x+':'+target.z;let progress=incident.travelProgress[vehicle.serviceType];
       if(!progress||progress.target!==key)progress=incident.travelProgress[vehicle.serviceType]={target:key,bestDistance:distance,lastAtMs:Number(incident.serviceElapsedMs||0)};
       const remaining=Math.hypot(motion.x-target.x,motion.z-target.z);if(remaining<progress.bestDistance-.4){progress.bestDistance=remaining;progress.lastAtMs=Number(incident.serviceElapsedMs||0);}
     }
     world.trafficSnapshot=null;recoverIncidentResponder(job,dt);
-    if(job.blockedFor>6&&job.searchFailed){const incident=world.activeIncident;if(incident&&incident.id===vehicle.incidentTargetId){const alternate=incidentResponderPoint(incident,vehicle.serviceType,vehicle,true),route=incidentResponderRoute(vehicle,alternate),first=route[1];if(first&&incidentResponderTravelClear(vehicle,{x:vehicle.group.position.x,z:vehicle.group.position.z},first,false)){const count=job.reroutes;job=setIncidentResponderRoute(vehicle,alternate,route);job.reroutes=count+1;}}}
+    if(job.blockedFor>6&&job.searchFailed){const incident=world.activeIncident;if(incident&&incident.id===vehicle.incidentTargetId){const alternate=incidentResponderPoint(incident,vehicle.serviceType,vehicle,true),route=incidentResponderRoute(vehicle,alternate),first=route[1];if(first&&incidentResponderTravelClear(vehicle,{x:vehicle.group.position.x,z:vehicle.group.position.z},first,false)){const {reroutes,stationaryFor}=job;job=setIncidentResponderRoute(vehicle,alternate,route);job.reroutes=reroutes+1;job.stationaryFor=stationaryFor;}}}
     vehicle.responseRoute=job.route.points;vehicle.responseIndex=job.route.index;vehicle.group.userData.roadPath=job.route.points;
     return Math.hypot(vehicle.group.position.x-target.x,vehicle.group.position.z-target.z);
   }
@@ -6614,24 +6615,40 @@
     for(const along of[offset,-offset,offset+9,-offset-9])for(const side of[2.5,-2.5,1.35,-1.35,3.3,-3.3]){const p={x:road.point.x+fx*along-fz*side,z:road.point.z+fz*along+fx*side,yaw};if(!pointOnRoad(p.x,p.z,.05))continue;if(!incidentResponderPoseClear(vehicle,p.x,p.z,yaw,true))continue;if(Object.values(incident.staging).some(q=>Math.hypot(q.x-p.x,q.z-p.z)<8))continue;incident.staging[kind]=p;return p;}
     return{x:incident.navX-fx*offset,z:incident.navZ-fz*offset};
   }
-  function dispatchIncidentResponder(incident,kind){
+  function dispatchIncidentResponder(incident,kind,requireClearDeparture=false){
     const job=currentServiceMissionJob();if(job&&serviceKindForJob(job)===kind){incident.playerAssigned[kind]=true;job.emergencyIncidentId=incident.id;job.serviceVehicleArrived=false;job.sceneTaskCompleted=false;reserveMissionServiceVehicle(job,{waypoint:true});return null;}
+    const previousStage=incident.staging?.[kind];
     const candidates=serviceVehiclePools(kind).filter(vehicle=>serviceVehicleAvailable(vehicle,null,true)).map(vehicle=>{
       const target=incidentResponderPoint(incident,kind,vehicle,true),route=incidentResponderRoute(vehicle,target);
       const start=vehicle.group.position,staged=Math.hypot(start.x-target.x,start.z-target.z)<1.65;
       const departure=staged||!!route[1]&&incidentResponderTravelClear(vehicle,start,route[1],false);
       return {vehicle,target,route,distance:routeLength(route),staged,departure};
-    }).filter(candidate=>candidate.staged||candidate.route.length>=2)
+    }).filter(candidate=>(candidate.staged||candidate.route.length>=2)&&(!requireClearDeparture||candidate.departure))
       .sort((a,b)=>Number(b.departure)-Number(a.departure)||a.distance-b.distance||String(a.vehicle.id).localeCompare(String(b.vehicle.id)));
     const selected=candidates[0];
-    if(!selected){if(incident.staging)delete incident.staging[kind];return null;}
+    if(!selected){if(previousStage)incident.staging[kind]=previousStage;else if(incident.staging)delete incident.staging[kind];return null;}
     const {vehicle,target,route,distance}=selected;incident.staging[kind]={...target};vehicle.incidentTargetId=incident.id;setIncidentResponderRoute(vehicle,target,route);incident.responders[kind]=vehicle.id;
     incident.dispatches||={};(incident.dispatches[kind]||=[]).push({vehicleId:vehicle.id,at:performance.now(),distance,from:{x:vehicle.group.position.x,z:vehicle.group.position.z},target:{...target}});
     incident.serviceBudgetMs=Math.max(Number(incident.serviceBudgetMs||30000),Math.min(90000,18000+distance/Math.max(1,vehicle.speed)*2200));incident.hardClearAt=incident.startedAt+incident.serviceBudgetMs;return vehicle;
   }
   function dispatchIncidentResponders(incident){dispatchIncidentResponder(incident,'police');dispatchIncidentResponder(incident,'paramedic');dispatchIncidentResponder(incident,'firefighter');incident.lastDispatchAt=performance.now();}
   function incidentResponderActive(incident,kind){const id=String(incident?.responders?.[kind]||'');if(!id)return false;return serviceVehiclePools(kind).some(v=>String(v.id)===id&&String(v.incidentTargetId||'')===String(incident.id));}
-  function retryIncidentResponders(incident,now){if(!incident||incident.resolved||now-Number(incident.lastDispatchAt||0)<2400)return;incident.lastDispatchAt=now;for(const kind of ['police','paramedic','firefighter']){if(!incident.required[kind]||incident.arrived[kind]||incident.tasks[kind]||incident.playerAssigned[kind])continue;if(!incidentResponderActive(incident,kind)){incident.responders[kind]='';dispatchIncidentResponder(incident,kind);}}}
+  function releaseIncidentResponder(vehicle){
+    vehicle.incidentTargetId='';vehicle.responseRoute=[];vehicle.responseIndex=0;vehicle.responseJob=null;
+  }
+  function retryIncidentResponders(incident,now){
+    if(!incident||incident.resolved||now-Number(incident.lastDispatchAt||0)<2400)return;
+    incident.lastDispatchAt=now;
+    for(const kind of ['police','paramedic','firefighter']){
+      if(!incident.required[kind]||incident.arrived[kind]||incident.tasks[kind]||incident.playerAssigned[kind])continue;
+      const current=serviceVehiclePools(kind).find(vehicle=>vehicle.id===incident.responders[kind]&&vehicle.incidentTargetId===incident.id);
+      if(!current){incident.responders[kind]='';dispatchIncidentResponder(incident,kind);continue;}
+      if(current.responseJob?.stationaryFor>=8&&(incident.dispatches?.[kind]?.length||0)<2&&dispatchIncidentResponder(incident,kind,true)){
+        releaseIncidentResponder(current);
+        if(incident.travelProgress)delete incident.travelProgress[kind];
+      }
+    }
+  }
   function recordIncidentContingency(incident,kind,reason,now){
     incident.contingencyEvents||=[];if(incident.contingencyEvents.some(event=>event.kind===kind&&event.reason===reason))return;
     incident.contingencyEvents.push({kind,reason,at:now,simulationMs:Number(incident.serviceElapsedMs||0),vehicleId:String(incident.responders?.[kind]||'')});
@@ -6663,7 +6680,10 @@
   function markPlayerIncidentArrival(incident){const job=typeof inRioMap==='function'&&inRioMap()?currentServiceMissionJob():state.career?.activeJob,kind=serviceKindForJob(job);if(!job||!kind||job.emergencyIncidentId!==incident.id||!isDrivingServiceVehicle(kind))return false;const distance=Math.hypot(player.x-incident.navX,player.z-incident.navZ);if(distance>5.2)return false;recordPhysicalIncidentArrival(incident,kind,null,distance,performance.now());if(!incident.arrived[kind]){incident.arrived[kind]=true;job.serviceVehicleArrived=true;setMissionState(job,MISSION_STATES.ACTION_REQUIRED,'assist-incident');state.waypoint={id:`assist-${incident.id}`,name:'Área do acidente',x:incident.x,z:incident.z,navX:incident.navX,navZ:incident.navZ,arrived:true};updateWaypointMarker();updateNavigation(0,true);toast('Veículo posicionado. Estacione, saia e use AÇÃO na área sinalizada.','good',3000);saveState(true);}return true;}
   function releaseIncidentActorStates(incident){const now=performance.now();for(const [index,saved]of (incident.actorStates||[]).entries()){const ref=saved.ref;if(!ref)continue;ref.incidentLocked=false;ref.incidentUntil=now+900+index*1400;ref.trafficHoldUntil=now+900+index*1400;ref.trafficRecoveryUntil=now+10000;ref.currentSpeed=Math.max(0,Math.min(Number(saved.currentSpeed||0),1.8));if(saved.state===BUS_STATES.ACCIDENT||ref.state===BUS_STATES.ACCIDENT)setBusState(ref,BUS_STATES.MOVING,'incident-cleared');}const records=(incident.actorStates||[]).map((saved,i)=>({id:`release-${i}`,type:'release',ref:saved.ref,group:saved.ref?.group||null,radius:Number(saved.ref?.radius||1.6),speed:Number(saved.currentSpeed||0)})).filter(x=>x.group);if(records.length>=2){separateIncidentActors(records[0],records[1]);separateIncidentActors(records[0],records[1]);}}
   function resolveTrafficIncident(incident){
-    if(!incident||incident.resolved)return;incident.resolved=true;incident.group.visible=false;releaseIncidentActorStates(incident);for(const car of world.policeCars){if(car.incidentTargetId===incident.id){car.incidentTargetId='';car.responseRoute=[];car.responseIndex=0;car.responseJob=null;}}for(const ambulance of world.ambulances){if(ambulance.incidentTargetId===incident.id){ambulance.incidentTargetId='';ambulance.responseRoute=[];ambulance.responseIndex=0;ambulance.responseJob=null;}}for(const truck of world.fireTrucks){if(truck.incidentTargetId===incident.id){truck.incidentTargetId='';truck.responseRoute=[];truck.responseIndex=0;truck.responseJob=null;}}
+    if(!incident||incident.resolved)return;incident.resolved=true;incident.group.visible=false;releaseIncidentActorStates(incident);
+    for(const vehicle of [...world.policeCars,...world.ambulances,...world.fireTrucks]){
+      if(vehicle.incidentTargetId===incident.id)releaseIncidentResponder(vehicle);
+    }
     const job=typeof inRioMap==='function'&&inRioMap()?currentServiceMissionJob():state.career?.activeJob,kind=serviceKindForJob(job);if(job&&job.emergencyIncidentId===incident.id){if(incident.tasks[kind]&&!incident.forcedClear)completeActiveJob();else{job.emergencyIncidentId='';job.serviceVehicleArrived=false;job.sceneTaskCompleted=false;setMissionState(job,MISSION_STATES.ACCEPTED,'incident-cleared-autonomously');}}
     const required=Object.keys(incident.required||{}).filter(kind=>incident.required[kind]),physical=required.length>0&&required.every(kind=>incident.physicalArrivals?.[kind]),contingency=!!incident.forcedClear||!!incident.contingencyEvents?.length;incident.completionMode=contingency?'contingency':physical?'physical':'unclassified';world.emergencyServiceHistory||=[];world.emergencyServiceHistory.push({id:incident.id,x:incident.x,z:incident.z,startedAt:incident.startedAt,resolvedAt:performance.now(),simulationMs:Number(incident.serviceElapsedMs||0),mode:incident.completionMode,physicalArrivals:{...(incident.physicalArrivals||{})},contingencyEvents:(incident.contingencyEvents||[]).map(event=>({...event})),dispatches:incident.dispatches||{}});if(world.emergencyServiceHistory.length>64)world.emergencyServiceHistory.splice(0,world.emergencyServiceHistory.length-64);if(physical&&!contingency&&!incident.forcedClear){
       state.cityServices.physicalRescuesCompleted=(state.cityServices.physicalRescuesCompleted||0)+1;
