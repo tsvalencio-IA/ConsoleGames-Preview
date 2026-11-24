@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.41-rio-preto-homologacao',
+    build: '705.28.42-rio-preto-npc-hud',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',
