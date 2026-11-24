@@ -30,23 +30,38 @@ try{
    },
    finishCourse:()=>{
      const course=rioMap.course,previous=rioStreetRecord()?.runs||0;
-     let overLake=0,swam=false;
-     cameraYaw=0;
+     let overLake=0,swam=false,photo=null,avatarDraws=0;
+     cameraYaw=0;input.touchSprint=true;
      for(const goal of course.route.slice(1)){
        let frames=0;
        while(activeRace&&distance2D(player,goal)>.18){
          if(++frames>2400)throw Error('Runner stopped at '+JSON.stringify({x:player.x,z:player.z,goal}));
          const dx=goal.x-player.x,dz=goal.z-player.z,len=Math.hypot(dx,dz);
          input.joyId=1;input.joyX=dx/len;input.joyZ=-dz/len;
-         updatePlayer(1/60);updateRioStreetRun(1/60);
+         const before={x:player.x,z:player.z};updatePlayer(1/60);
+         if(!photo){
+           rioFottoObserveRun(1/60,before);
+           if(rioFotto.pending){
+             __CITY_QA.renderNative();
+             const saved=renderer.render,restores=[];
+             // Restore native rendering for the shutter only. Record actual
+             // avatar draw calls, not merely the presence of a JPEG.
+             for(const root of [playerModel,avatarLayer])root?.traverseVisible(o=>{if(!o.isMesh)return;const previous=o.onBeforeRender;o.onBeforeRender=function(...args){if(args[2]!==camera)avatarDraws++;previous?.apply(this,args);};restores.push(()=>o.onBeforeRender=previous);});
+             try{renderer.render=cityQaRender;rioFottoCaptureFrame();if(rioFotto.busy)photo={sprinting:input.isSprinting,avatarDraws};}
+             finally{renderer.render=saved;for(const restore of restores)restore();}
+           }
+         }
+         updateRioStreetRun(1/60);
          if(waterAt(player.x,player.z)&&rioCompactBridgeSurface(player.x,player.z)>.24)overLake++;
          swam||=player.swimming;
        }
        if(!activeRace)break;
      }
      clearMovementInputs();
-     return {id:course.id,gates:course.gates.length,completed:(rioStreetRecord()?.runs||0)-previous,overLake,swam};
+     return {id:course.id,gates:course.gates.length,completed:(rioStreetRecord()?.runs||0)-previous,overLake,swam,photo};
    },
+   photoEvidence:async()=>{const rows=await rioFottoRows(rioFottoOwner());return Promise.all(rows.map(async row=>{const image=await createImageBitmap(row.blob);const info={id:row.id,size:row.blob.size,type:row.blob.type,width:image.width,height:image.height};image.close();return info;}));},
+   photoGallery:()=>openRioFottoGallery(),
    renderedBuildings:()=>{
      // An InstancedMesh stores its real building parts in per-instance matrices.
      // Its unit geometry's bounding box alone would miss the overhanging roofs.
@@ -154,6 +169,11 @@ try{
    if(bridge)assert(finish.overLake>60,JSON.stringify(finish));
    report.checks.push({race:finish});
  }
+ const captured=report.checks.filter(x=>x.race?.photo?.sprinting&&x.race.photo.avatarDraws>0);
+ assert(captured.length>0,'No running athlete was rendered by a photographer: '+JSON.stringify(report.checks.filter(x=>x.race)));
+ await page.waitForFunction(async()=> (await __PARK_QA.photoEvidence()).length>0,null,{timeout:30000});
+ const photos=await page.evaluate(()=>__PARK_QA.photoEvidence());assert(photos.every(p=>p.type==='image/jpeg'&&p.width===768&&p.height===512&&p.size>3000),JSON.stringify(photos));report.photos=photos;
+ await page.evaluate(()=>__PARK_QA.photoGallery());await page.locator('[data-fotto-list] img').first().waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('[data-fotto-list] img')?.naturalWidth>0);await page.screenshot({path:out+'/fotto-running-gallery.png'});await page.evaluate(()=>OTTHOS_TEST_API.closeModal());
  assert(await page.evaluate(()=>__PARK_QA.boardCar()));
  for(const [width,height] of [[393,852],[360,740],[852,393]]){
    await page.setViewportSize({width,height});
