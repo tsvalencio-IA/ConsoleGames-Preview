@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 30
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.pages.outputs.base_url }}
     steps:
       - name: Checkout preview repository
         uses: actions/checkout@v4
@@ -59,38 +59,57 @@ jobs:
           node tests/pages-preview-browser.mjs
 
       - name: Configure Pages
+        id: pages
         uses: actions/configure-pages@v5
 
       - name: Upload static website
+        id: archive
         uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: _pages_preview
 
-      # Artifact registration may be eventually consistent after upload.
-      # Do not call deploy-pages until the GitHub REST API sees the artifact.
-      - name: Wait for uploaded Pages artifact to be indexed
+      - name: Publish the verified artifact by ID
+        uses: actions/github-script@v8
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 18); do
-            found="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=github-pages" --jq '.artifacts | map(select(.name == "github-pages" and .expired == false)) | length' 2>/dev/null || true)"
-            if [[ "$found" =~ ^[0-9]+$ ]] && (( found > 0 )); then
-              echo "Pages artifact indexed."
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::GitHub did not index the uploaded Pages artifact within 90 seconds."
-          exit 1
-
-      - name: Publish preview only
-        id: deployment
-        uses: actions/deploy-pages@v4
+          PAGES_ARTIFACT_ID: ${{ steps.archive.outputs.artifact_id }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const artifactId = Number(process.env.PAGES_ARTIFACT_ID);
+            if (!Number.isSafeInteger(artifactId) || artifactId < 1) {
+              throw new Error('The upload did not return a Pages artifact ID.');
+            }
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+            for (let attempt = 1; ; attempt++) {
+              try {
+                await github.rest.actions.getArtifact({owner, repo, artifact_id: artifactId});
+                break;
+              } catch (error) {
+                if (error.status !== 404 || attempt === 18) throw error;
+                await sleep(5000);
+              }
+            }
+            const release = await github.request('POST /repos/{owner}/{repo}/pages/deployments', {
+              owner, repo, artifact_id: artifactId, pages_build_version: context.sha,
+              oidc_token: await core.getIDToken()
+            });
+            const deploymentId = release.data.id || context.sha;
+            core.info(`Publishing artifact ${artifactId} as deployment ${deploymentId}.`);
+            const failed = new Set(['deployment_failed', 'deployment_perms_error', 'deployment_content_failed', 'deployment_cancelled', 'deployment_lost']);
+            for (let attempt = 0; attempt < 120; attempt++) {
+              await sleep(5000);
+              const {data} = await github.request('GET /repos/{owner}/{repo}/pages/deployments/{deploymentId}', {
+                owner, repo, deploymentId
+              });
+              if (data.status === 'succeed') return;
+              if (failed.has(data.status)) throw new Error('Pages returned ' + data.status);
+            }
+            throw new Error('Pages did not confirm the deployment within ten minutes.');
 
       - name: Verify the published Pages URL and commit
         env:
-          OT_PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+          OT_PAGES_URL: ${{ steps.pages.outputs.base_url }}/
           OT_PAGES_OUT: test-results/pages-published
         run: node tests/pages-preview-browser.mjs
 
