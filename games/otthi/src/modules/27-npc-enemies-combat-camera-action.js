@@ -95,7 +95,7 @@
     return true;
   }
 
-  function findPedestrianDetour(from,goal,clear){
+  function* findPedestrianDetour(from,goal,clear){
     // Local A* follows a routine's waypoint and searches around obstacles only
     // after a blocked step. A bounded frontier spreads the cost across frames.
     const spacing=.72,limit=11,key=(i,j)=>i*32+j,heuristic=(x,z)=>Math.hypot(goal.x-x,goal.z-z);
@@ -108,6 +108,7 @@
     };
     let best=start,bestDistance=start.score;
     for(let scans=0;scans<100&&frontier.length;scans++){
+      if(scans>0&&scans%8===0)yield;
       let selected=0;
       for(let index=1;index<frontier.length;index++)if(frontier[index].score<frontier[selected].score)selected=index;
       const [node]=frontier.splice(selected,1),distance=heuristic(node.x,node.z);
@@ -132,9 +133,9 @@
   function v705NpcWalk(npc,dt,target,speed=1.35,allowRoads=false){
     if(!target||dt<=0)return 0;
     const position=npc.group.position,now=performance.now();
-    const navigator=npc.pedestrianNav??={goal:null,path:[],blocked:0,retryAt:0,replans:0};
+    const navigator=npc.pedestrianNav??={goal:null,path:[],blocked:0,retryAt:0,replans:0,search:null};
     if(!navigator.goal||distance2D(navigator.goal,target)>1.1){
-      Object.assign(navigator,{goal:{x:target.x,z:target.z},path:[],blocked:0,retryAt:0});
+      Object.assign(navigator,{goal:{x:target.x,z:target.z},path:[],blocked:0,retryAt:0,search:null});
     }
     if(navigator.path.length&&distance2D(position,navigator.path[0])<.11)navigator.path.shift();
     const waypoint=navigator.path[0]||target,dx=waypoint.x-position.x,dz=waypoint.z-position.z,distance=Math.hypot(dx,dz);
@@ -153,14 +154,19 @@
     if(moved>.001){
       position.x+=dx/distance*moved;position.z+=dz/distance*moved;
       npc.group.rotation.y=lerpAngle(npc.group.rotation.y,Math.atan2(dx,dz),Math.min(1,dt*7));
-      navigator.blocked=0;
+      navigator.blocked=0;navigator.search=null;
       return moved;
     }
     navigator.blocked+=dt;
     if(navigator.blocked<.28||now<navigator.retryAt||now<pedestrianNavigation.nextPlanAt)return 0;
-    pedestrianNavigation.nextPlanAt=now+64;
-    navigator.path=findPedestrianDetour(position,target,clear);
-    navigator.replans++;pedestrianNavigation.plans++;
+    pedestrianNavigation.nextPlanAt=now+20;
+    if(!navigator.search){
+      navigator.search=findPedestrianDetour({x:position.x,z:position.z},target,clear);
+      navigator.replans++;pedestrianNavigation.plans++;
+    }
+    const result=navigator.search.next();
+    if(!result.done){navigator.retryAt=now+32;return 0;}
+    navigator.path=result.value;navigator.search=null;
     navigator.retryAt=now+(navigator.path.length?420:1200)+(v705NpcSeed(npc.id)%280);
     if(navigator.path.length)pedestrianNavigation.detours++;
     else pedestrianNavigation.waits++;
