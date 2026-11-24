@@ -292,7 +292,33 @@
     const save=rioMapSave();
     save.constructionOrders??=[];
     save.constructionInventory??={};
+    // Existing saves only know a global inventory. Keep that stock as legacy
+    // unassigned stock; newly received orders are tied to their real address.
+    if(!save.constructionByAddress){
+      save.constructionByAddress={};
+      save.constructionLegacyStock={...save.constructionInventory};
+    }
+    save.constructionLegacyStock??={};
     return save;
+  }
+  function rioConstructionAtAddress(id){
+    const save=rioConstructionSave(),local=save.constructionByAddress[id]||{},result={...save.constructionLegacyStock};
+    for(const [sku,qty] of Object.entries(local))result[sku]=(Number(result[sku])||0)+(Number(qty)||0);
+    return result;
+  }
+  function rioReceiveConstructionStock(save,order){
+    const local=save.constructionByAddress[order.destinationId]??={};
+    local[order.productId]=(Number(local[order.productId])||0)+order.quantity;
+    save.constructionInventory[order.productId]=(Number(save.constructionInventory[order.productId])||0)+order.quantity;
+  }
+  function rioConsumeConstructionStock(id,sku){
+    const save=rioConstructionSave(),local=save.constructionByAddress[id]||{},legacy=save.constructionLegacyStock;
+    if(!(Number(save.constructionInventory[sku])>0))return false;
+    if(Number(local[sku])>0)local[sku]--;
+    else if(Number(legacy[sku])>0)legacy[sku]--;
+    else return false;
+    save.constructionInventory[sku]--;
+    return true;
   }
   function rioDeliveryHomes(){
     const compact=typeof compactRio!=='undefined'?(compactRio.sites||[]):[];
@@ -337,7 +363,7 @@
             const now=Date.now();
             for(const order of pending){
               if(order.status!=='en-route'||now<order.readyAt)continue;
-              saved.constructionInventory[order.productId]=(saved.constructionInventory[order.productId]||0)+order.quantity;
+              rioReceiveConstructionStock(saved,order);
               order.status='delivered';order.deliveredAt=now;
             }
             saveState(true);closeModal();toast('Materiais recebidos e registrados no estoque.','good',2600);
@@ -349,7 +375,7 @@
     const orders=rioConstructionSave().constructionOrders;
     const homes=rioDeliveryHomes();
     openModal('Minhas entregas e materiais',
-      '<p>Pedidos vinculados à sua propriedade; os materiais recebidos ficam no estoque para a futura etapa de reformas.</p>'+
+      '<p>Pedidos vinculados à sua propriedade; os novos materiais recebidos ficam no endereço escolhido e podem ser usados em reformas.</p>'+
       '<div class="choice-grid">'+orders.slice(-12).reverse().map(o=>{
         const site=homes.find(h=>h.propertyId===o.destinationId);
         const ready=o.status==='en-route'&&Date.now()>=o.readyAt;
@@ -357,7 +383,7 @@
           escapeHtml(site?.name||o.destinationName)+' · '+o.quantity+' '+escapeHtml(o.unit)+' · '+
           (o.status==='delivered'?'Recebido':ready?'Aguardando recebimento no imóvel':'Em transporte')+'</span></div>';
       }).join('')+'</div>'+
-      '<p><b>Estoque recebido:</b> '+(Object.entries(rioConstructionSave().constructionInventory)
+      '<p><b>Estoque total recebido:</b> '+(Object.entries(rioConstructionSave().constructionInventory)
         .map(([id,n])=>escapeHtml(id)+': '+n).join(' · ')||'Nenhum item')+'</p>'+
       '<div class="modal-actions"><button class="btn" data-rio-delivery-close>Fechar</button></div>',
       root=>{root.querySelector('[data-rio-delivery-close]').onclick=closeModal;});
@@ -389,6 +415,7 @@
               escapeHtml(home.name)+'</b><span>Entregar '+escapeHtml(item.unit)+' · '+item.price+' moedas</span></button>'
             ).join('')+'</div>',root=>{
               for(const choice of root.querySelectorAll('[data-rio-deliver-house]'))choice.onclick=()=>{
+                if(choice.disabled)return;
                 const home=rioDeliveryHomes().find(x=>x.propertyId===choice.dataset.rioDeliverHouse);
                 if(!home||Number(state.profile.coins)<item.price){
                   toast('Escolha uma propriedade própria e tenha moedas suficientes.','warn',2300);return;

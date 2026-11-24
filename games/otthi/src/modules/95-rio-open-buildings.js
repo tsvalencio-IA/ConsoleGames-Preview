@@ -47,7 +47,7 @@
     const enterUnit=(onArrival)=>{
       room.gate.disabled=true;room.door.visible=false;
       room.refreshDecor?.();
-      if(!rioEnterPlace(target,()=>{if(site.propertyId==='home')setFlag('enteredHome');onArrival?.();})){
+      if(!rioEnterPlace(target,()=>{if(site.propertyId==='home')setFlag('enteredHome');if(site.style==='rios-ditalia'){(rioMapSave().selectedApartmentBySite??={})[site.id]=room.selectedUnitId;saveState(true);}onArrival?.();})){
         room.gate.disabled=false;room.door.visible=true;
       }
     };
@@ -85,6 +85,8 @@
   }
 
   function rioBuildResidence(site,room){
+    const selected=rioMapSave().selectedApartmentBySite?.[site.id];
+    if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
     const rioResidencePropertyId=()=>room.selectedUnitId||site.propertyId;
     const {w,d,yaw}=site,condominium=site.style==='rios-ditalia',modern=site.style==='damha'||condominium,back=-d/2+1.04,front=d/2-.12;
     room.collider(0,front,Math.min(3.1,w*.4)-.13,.18,2.5);
@@ -368,7 +370,7 @@
       }
     };
     updateDecor();
-    room.refreshDecor=()=>{endDecor();updateDecor();};
+    room.refreshDecor=()=>{endDecor();updateDecor();renovationFinish('walls');renovationFinish('floor');};
     const openDecorCatalog=()=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       if(!owner?.owned){toast('Primeiro compre esta residência.','info',2300);return;}
@@ -593,7 +595,7 @@
     const renovationFinish=(kind)=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       const finish=owner?.renovation?.[kind];
-      if(!Number.isInteger(finish))return;
+      if(!Number.isInteger(finish)){if(renovateMeshes[kind])renovateMeshes[kind].visible=false;return;}
       const palette=renovationColors[kind];
       const value=palette[((finish%palette.length)+palette.length)%palette.length];
       if(!renovateMeshes[kind]){
@@ -611,15 +613,17 @@
         group.name='CASA_REFORMA_'+site.key+'_'+kind;
         room.root.add(group);renovateMeshes[kind]=group;
       }
+      renovateMeshes[kind].visible=true;
       for(const mesh of renovateMeshes[kind].children)mesh.material.color.setHex(value);
     };
     renovationFinish('walls');renovationFinish('floor');
     const openRenovation=()=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       if(!owner?.owned){toast('Só o proprietário pode reformar esta casa.','warn',2200);return;}
-      const inventory=rioConstructionSave().constructionInventory;
+      const propertyId=rioResidencePropertyId();
+      const inventory=rioConstructionAtAddress(propertyId);
       openModal('Reformar imóvel · '+site.name,
-        '<p>Os materiais precisam ser comprados nas lojas de Rio Preto e recebidos neste endereço.</p>'+
+        '<p>Os novos materiais precisam ser recebidos neste endereço. Estoque antigo sem endereço continua disponível.</p>'+
         '<p>Estoque: <b>'+Number(inventory.paint||0)+' lata(s) de tinta</b> · <b>'+
         Number(inventory.tile||0)+' caixa(s) de piso</b></p>'+
         '<div class="choice-grid">'+
@@ -627,10 +631,8 @@
         renovationColors.floor.map((color,index)=>'<button class="choice" data-rio-home-floor="'+index+'"><b>Piso '+(index+1)+'</b><span>1 caixa de piso</span></button>').join('')+
         '</div>',root=>{
           const apply=(kind,index)=>{
-            const current=rioPropertyTitle(rioResidencePropertyId()),saved=rioConstructionSave().constructionInventory;
-            const item=kind==='walls'?'paint':'tile';
-            if(!current?.owned||!(saved[item]>0)){toast('Receba primeiro o material de construção.','warn',2400);return;}
-            saved[item]--;
+            const current=rioPropertyTitle(propertyId),item=kind==='walls'?'paint':'tile';
+            if(propertyId!==rioResidencePropertyId()||!Number.isInteger(index)||index<0||index>=renovationColors[kind].length||!current?.owned||!rioConsumeConstructionStock(propertyId,item)){toast('Receba primeiro o material de construção neste imóvel.','warn',2400);return;}
             (current.renovation??={})[kind]=index;
             renovationFinish(kind);saveState(true);
             toast('Reforma aplicada e salva nesta propriedade.','good',2000);

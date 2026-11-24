@@ -1,6 +1,6 @@
 {
   "version": 705,
-  "build": "705.28.43-rio-preto-vida-regional",
+  "build": "705.28.44-rio-preto-casas-entregas",
   "name": "OTTHI World",
   "sourceArchitecture": "modular-source-with-generated-runtime-bundle",
   "runtimeBundle": "app.js",
@@ -42,6 +42,7 @@
     }
   },
   "changes": [
+    "R28.44: materiais por endereço com preservação de estoque antigo, seleção de apartamento persistente, acabamento individual e teste de entrada/compra/saída dos chalés.",
     "R28.43: chalés existentes de Campos do Jordão com propriedade e interiores, atendentes de mercados e recepções, fachadas internas de lojas e atualização de NPCs nos interiores regionais.",
     "R28.42: prioriza desvios de segurança dos NPCs, amplia modelos urbanos diferenciados e corrige a grade de atalhos mobile; validação integral pendente.",
     "R28.37: Vila OT e Rio Preto com entradas próprias, acesso pela porta e embarque pelo cais.",

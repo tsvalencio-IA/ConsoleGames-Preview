@@ -146,3 +146,23 @@ test('a thermal-pool visit moves the avatar before charging and records only a c
   assert.equal(model.state.profile.coins,445);
   assert.equal(model.save.regionExperience.visits['regional-termas_ibira'].count,1);
 });
+
+
+test('construction materials received at one address cannot be spent at another; old saves retain their stock',()=>{
+ const {ctx,model}=setup();
+ model.save.constructionInventory.paint=2;
+ vm.runInContext('rioConstructionSave()',ctx);
+ assert.equal(model.save.constructionLegacyStock.paint,2);
+ ctx.order={productId:'paint',quantity:3,destinationId:'home-a'};
+ vm.runInContext('rioReceiveConstructionStock(rioConstructionSave(),order)',ctx);
+ assert.equal(model.save.constructionInventory.paint,5);
+ assert.equal(vm.runInContext("rioConstructionAtAddress('home-a').paint",ctx),5);
+ assert.equal(vm.runInContext("rioConstructionAtAddress('home-b').paint",ctx),2);
+ assert(vm.runInContext("rioConsumeConstructionStock('home-b','paint')",ctx));
+ assert(vm.runInContext("rioConsumeConstructionStock('home-b','paint')",ctx));
+ assert.equal(vm.runInContext("rioConsumeConstructionStock('home-b','paint')",ctx),false);
+ assert.equal(model.save.constructionInventory.paint,3);
+ assert(vm.runInContext("rioConsumeConstructionStock('home-a','paint')",ctx));
+ assert.equal(model.save.constructionByAddress['home-a'].paint,2);
+ assert.equal(model.save.constructionInventory.paint,2);
+});

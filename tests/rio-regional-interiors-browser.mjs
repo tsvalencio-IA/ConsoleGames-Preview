@@ -51,6 +51,24 @@ try{
     await page.locator('#actionBtn').click();
     await page.waitForFunction(id=>!OTTHI_RIO_V51.diagnostics().malls.find(m=>m.id===id)?.inside,id,{timeout:9000});
   }
+  // Test a real chalet purchase, entry, persistence and exit in the native scene.
+  const cabinId='regional-campos-chale-1';
+  await page.evaluate(()=>OTTHOS_TEST_API.teleport(-52,187.7));
+  await page.waitForFunction(id=>OTTHOS_TEST_API.getContext()?.id===id+'-door',cabinId,{timeout:20000});
+  await page.locator('#actionBtn').click();
+  await page.locator('[data-rio-property-buy]').waitFor();
+  await page.locator('[data-rio-property-buy]').click();
+  await page.locator('[data-rio-property-enter]').click();
+  await page.waitForFunction(id=>OTTHI_DESTINATIONS.diagnostics().cabins.some(c=>c.id===id&&c.inside&&c.visible),cabinId,{timeout:15000});
+  assert(await page.evaluate(id=>OTTHOS_TEST_API.getState().cityServices.rioMap.properties[id]?.owned,cabinId));
+  await page.screenshot({path:out+'/campos-chale-interior.png'});
+  const cabinExit=await page.evaluate(id=>OTTHI_DESTINATIONS.diagnostics().cabins.find(c=>c.id===id)?.exit,cabinId);
+  assert(cabinExit);
+  await page.evaluate(p=>OTTHOS_TEST_API.teleport(p.x,p.z),cabinExit);
+  await page.waitForFunction(id=>OTTHOS_TEST_API.getContext()?.id===id+'-chalet-exit',cabinId,{timeout:15000});
+  await page.locator('#actionBtn').click();
+  await page.waitForFunction(id=>!OTTHI_DESTINATIONS.diagnostics().cabins.find(c=>c.id===id)?.inside,cabinId,{timeout:12000});
+  report.cases.push({id:cabinId,entered:true,purchased:true,exited:true});
   assert.deepEqual(report.errors,[]);
   report.passed=true;
 }finally{

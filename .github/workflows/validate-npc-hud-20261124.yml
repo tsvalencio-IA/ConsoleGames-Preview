@@ -34,12 +34,16 @@ jobs:
           npm install --no-save --ignore-scripts playwright@1.56.1
           npx playwright install chromium --with-deps
           node tests/pages-preview-browser.mjs
+      - name: Verify real regional interiors and chalet ownership
+        run: node tests/rio-regional-interiors-browser.mjs
       - name: Store evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: npc-hud-eight-games
-          path: test-results/pages-preview/
+          path: |
+            test-results/pages-preview/
+            test-results/rio-regional-interiors/
           if-no-files-found: ignore
       - name: Record generated runtime after all checks
         run: |

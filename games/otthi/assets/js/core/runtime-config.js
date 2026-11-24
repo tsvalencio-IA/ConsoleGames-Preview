@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.43-rio-preto-vida-regional',
+    build: '705.28.44-rio-preto-casas-entregas',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',
