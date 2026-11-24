@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.45-rio-preto-interiores-vivos';
+  const OTTHI_GAME_WEB_BUILD = '705.28.47-rio-preto-vida-completa';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -5302,11 +5302,20 @@
     root.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});return npc;
   }
   function createNPC(id,name,x,z,color,pathRadius=3){
+    const otToyHeroes=new Set(['nino','luna','teo','bia','maya','clara','rafa','davi','leo','michelle-ottovias']);
+    const rioModernNpc=!otToyHeroes.has(id)&&
+      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
     const group=new THREE.Group();group.position.set(x,0,z);worldGroup.add(group);
     const hairPalette=[0x34251c,0x15191f,0x6a4429,0xb36b35,0xd5b36a,0x643e55],skinPalette=[0xffd7b1,0xeab589,0xbd825d,0x8d5b43,0x6f4637];
     const hash=String(id).split('').reduce((a,c)=>a+c.charCodeAt(0),0),hairColor=hairPalette[hash%hairPalette.length],skin=skinPalette[hash%skinPalette.length];
     const height=.92+(hash%5)*.025,shoulder=.39+(hash%3)*.025,shirt=renderMat(color,{roughness:.7}),shirtDark=renderMat(shadeColor(color,-32),{roughness:.74}),pants=renderMat(hash%2?0x294b75:0x43365f,{roughness:.78}),shoe=renderMat(hash%3===0?0xf4f5f7:0x202935,{roughness:.6}),skinMat=renderMat(skin,{roughness:.72}),hairMat=renderMat(hairColor,{roughness:.78});
-    const body=new THREE.Mesh(new THREE.CylinderGeometry(shoulder*.78,shoulder,height,12),shirt);body.position.y=1.28;body.castShadow=true;body.receiveShadow=true;group.add(body);
+    const torsoGeometry=rioModernNpc?new THREE.LatheGeometry([
+      new THREE.Vector2(0,-height*.5),new THREE.Vector2(shoulder*.74,-height*.5),
+      new THREE.Vector2(shoulder*.84,-height*.34),new THREE.Vector2(shoulder*.77,-height*.09),
+      new THREE.Vector2(shoulder*.91,height*.14),new THREE.Vector2(shoulder,height*.31),
+      new THREE.Vector2(shoulder*.70,height*.47),new THREE.Vector2(shoulder*.31,height*.5),new THREE.Vector2(0,height*.5)
+    ],12):new THREE.CylinderGeometry(shoulder*.78,shoulder,height,12);
+    const body=new THREE.Mesh(torsoGeometry,shirt);if(rioModernNpc)body.scale.z=.87;body.position.y=1.28;body.castShadow=true;body.receiveShadow=true;group.add(body);
     const head=new THREE.Mesh(new THREE.SphereGeometry(.39,16,11),skinMat);head.position.set(0,2.0,0);head.scale.set(.93,1.04,.9);head.castShadow=true;group.add(head);
     const hairCap=new THREE.Mesh(new THREE.SphereGeometry(.405,14,9,0,Math.PI*2,0,Math.PI*.56),hairMat);hairCap.position.set(0,2.17,-.015);hairCap.scale.set(.97,.68,.94);hairCap.castShadow=true;group.add(hairCap);
     if(hash%4===0){for(const sx of[-1,1]){const lock=new THREE.Mesh(new THREE.SphereGeometry(.12,9,7),hairMat);lock.scale.set(.7,1.8,.8);lock.position.set(sx*.32,2.03,-.04);group.add(lock);}}
@@ -5314,22 +5323,38 @@
     const eyeMat=renderMat(hash%3===0?0x3c5f72:0x20232a,{roughness:.4});for(const ex of[-.14,.14]){const eye=new THREE.Mesh(new THREE.SphereGeometry(.042,8,6),eyeMat);eye.position.set(ex,2.03,.345);group.add(eye);}const nose=new THREE.Mesh(new THREE.SphereGeometry(.04,7,5),skinMat);nose.position.set(0,1.96,.37);nose.scale.set(.75,1.2,.75);group.add(nose);box(.15,.035,.026,0x9d5052,0,1.88,.365,group);
     const leftArm=new THREE.Group(),rightArm=new THREE.Group(),leftLeg=new THREE.Group(),rightLeg=new THREE.Group();leftArm.position.set(-.48,1.52,0);rightArm.position.set(.48,1.52,0);leftLeg.position.set(-.19,.82,0);rightLeg.position.set(.19,.82,0);group.add(leftArm,rightArm,leftLeg,rightLeg);
     const makeLimb=(parent,r,h,material,y)=>{const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r*.9,r,h,10),material);mesh.position.y=y;mesh.castShadow=true;parent.add(mesh);return mesh;};
-    makeLimb(leftArm,.12,.66,shirt,-.28);makeLimb(rightArm,.12,.66,shirt,-.28);const lh=new THREE.Mesh(new THREE.SphereGeometry(.12,9,7),skinMat),rh=lh.clone();lh.position.y=-.63;rh.position.y=-.63;leftArm.add(lh);rightArm.add(rh);
-    makeLimb(leftLeg,.14,.72,pants,-.31);makeLimb(rightLeg,.14,.72,pants,-.31);box(.29,.15,.42,shoe,0,-.72,.07,leftLeg);box(.29,.15,.42,shoe,0,-.72,.07,rightLeg);box(.7,.18,.54,shirtDark,0,.82,0,group);
+    if(rioModernNpc){
+      for(const arm of[leftArm,rightArm]){
+        makeLimb(arm,.131,.36,shirt,-.14);makeLimb(arm,.115,.065,shirtDark,-.32);
+        makeLimb(arm,.092,.31,skinMat,-.47);
+      }
+    }else{makeLimb(leftArm,.12,.66,shirt,-.28);makeLimb(rightArm,.12,.66,shirt,-.28);}
+    const lh=new THREE.Mesh(new THREE.SphereGeometry(.12,9,7),skinMat),rh=lh.clone();lh.position.y=-.63;rh.position.y=-.63;leftArm.add(lh);rightArm.add(rh);
+    if(rioModernNpc){
+      for(const leg of[leftLeg,rightLeg]){
+        makeLimb(leg,.146,.40,pants,-.16);makeLimb(leg,.117,.36,pants,-.49);
+        const upper=new THREE.Mesh(new THREE.SphereGeometry(.15,10,7),shoe);
+        upper.scale.set(.95,.55,1.44);upper.position.set(0,-.70,.085);leg.add(upper);
+        box(.28,.05,.40,shoe,0,-.773,.075,leg);
+      }
+      box(.65,.12,.46,shirtDark,0,.82,0,group);
+    }else{
+      makeLimb(leftLeg,.14,.72,pants,-.31);makeLimb(rightLeg,.14,.72,pants,-.31);
+      box(.29,.15,.42,shoe,0,-.72,.07,leftLeg);box(.29,.15,.42,shoe,0,-.72,.07,rightLeg);
+      box(.7,.18,.54,shirtDark,0,.82,0,group);
+    }
     if(hash%5===0){const cap=new THREE.Mesh(new THREE.SphereGeometry(.42,12,8,0,Math.PI*2,0,Math.PI*.48),renderMat(0x2f7ed6,{roughness:.62}));cap.position.set(0,2.28,0);cap.scale.y=.55;group.add(cap);box(.28,.04,.3,0x2f7ed6,0,2.27,.39,group);}
     const npc={id,name,x,z,baseX:x,baseZ:z,color,group,pathRadius,phase:Math.random()*6.28,friendship:state.friendship[id]||0,body,head,limbs:{leftArm,rightArm,leftLeg,rightLeg},brain:{state:'idle',target:null,nextThink:0,fearUntil:0,lastVehicle:'',lastVehicleAt:0,lastPlayerAt:0,wanderUntil:0,memory:[]}};
     const badge=new THREE.Sprite(new THREE.SpriteMaterial({map:iconTexture(name.charAt(0),'#ffffff','#15314b'),transparent:true,depthWrite:false}));badge.position.set(0,2.85,0);badge.scale.set(.5,.5,.5);badge.visible=false;group.add(badge);npc.badge=badge;
     // Keep named original OT toy heroes exactly as approved. Ordinary city
     // pedestrians and shop staff in Rio Preto use the new human visual style.
-    const otToyHeroes=new Set(['nino','luna','teo','bia','maya','clara','rafa','davi','leo','michelle-ottovias']);
-    const rioModernNpc=!otToyHeroes.has(id)&&
-      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
+
     if(rioModernNpc){
       // Rio Preto service staff should be human-looking, not a randomly assigned
       // Lego/Mario/Minecraft character. Keep the old toy renderers untouched for
       // named OT characters, retro worlds and all other existing NPCs.
       npc.visualStyle='rio-human';
-      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-|rio-service-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
+      const role=/^porteiro-/.test(id)?'concierge':/rio-service-.*-construction$/.test(id)?'construction':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-|rio-service-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
       npc.visualRole=role;group.userData.visualRole=role;
       const detailLayer=new THREE.Group();detailLayer.name='RIO_NPC_FACE_AND_CLOTHES';group.add(detailLayer);
       const detail=renderMat(shadeColor(color,-42),{roughness:.86});
@@ -5354,6 +5379,8 @@
       // expressions. All static details are merged into one geometry below.
       const eyeLight=renderMat(0xf6f5f0,{roughness:.43});
       for(const side of[-1,1]){
+        const sclera=new THREE.Mesh(new THREE.SphereGeometry(.064,9,7),eyeLight);
+        sclera.scale.set(1.04,.68,.45);sclera.position.set(side*.14,2.03,.332);detailLayer.add(sclera);
         const glint=new THREE.Mesh(new THREE.SphereGeometry(.012,6,5),eyeLight);
         glint.position.set(side*.152,2.047,.383);detailLayer.add(glint);
       }
@@ -5394,6 +5421,13 @@
         box(.60,.66,.075,apron,0,1.15,.38,detailLayer);
         box(.13,.57,.045,apron,-.31,1.19,.36,detailLayer);
         box(.13,.57,.045,apron,.31,1.19,.36,detailLayer);
+      }else if(role==='construction'){
+        const vest=renderMat(0xc48b3a,{roughness:.86}),stripe=renderMat(0xe4dcb2,{roughness:.65});
+        for(const side of[-1,1]){
+          box(.17,.68,.055,vest,side*.24,1.35,.345,detailLayer);
+          box(.19,.10,.064,stripe,side*.24,1.18,.386,detailLayer);
+        }
+        box(.52,.09,.075,metalMat,0,.94,.338,detailLayer);
       }else if(role==='retail'){
         // Staff wear a distinct collared outfit and name badge. These details
         // are batched with the rest of the existing articulated model.
@@ -8793,7 +8827,10 @@
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){if(running)savePlayerPosition(true);else commitState();}});
 
   function groundHeightAt(x,z){
-    let top=typeof inRioMap==='function'&&inRioMap()?rioTerrainY(x,z):typeof professionalTerrainHeightAt==='function'?professionalTerrainHeightAt(x,z):0;if(typeof rioCompactWorld==='function'&&rioCompactWorld())top=Math.max(top,rioDockSurface(x,z));for(const p of world.platforms){if(p.bridgePart!==undefined&&!state.flags.bridgeFixed&&p.bridgePart%2===1)continue;if(Math.abs(x-p.x)<=p.w/2+.35&&Math.abs(z-p.z)<=p.d/2+.35&&p.top>top&&player.y>=p.top-.75)top=p.top;}return top;
+    let top=typeof inRioMap==='function'&&inRioMap()?rioTerrainY(x,z):typeof professionalTerrainHeightAt==='function'?professionalTerrainHeightAt(x,z):0;if(typeof rioCompactWorld==='function'&&rioCompactWorld())top=Math.max(top,rioDockSurface(x,z));for(const p of world.platforms){if(p.bridgePart!==undefined&&!state.flags.bridgeFixed&&p.bridgePart%2===1)continue;if(Math.abs(x-p.x)<=p.w/2+.35&&Math.abs(z-p.z)<=p.d/2+.35&&p.top>top&&player.y>=p.top-.75)top=p.top;}
+    const room=typeof rioMap!=='undefined'?rioMap.indoorRoom:null;
+    if(room?.floorMesh&&room.root.visible&&room.forSite(x,z,-.24)&&Number.isFinite(room.floorY))top=Math.max(top,room.floorY);
+    return top;
   }
   function positionBlockedForPlayer(x,z,radius=.48,options={}){
     if(!Number.isFinite(x)||!Number.isFinite(z))return true;const bounds=v704WorldBounds();if(x<bounds.minX||x>bounds.maxX||z<bounds.minZ||z>bounds.maxZ)return true;
@@ -14725,7 +14762,7 @@ function precompile(T,renderer,scene,camera,timings){
   for(const[i,x,z]of[[0,11,179],[1,27,176],[2,10,-154],[3,37,-154]])addResident('travel-resident-'+i,['Luís','Fernanda','Joana','Henrique'][i],[{x,z,action:'look',duration:9},{x:x+4,z,action:'walk'},{x:x+4,z:z+2,action:'talk',duration:9}],[0x567b99,0xa5685b,0x6d927a,0xa58d51][i]);worldResidents.ready=true;
  }
  function poseResident(npc,action,time,seat){
-  const l=npc.limbs,w=Math.sin(time*(action==='run'?12:7.5)+npc.phase),walk=action==='walk'||action==='run',swim=action==='swim',sitting=seat!==undefined;npc.lifeAction=action;npc.group.rotation.x=swim?-1.22:0;npc.group.position.y=swim?-.06:sitting?Number(seat)-.82*npc.group.scale.y:groundHeightAt(npc.group.position.x,npc.group.position.z);
+  const l=npc.limbs,w=Math.sin(time*(action==='run'?12:7.5)+npc.phase),walk=action==='walk'||action==='run',swim=action==='swim',sitting=seat!==undefined;npc.lifeAction=action;npc.group.rotation.x=swim?-1.22:0;npc.group.position.y=swim?-.06:sitting?Number(seat)-.82*npc.group.scale.y:Number.isFinite(npc.rioFloorY)?npc.rioFloorY:groundHeightAt(npc.group.position.x,npc.group.position.z);
   if(l){l.leftLeg.rotation.x=swim?w*.35:sitting?-1.25:walk?-w*.4:0;l.rightLeg.rotation.x=swim?-w*.35:sitting?-1.25:walk?w*.4:0;l.leftArm.rotation.x=swim?-1.5+w*.7:walk?w*.5:action==='stretch'?-2.1+Math.sin(time*2)*.25:action==='eat'?-.45:0;l.rightArm.rotation.x=swim?-1.5-w*.7:walk?-w*.5:action==='eat'?-1.2-Math.sin(time*3)*.35:action==='talk'?-.7-Math.sin(time*4)*.22:action==='serve'?-1:action==='stretch'?-2.1-Math.sin(time*2)*.25:0;}
   if(npc.body)npc.body.position.y=1.28+(walk?Math.abs(w)*.023:Math.sin(time*2)*.006);
   if(!npc.mealProp&&action==='eat'){npc.mealProp=new THREE.Mesh(new THREE.SphereGeometry(.11,8,6),renderMat(0xd3a268));npc.mealProp.scale.y=.50;npc.mealProp.position.set(0,-.66,.07);l.rightArm.add(npc.mealProp);}if(npc.mealProp)npc.mealProp.visible=action==='eat';
@@ -16437,7 +16474,7 @@ function precompile(T,renderer,scene,camera,timings){
   return [
    {id:'market',title:'Abasteça sua casa',text:'Vá ao Mercadão e compre alimentos para cozinhar.',target:'regional-mercado_municipal',done:!!visits['regional-mercado_municipal']},
    {id:'home',title:'Conquiste seu imóvel',text:'Visite e compre uma casa ou um apartamento com as moedas que ganhou.',target:'regional-casa-damha',done:owned.length>0},
-   {id:'furniture',title:'Deixe a casa do seu jeito',text:'Compre, posicione e salve um móvel na sua propriedade.',target:null,done:properties.some(p=>Object.keys(p.decorLayout||{}).length>0)},
+   {id:'furniture',title:'Deixe a casa do seu jeito',text:'Escolha móveis no shopping ou no catálogo, receba no imóvel e salve a decoração.',target:'regional-shopping_cidade_norte',done:properties.some(p=>Object.values(p.decorLayout||{}).some(layout=>layout&&!layout.stored))},
    {id:'style',title:'Escolha seu estilo',text:'Compre uma peça no shopping e experimente no guarda-roupa.',target:'regional-riopreto_shopping',done:Object.values(save.wardrobePurchases||{}).some(Boolean)},
    {id:'delivery',title:'Receba sua encomenda',text:'Compre material na loja, escolha sua propriedade e receba a entrega.',target:'regional-planalto_materiais',done:(save.constructionOrders||[]).some(o=>o.status==='delivered')},
    {id:'renovation',title:'Reforme sua casa',text:'Use o material entregue para mudar a parede ou o piso.',target:null,done:properties.some(p=>Number.isInteger(p.renovation?.walls)||Number.isInteger(p.renovation?.floor))},
@@ -16621,7 +16658,7 @@ function precompile(T,renderer,scene,camera,timings){
   }
 
   function rioLocal(batch,site) {
-    const {x,z}=site, yaw=site.yaw||0, sin=Math.sin(yaw), cos=Math.cos(yaw), ground=groundHeightAt(x,z);
+    const {x,z}=site, yaw=site.yaw||0, sin=Math.sin(yaw), cos=Math.cos(yaw), ground=Number.isFinite(site.floorBaseY)?site.floorBaseY:groundHeightAt(x,z);
     function point(dx,dz) {return {x:x+cos*dx+sin*dz,z:z-sin*dx+cos*dz};}
     function part(shape,dx,y,dz,w,h,d,color,angle=0,roll=0) {
       const p=point(dx,dz);batch.part(shape,p.x,ground+y,p.z,w,h,d,color,yaw+angle,roll);
@@ -16948,6 +16985,8 @@ function precompile(T,renderer,scene,camera,timings){
       if(rioPreto.insideHome&&rioPreto.insideHome!==record)return false;
       record.inside=true;rioPreto.insideHome=record;
       root.visible=false;room.root.visible=true;
+      rioMap.indoors=true;rioMap.indoorRoom=room;
+      room.refreshDecor?.();
       for(const c of outsideColliders)c.disabled=true;
       for(const c of room.colliders)c.disabled=false;
       if(room.gate)room.gate.disabled=true;
@@ -16964,6 +17003,7 @@ function precompile(T,renderer,scene,camera,timings){
     function leave(){
       record.inside=false;if(rioPreto.insideHome===record)rioPreto.insideHome=null;
       room.root.visible=false;root.visible=true;
+      if(rioMap.indoorRoom===room){rioMap.indoorRoom=null;rioMap.indoors=false;}
       for(const c of room.colliders)c.disabled=true;
       for(const c of outsideColliders)c.disabled=false;
       if(room.door)room.door.visible=true;
@@ -17505,6 +17545,57 @@ function precompile(T,renderer,scene,camera,timings){
     save.constructionInventory[sku]--;
     return true;
   }
+  function rioPropertyFurniturePending(propertyId,sku){
+    return rioConstructionSave().constructionOrders.some(o=>o.kind==='furniture'&&o.destinationId===propertyId&&o.productId===sku&&o.status==='en-route');
+  }
+  function rioReceivePropertyOrder(save,order){
+    if(order.kind!=='furniture'){rioReceiveConstructionStock(save,order);return true;}
+    const title=rioPropertyTitle(order.destinationId);
+    if(!title?.owned||!rioFurnitureCatalog({w:10,d:8}).some(item=>item.id===order.productId))return false;
+    const furniture=title.furniture??=[];
+    if(!furniture.includes(order.productId))furniture.push(order.productId);
+    const layout=title.decorLayout??={};
+    // A delivered object starts stored, ready for placement in the existing
+    // live furniture editor, not unexpectedly blocking the entrance.
+    layout[order.productId]??={stored:true};
+    return true;
+  }
+  function rioOpenFurnitureStore(site){
+    const stock=rioFurnitureCatalog({w:10,d:8});
+    const homes=rioDeliveryHomes();
+    openModal('Móveis · '+site.name,
+      '<p>Escolha um móvel do mesmo catálogo usado para decorar as residências. A encomenda será recebida no endereço selecionado e poderá ser posicionada pelo editor da casa.</p>'+
+      (homes.length?'':'<p>Primeiro adquira uma propriedade para receber a compra.</p>')+
+      '<div class="choice-grid">'+stock.map(item=>'<button class="choice" data-rio-furniture-buy="'+item.id+'" '+(!homes.length?'disabled':'')+'><b>'+escapeHtml(item.name)+'</b><span>'+item.price+' moedas</span></button>').join('')+
+      '</div><div class="modal-actions"><button class="btn" data-rio-furniture-orders>Minhas encomendas</button></div>',root=>{
+        root.querySelector('[data-rio-furniture-orders]').onclick=rioConstructionDeliveryReport;
+        for(const button of root.querySelectorAll('[data-rio-furniture-buy]'))button.onclick=()=>{
+          const item=stock.find(i=>i.id===button.dataset.rioFurnitureBuy);if(!item)return;
+          const destinations=rioDeliveryHomes().filter(home=>!(rioPropertyTitle(home.propertyId)?.furniture||[]).includes(item.id)&&!rioPropertyFurniturePending(home.propertyId,item.id));
+          openModal('Entregar · '+item.name,
+            '<p>Escolha a residência. A compra será descontada uma única vez.</p>'+
+            (destinations.length?'':'<p>Este móvel já pertence aos seus imóveis ou está a caminho.</p>')+
+            '<div class="choice-grid">'+destinations.map(home=>'<button class="choice" data-rio-furniture-address="'+escapeHtml(home.propertyId)+'"><b>'+escapeHtml(home.name)+'</b><span>'+item.price+' moedas · entrega agendada</span></button>').join('')+'</div>',addressRoot=>{
+            let committed=false;
+            for(const choice of addressRoot.querySelectorAll('[data-rio-furniture-address]'))choice.onclick=()=>{
+              if(committed||choice.disabled)return;
+              const id=choice.dataset.rioFurnitureAddress,home=rioDeliveryHomes().find(h=>h.propertyId===id),title=rioPropertyTitle(id);
+              if(!home||!title?.owned||title.furniture?.includes(item.id)||rioPropertyFurniturePending(id,item.id)||Number(state.profile.coins)<item.price){
+                toast('Compra indisponível. Confira o saldo e o endereço.','warn',2300);return;
+              }
+              committed=true;for(const c of addressRoot.querySelectorAll('[data-rio-furniture-address]'))c.disabled=true;
+              const save=rioConstructionSave(),nextId=Math.max(0,...save.constructionOrders.map(o=>Number(o.id)||0))+1;
+              const now=Date.now();
+              save.constructionOrders.push({id:nextId,kind:'furniture',productId:item.id,label:item.name,quantity:1,unit:'peça',
+                shopId:site.id,destinationId:id,destinationName:home.name,paid:item.price,status:'en-route',purchasedAt:now,readyAt:now+45000});
+              addCoins(-item.price);rioRegisterHomeDelivery(home);saveState(true);rioConstructionDeliveryReport();
+              toast('Móvel encomendado. Receba no imóvel escolhido.','good',2500);
+            };
+          });
+        };
+      });
+    return true;
+  }
   function rioDeliveryHomes(){
     const compact=typeof compactRio!=='undefined'?(compactRio.sites||[]):[];
     const historic=typeof rioCompactWorld==='function'&&rioCompactWorld()&&typeof RIO_PRETO_LAYOUT!=='undefined'&&typeof rioHistoricHomeSite==='function'
@@ -17531,7 +17622,7 @@ function precompile(T,renderer,scene,camera,timings){
     const pos=rioDeliveryAddress(site);
     registerInteractable({
       id:actionId,
-      type:'delivery',icon:'📦',label:'Receber materiais de construção',...pos,radius:3.5,priority:262,
+      type:'delivery',icon:'📦',label:'Receber materiais e móveis',...pos,radius:3.5,priority:262,
       available:()=>running&&!paused&&!player.vehicle&&!player.boating&&
         rioPropertyTitle(site.propertyId)?.owned&&
         rioConstructionSave().constructionOrders.some(o=>o.destinationId===site.propertyId&&
@@ -17548,10 +17639,10 @@ function precompile(T,renderer,scene,camera,timings){
             const now=Date.now();
             for(const order of pending){
               if(order.status!=='en-route'||now<order.readyAt)continue;
-              rioReceiveConstructionStock(saved,order);
+              if(!rioReceivePropertyOrder(saved,order))continue;
               order.status='delivered';order.deliveredAt=now;
             }
-            saveState(true);closeModal();toast('Materiais recebidos e registrados no estoque.','good',2600);
+            saveState(true);closeModal();toast('Encomendas recebidas e registradas no imóvel.','good',2600);
           };});
       }
     });
@@ -17560,7 +17651,7 @@ function precompile(T,renderer,scene,camera,timings){
     const orders=rioConstructionSave().constructionOrders;
     const homes=rioDeliveryHomes();
     openModal('Minhas entregas e materiais',
-      '<p>Pedidos vinculados à sua propriedade; os novos materiais recebidos ficam no endereço escolhido e podem ser usados em reformas.</p>'+
+      '<p>Pedidos vinculados à sua propriedade. Use materiais nas reformas e posicione os móveis recebidos pelo editor da sua casa.</p>'+
       '<div class="choice-grid">'+orders.slice(-12).reverse().map(o=>{
         const site=homes.find(h=>h.propertyId===o.destinationId);
         const ready=o.status==='en-route'&&Date.now()>=o.readyAt;
@@ -17794,18 +17885,32 @@ function precompile(T,renderer,scene,camera,timings){
       x:p.x,z:p.z,w:p.w,d:p.d,yaw:p.face===1?0:Math.PI,
       entry:[p.visitX,p.visitZ],street:p.address,shop:p.shop
     };
-    // Native OT stores, not a static mall modal. Shelves, clothing, shoes and
-    // food are built only when the player approaches this district.
-    const room=rioMountPlace(site,sectorRoot);
-    if(!room)return null;
-    const record={site,room,outside,outsideColliders,inside:false,venueId:p.id};
-    room.legacyResidence=true;room.legacyRecord=record;
-    room.root.visible=false;
-    for(const collider of room.colliders)collider.disabled=true;
+    // Stream the visible facade with its district. Allocate full interiors,
+    // staff and merchandise only at the player's first actual entrance.
+    const record={site,room:null,outside,outsideColliders,inside:false,venueId:p.id};
     const doorway={x:p.visitX,z:p.visitZ};
+    function ensureRoom(){
+      if(record.room)return record.room;
+      const room=rioMountPlace(site,sectorRoot);
+      if(!room)return null;
+      record.room=room;room.legacyResidence=true;room.legacyRecord=record;
+      room.root.visible=false;
+      for(const collider of room.colliders)collider.disabled=true;
+      if(p.shop==='materials'||p.shop==='tools'){
+        room.action('construction-counter','Comprar e solicitar entrega de materiais',0,-site.d*.16,
+          ()=>{const clerk=room.npcs?.find(n=>n.shopSlot==='construction');if(clerk)clerk.servingUntil=performance.now()+2500;return rioOpenRegionalConstructionStore(p);},{inside:true,icon:'🧱',radius:2.8});
+      }
+      room.action('exit-regional-mall','Sair do estabelecimento',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:2.9});
+      world.navCache?.clear?.();
+      return room;
+    }
     function enter(){
-      if(record.inside||player.vehicle||player.boating||currentHouse)return false;
+      if(record.inside||player.vehicle||player.boating||currentHouse||rioMap.indoorRoom&&rioMap.indoorRoom!==record.room)return false;
+      const room=ensureRoom();if(!room)return false;
+      sectorRoot.visible=true;
       record.inside=true;outside.visible=false;room.root.visible=true;
+      rioMap.indoors=true;rioMap.indoorRoom=room;
+      if(room.roof)room.roof.visible=false;
       for(const collider of outsideColliders)collider.disabled=true;
       for(const collider of room.colliders)collider.disabled=false;
       if(room.gate)room.gate.disabled=true;
@@ -17819,9 +17924,11 @@ function precompile(T,renderer,scene,camera,timings){
       return true;
     }
     function leave(){
-      if(!record.inside)return false;
+      if(!record.inside||!record.room)return false;
+      const room=record.room;
       if(rioMap.order?.site===room.site.id)rioClearDiningOrder(room);
       record.inside=false;room.root.visible=false;outside.visible=true;
+      if(rioMap.indoorRoom===room){rioMap.indoorRoom=null;rioMap.indoors=false;}
       for(const collider of room.colliders)collider.disabled=true;
       for(const collider of outsideColliders)collider.disabled=false;
       const point={x:doorway.x+Math.sin(site.yaw)*1.1,z:doorway.z+Math.cos(site.yaw)*1.1};
@@ -17832,11 +17939,6 @@ function precompile(T,renderer,scene,camera,timings){
       rememberSafePlayerPosition(true);saveState(true);updateContext(true);
       return true;
     }
-    if(p.shop==='materials'||p.shop==='tools'){
-      room.action('construction-counter','Comprar e solicitar entrega de materiais',0,-site.d*.16,
-        ()=>{const clerk=room.npcs?.find(n=>n.shopSlot==='construction');if(clerk)clerk.servingUntil=performance.now()+2500;return rioOpenRegionalConstructionStore(p);},{inside:true,icon:'🧱',radius:2.8});
-    }
-    room.action('exit-regional-mall','Sair do estabelecimento',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:2.9});
     record.enter=enter;record.leave=leave;
     rioV51IndoorMalls.set(p.id,record);
     if(rioMapSave().activeRegionalMall===site.id)enter();
@@ -17978,8 +18080,8 @@ function precompile(T,renderer,scene,camera,timings){
           previous:lastActionSource,current:currentContext?.id,available:!!target&&isInteractionAvailable(target),
           targetExists:!!target,near:!!target&&Math.hypot(player.x-target.x,player.z-target.z)};
       })(),
-      malls:[...rioV51IndoorMalls.values()].map(m=>({id:m.venueId,roomId:m.site.id,inside:m.inside,visible:m.room.root.visible,facade:m.outside.visible,staff:(m.room.npcs||[]).filter(n=>n.id.startsWith('rio-mall-staff-')).map(n=>({id:n.id,name:n.name,visible:n.group.visible!==false})),
-        sectorVisible:!!rioV51World.roots.get(RIO_V51.places.find(p=>p.id===m.site.id)?.sector)?.visible,
+      malls:[...rioV51IndoorMalls.values()].map(m=>({id:m.venueId,roomId:m.site.id,inside:m.inside,loaded:!!m.room,visible:!!m.room?.root.visible,facade:m.outside.visible,staff:(m.room?.npcs||[]).filter(n=>n.id.startsWith('rio-mall-staff-')).map(n=>({id:n.id,name:n.name,visible:n.group.visible!==false})),
+        sectorVisible:!!rioV51World.roots.get(RIO_V51.places.find(p=>p.id===m.venueId)?.sector)?.visible,
         entry:m.site.entry,exit:(()=>{const item=world.interactables.find(i=>i.id===m.site.id+'-exit-regional-mall');return item?{x:item.x,z:item.z}:null;})(),
         position:{x:player.x,z:player.z}}))}),
     locations:()=>RIO_V51.places.map(rioV51Location)
@@ -18586,7 +18688,11 @@ function precompile(T,renderer,scene,camera,timings){
 
   function rioSiteLayout(site,root){
     const batch=rioCreateBatch(root);batch.root=root;
-    const draw=rioLocal(batch,site);
+    const baseY=groundHeightAt(site.x,site.z);
+    // Biome sheets and terrain decals lie above the original paper-thin floor.
+    // Build an actual foundation, with every furnishing using the same datum.
+    const floorY=rioPlaceStyles[site.kind]?baseY+.24:baseY;
+    const draw=rioLocal(batch,{...site,floorBaseY:floorY});
     const {point}=draw,colliders=[],actions=[],lights=[];
     const forSite=(x,z,r=0)=>rioSiteContains(site,x,z,r);
     function collider(x,z,w,d,height){
@@ -18609,7 +18715,7 @@ function precompile(T,renderer,scene,camera,timings){
     function bench(x,z){
       draw.bench(x,z);collider(x,z,2.2,.58,1.03);
     }
-    return {...draw,site,bench,batch,root,colliders,actions,lights,object,action,collider,forSite};
+    return {...draw,site,bench,batch,root,colliders,actions,lights,object,action,collider,forSite,baseY,floorY};
   }
 
   function rioSiteContains(site,x,z,pad=0){
@@ -18627,43 +18733,59 @@ function precompile(T,renderer,scene,camera,timings){
 
   function rioBuildShell(site,room){
     const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:base;
-    const {w,d}=site,{box,object,sign}=room;
+    const {w,d}=site,{box,object}=room;
     const h=p.height,edge=.27,entry=site.kind==='market'?4.8:Math.min(3.1,w*.4);
     const front=d/2-edge,length=(w-entry)/2,center=(w+entry)/4;
-    box(0,.028,0,w,.055,d,p.floor);
-    object(0,h/2,-front,w,h,.39,p.wall);
+    // Real floor is a solid slab, not a depth-disabled overlay.
+    const floorDepth=Math.max(.26,room.floorY-room.baseY+.08);
+    const floor=new THREE.Mesh(new THREE.BoxGeometry(w,floorDepth,d),renderMat(p.floor,{roughness:.9,metalness:0}));
+    floor.name='RIO_FINISHED_FLOOR_'+site.key;floor.position.set(site.x,room.floorY-floorDepth/2,site.z);
+    floor.rotation.y=site.yaw;floor.receiveShadow=true;room.root.add(floor);room.floorMesh=floor;
+    // Separate architectural surfaces allow a true camera cutaway. Colliders
+    // are never disabled by rendering, and all furniture remains visible.
+    room.wallGroups={};room.wallDraw={};const wallBatches=[];
+    for(const key of ['front','back','left','right']){
+      const group=new THREE.Group();group.name='RIO_WALL_'+key+'_'+site.key;room.root.add(group);
+      const batch=rioCreateBatch(group);batch.root=group;wallBatches.push(batch);
+      room.wallGroups[key]=group;room.wallDraw[key]=rioLocal(batch,{...site,floorBaseY:room.floorY});
+    }
+    room.commitWalls=()=>wallBatches.forEach(batch=>batch.commit());
+    const wallObject=(key,x,y,z,ww,hh,dd,color)=>{
+      room.wallDraw[key].box(x,y,z,ww,hh,dd,color);room.collider(x,z,ww,dd,hh);
+    };
+    wallObject('back',0,h/2,-front,w,h,.39,p.wall);
+    const f=room.wallDraw.front;
     for(const side of [-1,1]){
-      object(side*(w/2-edge),h/2,0,.39,h,d,p.wall);
-      object(side*center,h/2,front,length,h,.42,p.wall);
-      box(side*(entry/2+.13),1.48,front+.23,.19,2.96,.23,p.trim);
+      wallObject(side<0?'left':'right',side*(w/2-edge),h/2,0,.39,h,d,p.wall);
+      wallObject('front',side*center,h/2,front,length,h,.42,p.wall);
+      f.box(side*(entry/2+.13),1.48,front+.23,.19,2.96,.23,p.trim);
       for(let offset=entry/2+.82;offset<w/2-.70;offset+=2.38){
         const paneW=Math.min(1.68,2*(w/2-offset-.31));
-        box(side*offset,2.02,front+.222,paneW,1.28,.10,rioPaint.window);
-        box(side*offset,2.02,front+.29,.09,1.27,.05,rioPaint.white);
-        box(side*offset,1.35,front+.30,paneW+.16,.12,.16,p.trim);
+        f.box(side*offset,2.02,front+.222,paneW,1.28,.10,rioPaint.window);
+        f.box(side*offset,2.02,front+.29,.09,1.27,.05,rioPaint.white);
+        f.box(side*offset,1.35,front+.30,paneW+.16,.12,.16,p.trim);
       }
     }
-    box(0,(h+2.95)/2,front,entry+.14,h-2.95,.43,p.wall);
-    box(0,2.91,front+.33,entry+.43,.18,.34,p.trim);
-    box(0,.031,d/2+.63,entry+.88,.058,1.85,rioPaint.paving);
-    // Address, threshold and doorway are in the same open wall.
+    f.box(0,(h+2.95)/2,front,entry+.14,h-2.95,.43,p.wall);
+    f.box(0,2.91,front+.33,entry+.43,.18,.34,p.trim);
+    // Two broad entrance steps bridge the 24 cm foundation and terrain.
+    box(0,-.12,d/2+.58,entry+.88,.12,1.16,rioPaint.paving);
+    box(0,-.21,d/2+1.08,entry+.96,.06,.66,rioPaint.paving);
     const fixedSign=(site.key==='mercado_municipal'||site.key==='catedral_sao_jose'||site.key==='prefeitura_andalo'||site.key==='complexo_swift'||site.kind==='airport')?p.sign:null;
-    sign(fixedSign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
+    f.sign(fixedSign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
       site.kind==='market'?'#87352e':site.kind==='dining'?'#62422f':'#294b56');
-
     const roof=new THREE.Group();roof.name='RIO_ROOF_'+site.key;room.root.add(roof);
-    const cap=rioCreateBatch(roof),top=rioLocal(cap,site);
+    const cap=rioCreateBatch(roof),top=rioLocal(cap,{...site,floorBaseY:room.floorY});
     if(['market','church','theater','dining','bakery'].includes(site.kind)||site.kind==='residence'&&site.style!=='damha'){
       top.box(0,h+.06,0,w+.12,.17,d+.12,p.trim);
       top.part('hip',0,h+.66,0,w+.25,1.24,d+.20,p.roof);
     }else top.box(0,h+.16,0,w+.15,.34,d+.15,p.roof);
     if(site.kind==='market'){
-      // Cream stucco, rounded end towers and red-brimmed canopy reference the Mercado Municipal.
       for(const side of [-1,1]){
-        room.part('post',side*(w/2-1.04),h*.54,front-.56,1.85,h*1.11,1.85,p.wall);
-        for(const y of [2.04,2.46,2.88,3.30])box(side*(w/2-1.04),y,front+.18,1.41,.16,.18,rioPaint.window);
+        f.part('post',side*(w/2-1.04),h*.54,front-.56,1.85,h*1.11,1.85,p.wall);
+        for(const y of [2.04,2.46,2.88,3.30])f.box(side*(w/2-1.04),y,front+.18,1.41,.16,.18,rioPaint.window);
       }
-      box(0,3.09,front+.76,Math.min(7.9,w-.4),.23,1.66,p.trim);
+      f.box(0,3.09,front+.76,Math.min(7.9,w-.4),.23,1.66,p.trim);
     }
     if(site.kind==='church'){
       for(const side of [-1,1]){
@@ -18674,8 +18796,8 @@ function precompile(T,renderer,scene,camera,timings){
       top.box(0,h+2.37,-d*.38,1.2,.16,.17,0xaf9360);
     }
     if(site.key==='canecao_represa'){
-      for(const x of [-w*.41,-w*.20,w*.20,w*.41])object(x,1.49,front+.55,.32,2.98,.32,rioPaint.brick);
-      box(0,2.99,front+.62,w-.16,.22,1.24,p.trim);
+      for(const x of [-w*.41,-w*.20,w*.20,w*.41])wallObject('front',x,1.49,front+.55,.32,2.98,.32,rioPaint.brick);
+      f.box(0,2.99,front+.62,w-.16,.22,1.24,p.trim);
     }
     cap.commit();
     room.roof=roof;
@@ -18696,19 +18818,26 @@ function precompile(T,renderer,scene,camera,timings){
     if(!theme)return;
     const [accent,pale]=theme;
     for(const side of[-1,1]){
-      b(side*edgeX,.16,0,.055,.18,d-1.04,accent);
-      b(side*edgeX,2.20,0,.055,.09,d-1.04,pale);
+      const wall=room.wallDraw?.[side<0?'left':'right']?.box||b;
+      wall(side*edgeX,.16,0,.055,.18,d-1.04,accent);
+      wall(side*edgeX,2.20,0,.055,.09,d-1.04,pale);
       // Framed wall panels, not free-floating furniture or false doors.
       const panels=Math.max(1,Math.min(5,Math.floor((d-1.8)/3.4)));
       for(let i=0;i<panels;i++){
         const z=-d*.38+(i+.5)*(d*.76/panels);
         const span=Math.min(1.4,d*.40/panels);
-        b(side*(edgeX-.01),2.46,z,.06,.40,span,accent);
-        b(side*(edgeX-.05),2.46,z,.06,.27,span*.81,pale);
+        wall(side*(edgeX-.01),2.46,z,.06,.40,span,accent);
+        wall(side*(edgeX-.05),2.46,z,.06,.27,span*.81,pale);
       }
     }
-    b(0,.16,-edgeZ,w-1.04,.18,.055,accent);
-    b(0,2.20,-edgeZ,w-1.04,.09,.055,pale);
+    const back=room.wallDraw?.back?.box||b;
+    back(0,.16,-edgeZ,w-1.04,.18,.055,accent);
+    back(0,2.20,-edgeZ,w-1.04,.09,.055,pale);
+    // Fine grout joints / floorboards make the surface visibly intentional.
+    const tile=kind==='residence'?1.1:1.8;
+    const joints=Math.min(12,Math.floor((w-1.2)/tile));
+    for(let i=1;i<joints;i++)b(-w*.5+.6+i*(w-1.2)/joints,.009,0,.025,.012,d-1.2,kind==='residence'?0x9a8d7c:0xa7a49b);
+    if(kind!=='residence')for(let i=1,rows=Math.min(10,Math.floor((d-1.2)/tile));i<rows;i++)b(0,.009,-d*.5+.6+i*(d-1.2)/rows,w-1.2,.012,.025,0xa7a49b);
     if(kind!=='residence'){
       // A clear central route in commercial/public buildings; only floor
       // markings, so walking and vehicle physics remain unchanged.
@@ -18760,7 +18889,7 @@ function precompile(T,renderer,scene,camera,timings){
     // The place to stand is alongside the chair. Sitting starts on the furniture itself.
     room.collider(sx,z,.54,.56,.96);
     const table=point(x,z),chair=point(sx,z),approach=point(sx,z+1.02);
-    return {table,chair,approach,yaw:Math.atan2(table.x-chair.x,table.z-chair.z),seatTop:.51};
+    return {table,chair,approach,yaw:Math.atan2(table.x-chair.x,table.z-chair.z),seatTop:(room.floorY||0)+.51};
   }
 
   function rioCounter(room,x,z,width=3.05,accent=rioPaint.wood){
@@ -18859,7 +18988,7 @@ function precompile(T,renderer,scene,camera,timings){
       room.part('post',side*x,1.04,z-.25,.105,.22,.105,0x70935e);
     }
     const marked=room.seats[0], dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
-    dish.position.set(marked.table.x,.917,marked.table.z);dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';
+    dish.position.set(marked.table.x,room.floorY+.917,marked.table.z);dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';
     room.root.add(dish);room.servedDish=dish;
     const counterZ=-d/2+1.85;
     const counter=rioCounter(room,0,counterZ,Math.min(4.6,w*.53));
@@ -18882,7 +19011,7 @@ function precompile(T,renderer,scene,camera,timings){
   function rioServiceClerk(site,room,role,name,x,z,color){
     const p=room.point(x,z),clerk=createNPC('rio-service-'+site.key+'-'+role,name,p.x,p.z,color,0);
     clerk.stationary=true;clerk.cityLifeManaged=true;clerk.shopSlot=role;
-    clerk.group.rotation.y=site.yaw;room.root.add(clerk.group);
+    clerk.group.rotation.y=site.yaw;clerk.rioFloorY=room.floorY;clerk.group.position.y=room.floorY;room.root.add(clerk.group);
     room.npcs??=[];room.npcs.push(clerk);
     world.interactables=world.interactables.filter(a=>a.id!=='npc-'+clerk.id);
     return clerk;
@@ -18946,20 +19075,45 @@ function precompile(T,renderer,scene,camera,timings){
     rioServiceClerk(site,room,'reception','Recepcionista',-x,z-.80,0x607f91);
     const badge=rioCounter(room,stationX,stationZ,Math.min(2.3,w*.25),0x738889);
     const light=new THREE.Mesh(new THREE.SphereGeometry(.15,8,6),new THREE.MeshBasicMaterial({color:0xf8bb5b}));
-    light.position.set(badge.x,1.12,badge.z-1.02);light.visible=false;room.root.add(light);room.lights.push(light);
+    light.position.set(badge.x,room.floorY+1.12,badge.z-1.02);light.visible=false;room.root.add(light);room.lights.push(light);
     const seatsZ=Math.min(d*.28,3.6);
-    if(kind!=='theater')room.bench(x,seatsZ);
+    if(kind!=='theater'){
+      room.bench(x,seatsZ);
+      room.action('waiting-seat','Sentar enquanto aguarda atendimento',x,seatsZ+.81,
+        ()=>rioSitOnBench(site,room,x,seatsZ),{inside:true,icon:'🪑'});
+    }
     if(kind==='theater'){
       room.box(0,.16,-d*.40,Math.min(9.5,w*.43),.31,Math.min(3,d*.15),0x735041);
+      const stageW=Math.min(9.5,w*.43);
+      room.box(0,3.15,-d*.46,stageW+.50,.23,.24,0x7a483c);
+      for(const side of[-1,1])for(let i=0;i<4;i++)room.box(side*(stageW*.47-i*.14),1.66,-d*.46,.18,2.84,.21,i%2?0x9a5050:0x793c42);
+      room.box(0,.325,-d*.40,stageW-.22,.035,Math.min(2.65,d*.14),0xb79b75);
       for(let i=0;i<5;i++){
         const p=room.point((i-2)*Math.min(w*.105,1.45),-d*.42);
         const strip=new THREE.Mesh(new THREE.BoxGeometry(.47,.27,.31),new THREE.MeshBasicMaterial({color:0xffcf82}));
-        strip.position.set(p.x,2.69,p.z);strip.visible=false;room.root.add(strip);room.lights.push(strip);
+        strip.position.set(p.x,room.floorY+2.69,p.z);strip.visible=false;room.root.add(strip);room.lights.push(strip);
       }
       for(let i=0;i<3;i++)for(const side of [-1,1])room.bench(side*x,.29+i*1.17);
     }else if(kind==='exhibition'){
       room.object(0,.5,-d*.29,1.25,1,1.25,rioPaint.stone);
       room.part('canopy',0,1.55,-d*.29,.82,.9,.74,0xab7344);
+    }else if(kind==='reception'&&w>=9&&d>=8){
+      const examX=-w*.35,examZ=d*.19;
+      room.object(examX,.35,examZ,.97,.67,1.92,0x8ca7a2);
+      room.box(examX,.73,examZ,.87,.10,1.81,0xd9e3d9);
+      room.box(examX,.82,examZ-.63,.76,.14,.44,0xf0eee1);
+      room.box(examX-.51,1.14,examZ,.075,.91,1.70,0x9fb4ad);
+      room.box(examX,1.84,examZ-.98,1.52,.13,.08,0x8ca79e);
+      room.sign('SALA DE REPOUSO',examX,2.22,examZ-.97,Math.min(2.9,w*.30),.32,'#57796d');
+      const approach=room.point(examX+.91,examZ),bed=room.point(examX,examZ);
+      room.action('recovery','Descansar após o atendimento',examX+.91,examZ,()=>{
+        if(!room.serviceComplete)return false;
+        return beginCharacterActivity('rio-rest',{target:approach,pose:{...bed,y:room.floorY+.86,yaw:site.yaw,lying:true},commit:()=>{
+          if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+          state.needs.energy=clamp(Number(state.needs.energy||0)+8,0,100);
+          saveState(true);updateHUD();return true;
+        }});
+      },{inside:true,available:()=>!!room.serviceComplete,icon:'🛏️'});
     }else if(kind==='station'){
       room.sign('PLATAFORMA',stationX,2,stationZ-.35,Math.min(w*.5,6),.5);
       for(let i=-3;i<=3;i++)room.box(i*.5,.035,stationZ+2.2,.36,.036,.15,0xceb35a);
@@ -18971,7 +19125,7 @@ function precompile(T,renderer,scene,camera,timings){
     },{inside:true,icon:'📋'});
     room.action('service',next,stationX,stationZ+1.02,()=>{
       if(!room.ticket||!rioPlayerAt(badge))return;
-      room.ticket=false;room.lights.forEach(item=>{item.visible=true;});
+      room.ticket=false;room.serviceComplete=true;room.lights.forEach(item=>{item.visible=true;});
       rioCountVisit(site);toast(success,'good',2600);
     },{inside:true,available:()=>room.ticket});
   }
@@ -18979,7 +19133,7 @@ function precompile(T,renderer,scene,camera,timings){
   function rioSitOnBench(site,room,x,z){
     const approach=room.point(x,z+.81),seat=room.point(x,z);
     if(!rioPlayerAt(approach))return;
-    beginCharacterActivity('rio-rest',{target:approach,pose:{...seat,y:.535,yaw:site.yaw,sitting:true},
+    beginCharacterActivity('rio-rest',{target:approach,pose:{...seat,y:(room.floorY||0)+.535,yaw:site.yaw,sitting:true},
       commit:()=>{if(!room.root.visible||!rioPlayerAt(approach,.26))return false;state.needs.energy=clamp(state.needs.energy+4,0,100);rioCountVisit(site);return true;}});
   }
   function rioBuildChurch(site,room){
@@ -19004,7 +19158,7 @@ function precompile(T,renderer,scene,camera,timings){
       room.object(x,.19,kneelerZ,1.17,.38,.45,0xa95c54);
       room.action('altar-'+side,'Rezar no altar lateral',x,kneelerZ+.75,()=>{
         const approach=room.point(x,kneelerZ+.75),kneeler=room.point(x,kneelerZ);
-        beginCharacterActivity('rio-rest',{target:approach,pose:{...kneeler,y:.40,yaw:site.yaw+Math.PI,sitting:true},commit:()=>{rioCountVisit(site);return true;}});
+        beginCharacterActivity('rio-rest',{target:approach,pose:{...kneeler,y:room.floorY+.40,yaw:site.yaw+Math.PI,sitting:true},commit:()=>{rioCountVisit(site);return true;}});
       },{inside:true,icon:'🕯️'});
     }
   }
@@ -19100,6 +19254,7 @@ function precompile(T,renderer,scene,camera,timings){
       else if(site.kind==='airport')rioBuildAirportTerminal(site,room);
       else rioDeskModel(site,room);
       rioFinishInterior(site,room);
+      room.commitWalls();
     }else if(site.kind==='fuel')rioBuildFuel(site,room);
     else if(site.kind==='oil-shop')rioBuildOilShop(site,room);
     else rioBuildOpenSite(site,room);
@@ -19465,7 +19620,7 @@ function precompile(T,renderer,scene,camera,timings){
       const cameraZ=clamp(sideZ+Math.min(4,maxZ*.72),-maxZ,maxZ);
       desired.set(preview.centerX+cs*cameraX+sn*cameraZ,2.7,
         preview.centerZ-sn*cameraX+cs*cameraZ);
-      look.set(preview.x,.92,preview.z);
+      look.set(preview.x,(preview.floorY||0)+.92,preview.z);
       camera.fov=innerHeight>innerWidth?62:54;
       return;
     }
@@ -19519,6 +19674,17 @@ function precompile(T,renderer,scene,camera,timings){
   function rioInteriorRender(){
     const room=rioMap.indoorRoom;
     if(!room||otGames.active||player.vehicle)return null;
+    if(room.wallGroups){
+      const {x,z,yaw,w,d}=room.site,ss=Math.sin(yaw),cc=Math.cos(yaw);
+      const dx=camera.position.x-x,dz=camera.position.z-z,lx=cc*dx-ss*dz,lz=ss*dx+cc*dz;
+      const hidden=[];
+      const hide=key=>{const g=room.wallGroups[key];if(g?.visible){hidden.push(g);g.visible=false;}};
+      if(Math.abs(lx)>w/2-1.4)hide(lx<0?'left':'right');
+      if(Math.abs(lz)>d/2-1.4)hide(lz<0?'back':'front');
+      // Only the room's occluding wall is temporarily hidden. Geometry in
+      // neighboring districts, furniture and the physical floor is untouched.
+      return ()=>hidden.forEach(g=>{g.visible=true;});
+    }
     // Residence cutaway uses an indoor camera, not renderer-wide clipping:
     // global planes were also cutting beds, counters and other owned furniture.
     if(room.site.kind==='residence')return null;
@@ -20620,6 +20786,32 @@ function precompile(T,renderer,scene,camera,timings){
     return true;
   }
 
+  function rioFurnitureCatalog(site){
+    const {w,d}=site;
+    return [
+      {id:'tapete',name:'Tapete decorativo',price:35,type:'rug',color:0x73928c,x:-w*.06,z:-.68,w:1.56,d:1.24},
+      {id:'luminaria',name:'Luminária de piso',price:65,type:'lamp',color:0xd9bb8e,x:w*.36,z:-d*.27,w:.35,d:.35},
+      {id:'quadro',name:'Quadro moderno',price:48,type:'picture',color:0xb17c64,x:w*.25,z:-d*.38,w:1.45,d:.16},
+      {id:'aparador',name:'Aparador de madeira',price:75,type:'cabinet',color:0x865b45,x:-w*.35,z:-d*.1,w:1.18,d:.40},
+      {id:'estante',name:'Estante de livros',price:110,type:'bookshelf',color:0xbda27c,x:-w*.43,z:-d*.26,w:.52,d:1.35},
+      {id:'planta',name:'Vaso decorativo',price:25,type:'plant',color:0x658c5f,x:w*.37,z:-d*.36,w:.44,d:.44},
+      {id:'sofa-modular',name:'Sofá modular',price:180,type:'sofa',color:0x758d8c,x:-w*.1,z:-d*.1,w:2.3,d:1.04},
+      {id:'poltrona',name:'Poltrona estofada',price:85,type:'armchair',color:0xb67b65,x:w*.2,z:-d*.15,w:.94,d:.91},
+      {id:'mesa-jantar',name:'Mesa de jantar',price:155,type:'table',color:0x9d7952,x:-w*.08,z:d*.04,w:1.75,d:1.16},
+      {id:'cadeira-madeira',name:'Cadeira para sala',price:45,type:'chair',color:0x9b7152,x:w*.12,z:d*.05,w:.58,d:.59},
+      {id:'cama-casal',name:'Cama de casal',price:210,type:'bed',color:0x8d7a6c,x:-w*.12,z:-d*.22,w:2.1,d:2.03},
+      {id:'guarda-roupa',name:'Guarda-roupa de casal',price:190,type:'wardrobe',color:0xac9477,x:-w*.34,z:-d*.24,w:1.7,d:.66},
+      {id:'mesa-escritorio',name:'Mesa de escritório',price:110,type:'desk',color:0x97745b,x:w*.17,z:-d*.22,w:1.45,d:.68},
+      {id:'computador',name:'Computador',price:220,type:'computer',color:0x3e5867,x:w*.22,z:-d*.30,w:.68,d:.40},
+      {id:'tv-premium',name:'Televisão grande',price:260,type:'tv',color:0x324b5a,x:w*.21,z:-d*.39,w:1.7,d:.15},
+      {id:'geladeira',name:'Geladeira inox',price:155,type:'fridge',color:0xc2cbd0,x:-w*.34,z:d*.12,w:.75,d:.72},
+      {id:'bancada',name:'Bancada de cozinha',price:135,type:'counter',color:0xc4b3a0,x:-w*.28,z:d*.23,w:1.68,d:.66},
+      {id:'churrasqueira',name:'Churrasqueira compacta',price:145,type:'grill',color:0x6b7276,x:w*.32,z:d*.31,w:1.06,d:.76},
+      {id:'espreguicadeira',name:'Espreguiçadeira da piscina',price:90,type:'lounger',color:0xe2cfa5,x:w*.16,z:d*.24,w:.64,d:1.42},
+      {id:'vaso-flores',name:'Flores para decoração',price:30,type:'flowers',color:0xd88b90,x:w*.32,z:-d*.22,w:.35,d:.35}
+    ];
+  }
+
   function rioBuildResidence(site,room){
     const selected=rioMapSave().selectedApartmentBySite?.[site.id];
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
@@ -20634,7 +20826,7 @@ function precompile(T,renderer,scene,camera,timings){
     room.gate=room.colliders.at(-1);
     const doorPoint=room.point(0,front);
     room.door=new THREE.Mesh(new THREE.BoxGeometry(Math.min(3.1,w*.4)-.15,2.5,.17),renderMat(modern?0x4a5a5a:0x8d593c));
-    room.door.position.set(doorPoint.x,1.25,doorPoint.z);room.door.rotation.y=yaw;room.root.add(room.door);
+    room.door.position.set(doorPoint.x,room.floorY+1.25,doorPoint.z);room.door.rotation.y=yaw;room.root.add(room.door);
     const bx=-w*.29;
     room.object(bx,.30,back+.24,1.48,.56,2.03,0x8a6b50);
     room.box(bx,.62,back+.13,1.37,.12,1.90,modern?0x7b979c:0xd3b88e);
@@ -20667,13 +20859,13 @@ function precompile(T,renderer,scene,camera,timings){
       room.box(0,1.44,-d*.35,.22,.12,d*.19,0xe7ddc8);
       room.box(0,1.51,-d*.35,.17,.04,d*.15,0xb9a18a);
     }
-    const wallZ=-d/2+.48;
+    const wallZ=-d/2+.48,wallBox=room.wallDraw?.back?.box||room.box;
     for(const side of[-1,1]){
       const wx=side*w*.28;
-      room.box(wx,2.15,wallZ,Math.min(1.6,w*.20),.89,.075,cabinet);
-      room.box(wx,2.15,wallZ+.05,Math.min(1.44,w*.18),.73,.06,0x8aa6ad);
-      room.box(wx,2.15,wallZ+.09,.055,.73,.06,0xe8dfca);
-      room.box(wx,2.15,wallZ+.09,Math.min(1.44,w*.18),.055,.06,0xe8dfca);
+      wallBox(wx,2.15,wallZ,Math.min(1.6,w*.20),.89,.075,cabinet);
+      wallBox(wx,2.15,wallZ+.05,Math.min(1.44,w*.18),.73,.06,0x8aa6ad);
+      wallBox(wx,2.15,wallZ+.09,.055,.73,.06,0xe8dfca);
+      wallBox(wx,2.15,wallZ+.09,Math.min(1.44,w*.18),.055,.06,0xe8dfca);
     }
     if(modern){
       room.box(w*.31,.045,d/2+.71,w*.34,.074,1.53,0xb2afa4);
@@ -20742,21 +20934,24 @@ function precompile(T,renderer,scene,camera,timings){
       const colors=[0xd6cabe,0xcdc6b9,0xd8d6cb,0xc4d0cc,0xcac6bd,0xd8cfc5];
       const order=['rios_candelaro','rios_fiora','rios_salso','rios_fortore','rios_liri','rios_tanaro'];
       const tint=colors[Math.max(0,order.indexOf(site.key))];
-      room.box(0,10.5,-d*.1,w*.70,14.5,d*.64,tint);
+      const towerRoot=new THREE.Group();towerRoot.name='RIO_CONDO_TOWER_'+site.key;room.roof.add(towerRoot);
+      const towerBatch=rioCreateBatch(towerRoot),tower=rioLocal(towerBatch,{...site,floorBaseY:room.floorY});
+      tower.box(0,10.5,-d*.1,w*.70,14.5,d*.64,tint);
       for(let floor=0;floor<5;floor++){
         const y=5.15+floor*2.65;
-        room.box(0,y-.95,d*.224,w*.72,.18,1.1,0xa8aba9);
+        tower.box(0,y-.95,d*.224,w*.72,.18,1.1,0xa8aba9);
         for(const dx of[-w*.24,-w*.08,w*.08,w*.24]){
-          room.box(dx,y,d*.224+.055,w*.105,1.1,.09,0x52727a);
-          room.box(dx,y-.64,d*.224+.09,w*.114,.12,.18,0x526467);
+          tower.box(dx,y,d*.224+.055,w*.105,1.1,.09,0x52727a);
+          tower.box(dx,y-.64,d*.224+.09,w*.114,.12,.18,0x526467);
         }
-        for(const side of[-1,1])room.box(side*w*.354,y,-d*.15,.08,1.12,d*.27,0x66878a);
+        for(const side of[-1,1])tower.box(side*w*.354,y,-d*.15,.08,1.12,d*.27,0x66878a);
       }
-      room.box(0,17.92,-d*.1,w*.75,.25,d*.71,0x66767c);
-      room.box(0,3.35,d*.34,w*.41,.19,2.3,0x6f8284);
+      tower.box(0,17.92,-d*.1,w*.75,.25,d*.71,0x66767c);
+      tower.box(0,3.35,d*.34,w*.41,.19,2.3,0x6f8284);
+      towerBatch.commit();
       const point=room.point(0,d*.18);
       const porteiro=createNPC('porteiro-'+site.key,'Porteiro',point.x,point.z,0x456779,0);
-      porteiro.stationary=true;porteiro.cityLifeManaged=true;room.root.add(porteiro.group);
+      porteiro.stationary=true;porteiro.cityLifeManaged=true;porteiro.rioFloorY=room.floorY;porteiro.group.position.y=room.floorY;room.root.add(porteiro.group);
       world.interactables=world.interactables.filter(action=>action.id!=='npc-'+porteiro.id);
       room.npcs=[porteiro];
       const openCondoConcierge=()=>{
@@ -20808,7 +21003,7 @@ function precompile(T,renderer,scene,camera,timings){
     room.action('rest','Descansar na sala',sx,back+.65,()=>rioSitOnBench(site,room,sx,back-.15),{inside:true,icon:'🛋️'});
     const bedApproach=room.point(bx,back+1.78),bed=room.point(bx,back+.24);
     room.action('bed','Dormir na cama',bx,back+1.78,()=>beginCharacterActivity('bed',{
-      target:bedApproach,pose:{...bed,y:.72,yaw,lying:true},commit:()=>{
+      target:bedApproach,pose:{...bed,y:room.floorY+.72,yaw,lying:true},commit:()=>{
         state.needs.energy=100;setFlag('slept');rioCountVisit(site);return true;
       }
     }),{inside:true,icon:'🛏️'});
@@ -20831,13 +21026,15 @@ function precompile(T,renderer,scene,camera,timings){
     const cookX=compactHome?kitchenX:kitchenX+kitchenW*.12;
     const cookZ=kitchenZ-1.02;
     room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',cookX,cookZ,()=>{
-      if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return;}
-      state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
-      if(condominium){
-        const home=rioPropertyTitle(rioResidencePropertyId());
-        if(home?.owned)home.cleanliness=clamp(Number(home.cleanliness??85)-7,0,100);
-      }
-      rioCountVisit(site);saveState(true);toast('Refeição preparada. Fome recuperada.','good',2000);
+      if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return false;}
+      const approach=room.point(cookX,cookZ),stove=room.point(kitchenX,kitchenZ);
+      return beginCharacterActivity('cook',{target:approach,pose:{...approach,y:room.floorY,yaw:Math.atan2(stove.x-approach.x,stove.z-approach.z)},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(approach,.26)||Number(state.inventory.food||0)<1)return false;
+        state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
+        if(condominium){const home=rioPropertyTitle(rioResidencePropertyId());if(home?.owned)home.cleanliness=clamp(Number(home.cleanliness??85)-7,0,100);}
+        setFlag('ateMeal');state.stats.cooked=(state.stats.cooked||0)+1;trackDaily('cook',1);
+        rioCountVisit(site);saveState(true);updateHUD();toast('Refeição preparada. Fome recuperada.','good',2000);return true;
+      }});
     },{inside:true,icon:'🍳'});
     // A separate sanitary zone, with an open shower entry and real fixtures.
     const bathX=w*.39;
@@ -20851,40 +21048,27 @@ function precompile(T,renderer,scene,camera,timings){
       room.part('post',bathX-.10,.89,bathZ+1.10,.51,.16,.46,0xe9e8df);
     }
     room.action('bathroom','Tomar banho',w*.20,bathZ,()=>{
-      state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+42,0,100);
-      rioCountVisit(site);saveState(true);toast('Banho concluído. Higiene recuperada.','good',2000);
+      const approach=room.point(w*.20,bathZ),shower=room.point(bathX,bathZ);
+      return beginCharacterActivity('shower',{target:approach,pose:{...shower,y:room.floorY+.09,yaw},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+        state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+42,0,100);
+        rioCountVisit(site);saveState(true);updateHUD();toast('Banho concluído. Higiene recuperada.','good',2000);return true;
+      }});
     },{inside:true,icon:'🚿'});
     room.action('tv','Assistir televisão',sx,back+.75,()=>{
-      state.needs.fun=clamp(Number(state.needs.fun||0)+18,0,100);
-      rioCountVisit(site);saveState(true);toast('Você descansou assistindo à TV.','good',2000);
+      const approach=room.point(sx,back+.75),seat=room.point(sx,back-.15);
+      return beginCharacterActivity('tv',{target:approach,pose:{...seat,y:room.floorY+.535,yaw,sitting:true},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+        state.needs.fun=clamp(Number(state.needs.fun||0)+18,0,100);
+        rioCountVisit(site);saveState(true);updateHUD();toast('Você descansou assistindo à TV.','good',2000);return true;
+      }});
     },{inside:true,icon:'📺'});
 
 
     // OT Home Life: ownership, owned item library, positions, rotation and storage
     // are part of the existing unit or residence property record.
     // Keep the original six IDs and saved furniture arrays compatible.
-    const furnishings=[
-      {id:'tapete',name:'Tapete decorativo',price:35,type:'rug',color:0x73928c,x:-w*.06,z:-.68,w:1.56,d:1.24},
-      {id:'luminaria',name:'Luminária de piso',price:65,type:'lamp',color:0xd9bb8e,x:w*.36,z:-d*.27,w:.35,d:.35},
-      {id:'quadro',name:'Quadro moderno',price:48,type:'picture',color:0xb17c64,x:w*.25,z:-d*.38,w:1.45,d:.16},
-      {id:'aparador',name:'Aparador de madeira',price:75,type:'cabinet',color:0x865b45,x:-w*.35,z:-d*.1,w:1.18,d:.40},
-      {id:'estante',name:'Estante de livros',price:110,type:'bookshelf',color:0xbda27c,x:-w*.43,z:-d*.26,w:.52,d:1.35},
-      {id:'planta',name:'Vaso decorativo',price:25,type:'plant',color:0x658c5f,x:w*.37,z:-d*.36,w:.44,d:.44},
-      {id:'sofa-modular',name:'Sofá modular',price:180,type:'sofa',color:0x758d8c,x:-w*.1,z:-d*.1,w:2.3,d:1.04},
-      {id:'poltrona',name:'Poltrona estofada',price:85,type:'armchair',color:0xb67b65,x:w*.2,z:-d*.15,w:.94,d:.91},
-      {id:'mesa-jantar',name:'Mesa de jantar',price:155,type:'table',color:0x9d7952,x:-w*.08,z:d*.04,w:1.75,d:1.16},
-      {id:'cadeira-madeira',name:'Cadeira para sala',price:45,type:'chair',color:0x9b7152,x:w*.12,z:d*.05,w:.58,d:.59},
-      {id:'cama-casal',name:'Cama de casal',price:210,type:'bed',color:0x8d7a6c,x:-w*.12,z:-d*.22,w:2.1,d:2.03},
-      {id:'guarda-roupa',name:'Guarda-roupa de casal',price:190,type:'wardrobe',color:0xac9477,x:-w*.34,z:-d*.24,w:1.7,d:.66},
-      {id:'mesa-escritorio',name:'Mesa de escritório',price:110,type:'desk',color:0x97745b,x:w*.17,z:-d*.22,w:1.45,d:.68},
-      {id:'computador',name:'Computador',price:220,type:'computer',color:0x3e5867,x:w*.22,z:-d*.30,w:.68,d:.40},
-      {id:'tv-premium',name:'Televisão grande',price:260,type:'tv',color:0x324b5a,x:w*.21,z:-d*.39,w:1.7,d:.15},
-      {id:'geladeira',name:'Geladeira inox',price:155,type:'fridge',color:0xc2cbd0,x:-w*.34,z:d*.12,w:.75,d:.72},
-      {id:'bancada',name:'Bancada de cozinha',price:135,type:'counter',color:0xc4b3a0,x:-w*.28,z:d*.23,w:1.68,d:.66},
-      {id:'churrasqueira',name:'Churrasqueira compacta',price:145,type:'grill',color:0x6b7276,x:w*.32,z:d*.31,w:1.06,d:.76},
-      {id:'espreguicadeira',name:'Espreguiçadeira da piscina',price:90,type:'lounger',color:0xe2cfa5,x:w*.16,z:d*.24,w:.64,d:1.42},
-      {id:'vaso-flores',name:'Flores para decoração',price:30,type:'flowers',color:0xd88b90,x:w*.32,z:-d*.22,w:.35,d:.35}
-    ];
+    const furnishings=rioFurnitureCatalog(site);
     const byId=new Map(furnishings.map(item=>[item.id,item])),decorMeshes=new Map();
     const addDecorModel=item=>{
       const group=new THREE.Group();
@@ -20959,7 +21143,7 @@ function precompile(T,renderer,scene,camera,timings){
         const existing=decorMeshes.get(item.id);
         if(!owned.has(item.id)){if(existing)existing.visible=false;continue;}
         const pos=layoutFor(item,owner),group=existing||addDecorModel(item),point=room.point(pos.x,pos.z);
-        group.visible=!pos.stored;group.position.set(point.x,0,point.z);
+        group.visible=!pos.stored;group.position.set(point.x,room.floorY,point.z);
         group.rotation.y=yaw+pos.rotation*Math.PI/2;
       }
     };
@@ -20968,18 +21152,19 @@ function precompile(T,renderer,scene,camera,timings){
     const openDecorCatalog=()=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       if(!owner?.owned){toast('Primeiro compre esta residência.','info',2300);return;}
-      const owned=new Set(owner.furniture||[]);
+      const owned=new Set(owner.furniture||[]),propertyId=rioResidencePropertyId();
       openModal('Minha casa · móveis e decoração',
         '<p>Compre móveis com moedas do jogo, escolha a posição, gire e guarde peças. Suas escolhas ficam salvas nesta residência.</p>'+
         '<p><b>'+owned.size+' de '+furnishings.length+' itens adquiridos</b></p><div class="choice-grid">'+
         furnishings.map(item=>'<button class="choice" data-rio-decor-item="'+item.id+'"><b>'+item.name+'</b><span>'+
-          (owned.has(item.id)?'Editar posição e rotação':item.price+' moedas')+'</span></button>').join('')+'</div>',root=>{
+          (owned.has(item.id)?'Editar posição e rotação':rioPropertyFurniturePending(propertyId,item.id)?'Aguardando entrega':item.price+' moedas')+'</span></button>').join('')+'</div>',root=>{
         for(const button of root.querySelectorAll('[data-rio-decor-item]'))button.onclick=()=>{
           const item=byId.get(button.dataset.rioDecorItem);
           if(!item)return;
           const current=rioPropertyTitle(rioResidencePropertyId());
           if(!current?.owned)return;
           if(!(current.furniture||[]).includes(item.id)){
+            if(rioPropertyFurniturePending(rioResidencePropertyId(),item.id)){toast('Este móvel já está a caminho deste imóvel.','info',2300);return;}
             if(Number(state.profile.coins)<item.price){toast('Moedas insuficientes.','warn',1800);return;}
             button.disabled=true;(current.furniture??=[]).push(item.id);
             addCoins(-item.price);saveState(true);updateDecor();
@@ -21033,12 +21218,12 @@ function precompile(T,renderer,scene,camera,timings){
         activeDecor.position=bound(activeDecor.position);
         const p=activeDecor.position,worldPoint=room.point(p.x,p.z);
         const object=decorMeshes.get(item.id)||addDecorModel(item);
-        object.visible=!p.stored;object.position.set(worldPoint.x,0,worldPoint.z);
+        object.visible=!p.stored;object.position.set(worldPoint.x,room.floorY,worldPoint.z);
         object.rotation.y=yaw+p.rotation*Math.PI/2;
-        decorSelection.position.set(worldPoint.x,.12,worldPoint.z);
+        decorSelection.position.set(worldPoint.x,room.floorY+.12,worldPoint.z);
         decorSelection.visible=!p.stored;
         window.__OTTHI_DECOR_PREVIEW={siteId:site.id,propertyId:rioResidencePropertyId(),
-          x:worldPoint.x,z:worldPoint.z,yaw,centerX:site.x,centerZ:site.z,roomWidth:w,roomDepth:d};
+          x:worldPoint.x,z:worldPoint.z,yaw,centerX:site.x,centerZ:site.z,roomWidth:w,roomDepth:d,floorY:room.floorY};
         const status=decorOverlay.querySelector('[data-rio-editor-status]');
         const occupied=overlapsAnotherPurchasedItem();
         decorSelection.material.color.setHex(occupied?0xff6767:0xffdc62);
@@ -21203,7 +21388,7 @@ function precompile(T,renderer,scene,camera,timings){
           makePanel(0,1.45,-d/2+.36,w-.82,2.76,.045);
           for(const x of[-w/2+.35,w/2-.35])makePanel(x,1.45,0,.045,2.76,d-.82);
         }
-        group.position.set(site.x,0,site.z);group.rotation.y=yaw;
+        group.position.set(site.x,room.floorY,site.z);group.rotation.y=yaw;
         group.name='CASA_REFORMA_'+site.key+'_'+kind;
         room.root.add(group);renovateMeshes[kind]=group;
       }
@@ -21299,7 +21484,7 @@ function precompile(T,renderer,scene,camera,timings){
     const side=-site.w*.39;
     const points=[room.point(side,counterZ-.85),room.point(side,counterZ+1.04),room.point(side,z-.95),room.point(-x-.58,z-.95)];
     const npc=createNPC(site.key==='panificacao-zappas-centro'?'rio-bakery-server':'rio-bakery-server-'+site.key,'Garçonete',points[0].x,points[0].z,0xe6d6c6,0);
-    npc.stationary=true;npc.cityLifeManaged=true;npc.group.name='RIO_BAKERY_SERVER';room.root.add(npc.group);
+    npc.stationary=true;npc.cityLifeManaged=true;npc.group.name='RIO_BAKERY_SERVER';npc.rioFloorY=room.floorY;npc.group.position.y=room.floorY;room.root.add(npc.group);
     world.interactables=world.interactables.filter(action=>action.id!=='npc-'+npc.id);
     room.npcs=[npc];
     const tray=new THREE.Group();tray.position.set(0,1.16,.62);npc.group.add(tray);
@@ -21359,6 +21544,33 @@ function precompile(T,renderer,scene,camera,timings){
     return true;
   }
 
+  function rioBuildFurnitureShowroom(site,room){
+    const {w,d}=site;
+    if(w<20||d<13)return;
+    const x=-w*.36,z=-d*.35,sampleX=-w*.37,sampleZ=-d*.12;
+    const counter=rioCounter(room,x,z,Math.min(2.8,w*.15),0x746957);
+    const clerk=rioServiceClerk(site,room,'furniture','Consultor de móveis',x,z-.84,0x807769);
+    room.sign('MÓVEIS E DECORAÇÃO',x,2.53,z-.40,Math.min(4.4,w*.20),.42,'#605a4a');
+    // A model home display: seating, solid legs, cushions and a real table.
+    // The fixtures are physically placed at the edge, outside the main aisle.
+    room.box(sampleX,.026,sampleZ,Math.min(3.2,w*.15),.025,2.16,0xc2a78a);
+    room.object(sampleX,.39,sampleZ-.37,2.05,.78,.77,0x789b94);
+    room.box(sampleX,.85,sampleZ-.68,2.05,.50,.20,0x557b76);
+    for(const side of[-1,1]){
+      room.box(sampleX+side*.89,.68,sampleZ-.37,.20,.50,.77,0x557b76);
+      room.box(sampleX+side*.39,.86,sampleZ-.40,.71,.16,.52,side<0?0xd6c1a2:0xb4c4b5);
+    }
+    room.box(sampleX,.43,sampleZ+.70,.98,.12,.47,0xa27b56);
+    for(const dx of[-.39,.39])for(const dz of[-.16,.16])room.box(sampleX+dx,.22,sampleZ+.70+dz,.075,.40,.075,0x685143);
+    room.part('post',sampleX-1.13,.72,sampleZ-.46,.12,1.39,.12,0x6a7f72);
+    room.part('post',sampleX-1.13,1.45,sampleZ-.46,.45,.32,.45,0xd8c198);
+    room.action('furniture-counter','Comprar móveis para minha propriedade',x,z+1.02,()=>{
+      if(!rioPlayerAt(counter))return false;
+      clerk.servingUntil=performance.now()+2500;
+      return rioOpenFurnitureStore(site);
+    },{inside:true,icon:'🛋️'});
+  }
+
   function rioBuildFoodCourt(site,room){
     // The existing market remains a grocery store. The new food court has
     // a real dining counter and table, uses the same order/coins/needs
@@ -21372,7 +21584,7 @@ function precompile(T,renderer,scene,camera,timings){
     room.box(x,.07,z+1.5,Math.min(4.1,w*.19),.022,1.22,0xd5b78d);
     room.seats=[rioTable(room,tableX,tableZ,{side:1,cloth:0xc7aa80})];
     const seat=room.seats[0],dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
-    dish.position.set(seat.table.x,groundHeightAt(seat.table.x,seat.table.z)+.917,seat.table.z);
+    dish.position.set(seat.table.x,room.floorY+.917,seat.table.z);
     dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';room.root.add(dish);room.servedDish=dish;
     room.action('food-court-counter','Pedir lanche na praça de alimentação',x,z+1.02,
       ()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍔'});
@@ -21392,7 +21604,7 @@ function precompile(T,renderer,scene,camera,timings){
         clerkPoint.x,clerkPoint.z,slot==='top'?0x90648c:0x486f80,0);
       clerk.stationary=true;clerk.cityLifeManaged=true;
       clerk.shopSlot=slot;
-      clerk.group.rotation.y=site.yaw;
+      clerk.group.rotation.y=site.yaw;clerk.rioFloorY=room.floorY;clerk.group.position.y=room.floorY;
       room.root.add(clerk.group);
       room.npcs??=[];room.npcs.push(clerk);
       world.interactables=world.interactables.filter(action=>action.id!=='npc-'+clerk.id);
@@ -21421,6 +21633,7 @@ function precompile(T,renderer,scene,camera,timings){
     }
     rioBuildMarket(site,room);
     rioBuildFoodCourt(site,room);
+    rioBuildFurnitureShowroom(site,room);
   }
 
   function rioBuildOilShop(site,room){
