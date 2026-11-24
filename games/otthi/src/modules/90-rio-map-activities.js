@@ -27,7 +27,7 @@
   function rioFuelQuote(tank,fuel,coins,requested){
     if(![tank,fuel,coins,requested].every(Number.isFinite)||tank<=0||coins<0||requested<=0)return{litres:0,price:0};
     const tenths=Math.max(0,Math.min(Math.floor((tank-fuel)*10+1e-6),Math.floor(coins/RIO_FUEL_PRICE*10+1e-6),Math.floor(requested*10+1e-6)));
-    return{litres:tenths/10,price:Math.round(tenths*RIO_FUEL_PRICE/10*100)/100};
+    return{litres:tenths/10,price:Math.ceil(tenths*RIO_FUEL_PRICE/10-1e-9)};
   }
   function rioOpenFuel(site,room,pump){
     const vehicle=currentVehicleRef(),tank=rioFuelCapacity(vehicle);
@@ -47,7 +47,7 @@
       const amount=root.querySelector('[data-rio-litres]'),total=root.querySelector('[data-rio-fuel-total]'),progress=root.querySelector('[data-rio-fuel-progress]'),button=root.querySelector('[data-rio-refuel]'),fill=root.querySelector('[data-rio-fill]');
       let active=false,cancelled=false;
       const quote=()=>rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),Number(amount.value));
-      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price.toFixed(2)+' moedas';button.disabled=q.litres<=0||active;};
+      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price+' moedas';button.disabled=q.litres<=0||active;};
       amount.oninput=refresh;fill.onclick=()=>{amount.value=String(rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),tank).litres);refresh();};
       root.querySelector('[data-rio-fuel-cancel]').onclick=()=>{cancelled=true;closeModal();};
       refresh();
@@ -63,7 +63,7 @@
             active=false;amount.disabled=fill.disabled=false;refresh();toast('Abastecimento interrompido; nada foi cobrado.','warn',2200);return;
           }
           const fraction=clamp((now-start)/duration,0,1);progress.value=fraction;
-          total.textContent=(q.litres*fraction).toFixed(1)+' / '+q.litres.toFixed(1)+' L · '+(q.price*fraction).toFixed(2)+' moedas';
+          total.textContent=(q.litres*fraction).toFixed(1)+' / '+q.litres.toFixed(1)+' L · '+Math.floor(q.price*fraction)+' moedas';
           if(fraction<1){requestAnimationFrame(tick);return;}
           cancelled=true;rioRoadVehicleSave(vehicle.id).fuel=Math.min(tank,initial+q.litres);addCoins(-q.price);
           rioCountVisit(site);saveState(true);updateHUD();closeModal();toast(q.litres.toFixed(1)+' litros abastecidos.','good',2200);
@@ -77,7 +77,7 @@
   // A dry tank is a genuine mobility constraint, not merely a HUD number.
   const rioVehiclePhysicsBeforeFuel=updateVehiclePhysics;
   updateVehiclePhysics=function(dt,...args){
-    if(typeof inRioMap==='function'&&inRioMap()&&player.vehicle&&!player.car.passengerOf&&rioFuelCapacity(currentVehicleRef())&&rioFuelLevel()<=.001){
+    if((inRioMap()||rioCompactWorld())&&player.vehicle&&!player.car.passengerOf&&rioFuelCapacity(currentVehicleRef())&&rioFuelLevel()<=.001){
       player.car.speed=0;player.vx=player.vz=0;
       const now=performance.now();if(now-(rioVehiclePhysicsBeforeFuel.emptyTankNotice||0)>5000){
         rioVehiclePhysicsBeforeFuel.emptyTankNotice=now;toast('Sem combustível. Solicite socorro ou abasteça no posto.','warn',2400);
