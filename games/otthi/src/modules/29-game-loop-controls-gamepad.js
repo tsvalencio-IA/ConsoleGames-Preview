@@ -258,7 +258,7 @@
       const tier=qualityTier();pollGamepad();
       // Movimento e câmera permanecem em todo quadro; sistemas pesados usam orçamento próprio.
       const compact=typeof rioCompactWorld==='function'&&rioCompactWorld();
-      const before=compact&&player.vehicle?{x:player.x,z:player.z}:player;
+      const before=compact?{x:player.x,z:player.z}:player;
       if(typeof otGames!=='undefined'&&otGames.active)updateOtGames(dt);else updatePlayer(dt);
       if(compact)updateCompactRio(dt,before);
       if(typeof updateMultiplayerNetworkV2==='function')updateMultiplayerNetworkV2(dt);if(typeof updateMultiplayerRenderV2==='function')updateMultiplayerRenderV2(dt);perf.cameraAcc=Number(perf.cameraAcc||0)+dt;if(typeof updateOtthiWorldEnvironment==='function')updateOtthiWorldEnvironment(dt);if(typeof updateWorldCampaign==='function')updateWorldCampaign(dt);if(typeof updateWorldVenues==='function')updateWorldVenues();perf.expansionAcc=Number(perf.expansionAcc||0)+dt;if(perf.expansionAcc>=1/30){const accumulated=perf.expansionAcc;perf.expansionAcc%=1/30;perf.expansionStep=accumulated-perf.expansionAcc;try{if(typeof updateWorldExpansion==='function')updateWorldExpansion();}finally{perf.expansionStep=0;}}if(typeof updateTrafficVehicleTaking==='function')updateTrafficVehicleTaking();if(typeof updateWorldHeroAdventure==='function')updateWorldHeroAdventure(dt);
@@ -320,7 +320,7 @@
     if(otGames.active){const navVisible=!!state.waypoint&&!(otGames.armed&&otGames.mode==='ground');if(world.routeGuide)world.routeGuide.visible=navVisible;if(world.waypointMarker)world.waypointMarker.visible=navVisible;}
     if(world.skyDome)world.skyDome.position.copy(camera.position);
     const drawStart=performance.now(),programsBefore=renderer.info.programs.length;
-    const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);if(typeof rioCaptureLandmarkFrame==='function')rioCaptureLandmarkFrame(renderer.domElement);}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
+    const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);if(typeof rioCaptureLandmarkFrame==='function')rioCaptureLandmarkFrame(renderer.domElement);if(typeof rioFottoCaptureFrame==='function')rioFottoCaptureFrame();}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
     const renderMs=performance.now()-drawStart,addedPrograms=renderer.info.programs.length-programsBefore;
     const lastView=perf.lastMeasuredView,view=camera.quaternion;
     const turning=!!lastView&&Math.abs(lastView.x*view.x+lastView.y*view.y+lastView.z*view.z+lastView.w*view.w)<.99995;

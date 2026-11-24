@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+const s=fs.readFileSync('games/otthi/src/modules/99-rio-compact-world.js','utf8');
+const distance=new Function(s.slice(s.indexOf('  function rioFottoDistanceToPass('),s.indexOf('  function rioFottoBuild('))+'return rioFottoDistanceToPass;')();
+test('f_OTTO only records a real pass near a camera',()=>{assert.equal(distance({x:0,z:0},{x:10,z:0},{x:5,z:0}),0);assert.equal(distance({x:0,z:0},{x:10,z:0},{x:5,z:4}),4);assert.equal(distance({x:0,z:0},{x:2,z:0},{x:5,z:0}),3);});
+test('photo album uses actual render pixels and explicit virtual purchase, original requires receipt',()=>{assert(s.includes('renderer.readRenderTargetPixels'));assert(s.includes("indexedDB.open('otthi-fotto-album-v1'"));assert(s.includes('if(!await confirmModal'));assert(s.includes('if(row.owner!==rioFottoOwner()||!rioFottoReceipts()[row.id])return false'));});
+test('avatar studio saves name through the existing persistent profile path',()=>{const a=fs.readFileSync('games/otthi/src/modules/34-avatar-studio-professional-v3.js','utf8');assert(a.includes('data-world-avatar-name'));assert(a.includes('if(!applyPlayerName(name))return'));assert(a.includes("'rio-human'"));});

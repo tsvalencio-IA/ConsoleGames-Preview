@@ -258,7 +258,7 @@
       /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
     const group=new THREE.Group();group.position.set(x,0,z);worldGroup.add(group);
     const hairPalette=[0x34251c,0x15191f,0x6a4429,0xb36b35,0xd5b36a,0x643e55],skinPalette=[0xffd7b1,0xeab589,0xbd825d,0x8d5b43,0x6f4637];
-    const hash=String(id).split('').reduce((a,c)=>a+c.charCodeAt(0),0),hairColor=hairPalette[hash%hairPalette.length],skin=skinPalette[hash%skinPalette.length];
+    const legacyHash=String(id).split('').reduce((a,c)=>a+c.charCodeAt(0),0),hash=rioModernNpc?Array.from(String(id)).reduce((h,c)=>(Math.imul(h,31)+c.codePointAt(0))>>>0,2166136261):legacyHash,hairColor=hairPalette[hash%hairPalette.length],skin=skinPalette[rioModernNpc?(hash>>>4)%skinPalette.length:hash%skinPalette.length];
     const height=.92+(hash%5)*.025,shoulder=.39+(hash%3)*.025,shirt=renderMat(color,{roughness:.7}),shirtDark=renderMat(shadeColor(color,-32),{roughness:.74}),pants=renderMat(hash%2?0x294b75:0x43365f,{roughness:.78}),shoe=renderMat(hash%3===0?0xf4f5f7:0x202935,{roughness:.6}),skinMat=renderMat(skin,{roughness:.72}),hairMat=renderMat(hairColor,{roughness:.78});
     const torsoGeometry=rioModernNpc?new THREE.LatheGeometry([
       new THREE.Vector2(0,-height*.5),new THREE.Vector2(shoulder*.74,-height*.5),
@@ -400,7 +400,14 @@
       }
       // A little natural height/shoulder diversity without touching the
       // existing skeleton, routes, interaction locations or saved character ID.
-      group.scale.setScalar(.965+(hash%6)*.012);
+      group.scale.set(.91+(hash%7)*.029,.91+((hash>>>5)%9)*.024,.92+((hash>>>9)%5)*.032);
+      if(id.startsWith('rio-fotto-')){
+        const cameraMat=renderMat(0x20252a,{roughness:.52}),lensMat=renderMat(0x354d5d,{roughness:.31});
+        box(.37,.28,.22,cameraMat,0,1.40,.52,detailLayer);box(.14,.10,.17,cameraMat,.08,1.57,.49,detailLayer);
+        const lens=new THREE.Mesh(new THREE.CylinderGeometry(.115,.145,.23,12),lensMat);lens.rotation.x=Math.PI/2;lens.position.set(0,1.40,.71);detailLayer.add(lens);
+        for(const side of[-1,1])box(.045,.47,.05,cameraMat,side*.18,1.64,.35,detailLayer);
+        const mark=new THREE.Mesh(new THREE.PlaneGeometry(.43,.13),new THREE.MeshStandardMaterial({map:signTexture('f_OTTO','#152637','#ffffff'),roughness:.7,side:THREE.DoubleSide}));mark.position.set(0,1.19,.38);detailLayer.add(mark);
+      }
       npc.userData={...(npc.userData||{}),toyThemeRoots:[detailLayer]};
       batchNpcVisuals(npc);
     }else if(id!=='michelle-ottovias'&&!OT_CHILD_WORLD)applyNpcToyTheme(npc,npcToyTheme(id));

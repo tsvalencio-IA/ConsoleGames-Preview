@@ -26,6 +26,7 @@
   const phone=bar.querySelector('#worldPhoneBtn');if(phone)bar.insertBefore(phone,els.avatarGameBtn);
   bar.append(shortcut('worldChooseAvatarBtn','👤','Personagens',openAvatarStudio));
   bar.append(shortcut('worldJourneyBtn','🧭','Meu caminho',()=>openObjectivesPanel()));
+  bar.append(shortcut('worldFottoBtn','📷','f_OTTO · Minhas fotos',()=>openRioFottoGallery()));
   bar.append(shortcut('worldClimateBtn','🌦️','Clima',()=>openRioClimate()));
   bar.append(shortcut('worldLobbyBtn','↩️','Menu inicial',stopGame));
   const layout=document.createElement('button');layout.id='worldHudModeBtn';layout.type='button';layout.onclick=()=>setExplorationHudMode(state.settings.worldHud==='full'?'clean':'full');bar.append(layout);

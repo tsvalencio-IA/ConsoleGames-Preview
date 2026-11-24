@@ -567,9 +567,18 @@
       toySkinSphere(body,.44,primary,0,.45,-.245,1,.48,.54);
       for(const arm of arms)toySkinBox(arm,.35,.54,.35,secondary,0,-.32,0);
     }
+    if(['rio-torso-run','rio-torso-social','rio-torso-crop'].includes(avatar.torso)){
+      const trim=worldAvatarMaterial(0xf2ede4,{roughness:.72}),crop=avatar.torso==='rio-torso-crop',social=avatar.torso==='rio-torso-social';
+      toySkinBox(body,.76,crop?.43:.74,.09,secondary,0,crop?.23:.03,.40);
+      if(social){for(const side of[-1,1])toySkinBox(body,.20,.18,.055,trim,side*.11,.39,.46).rotation.z=side*.45;for(let i=0;i<4;i++)toySkinSphere(body,.025,trim,0,.20-i*.13,.46);}
+      else if(!crop){toySkinBox(body,.56,.09,.06,trim,0,.23,.47);for(const arm of arms)toySkinBox(arm,.29,.12,.32,trim,0,-.22,0);}
+      else toySkinBox(body,.74,.09,.06,colors.skin,0,-.11,.46);
+    }
     for(const leg of legs){
-      const soleY=theme==='minecraft'?-.94:theme==='playmobil'?-.81:-.9;
-      if(avatar.shoes==='rio-shoes-runner'){
+      if(avatar.legs==='rio-legs-cargo'){toySkinBox(leg,.18,.25,.21,secondary,leg===legs[0]?-.16:.16,-.32,0);toySkinBox(leg,.14,.04,.23,primary,leg===legs[0]?-.16:.16,-.21,0);}
+      else if(avatar.legs==='rio-legs-sport'){toySkinBox(leg,.035,.70,.18,primary,leg===legs[0]?-.15:.15,-.39,0);}
+      const soleY=theme==='minecraft'?-.94:(theme==='playmobil'||theme==='rio-human')?-.81:-.9;
+      if(avatar.shoes==='rio-shoes-social'){const dark=worldAvatarMaterial(0x29252a,{roughness:.35});toySkinSphere(leg,.23,dark,0,soleY+.025,.17,.83,.39,1.30);toySkinBox(leg,.34,.06,.52,dark,0,soleY-.04,.12);}else if(avatar.shoes==='rio-shoes-runner'){
         const sole=worldAvatarMaterial(0xf4e8ce,{roughness:.62});
         toySkinBox(leg,.407,.061,.565,sole,0,soleY-.04,.116);
         toySkinSphere(leg,.245,secondary,0,soleY+.041,.18,.87,.40,1.22);

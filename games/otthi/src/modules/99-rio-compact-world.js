@@ -260,9 +260,120 @@
     registerInteractable({id:'regional-portaria_damha',type:'race',icon:'🏃',label:'Largar · Represa e Damha',...startDamha,radius:2.8,priority:279,
       available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,
       action:()=>{if(!rioSelectCompactCourse(damha.id))return false;return openRioGeoRun();}});
+    rioFottoBuild();
+  }
+
+
+  const rioFotto={stations:[],pending:null,busy:false,lastAt:-Infinity,db:null};
+  const RIO_FOTTO_PRICE=15;
+  function rioFottoOwner(){const id=String(state.account?.accountId||state.profile?.playerId||'');return id?'player:'+id:'';}
+  function rioFottoDB(){
+    if(!rioFotto.db)rioFotto.db=new Promise((resolve,reject)=>{
+      const req=indexedDB.open('otthi-fotto-album-v1',1);
+      req.onupgradeneeded=()=>{const store=req.result.createObjectStore('photos',{keyPath:'id'});store.createIndex('owner','owner');};
+      req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);req.onblocked=()=>reject(Error('Álbum ocupado'));
+    }).catch(e=>{rioFotto.db=null;throw e;});return rioFotto.db;
+  }
+  async function rioFottoRows(owner){
+    const db=await rioFottoDB();return new Promise((resolve,reject)=>{const t=db.transaction('photos','readonly'),q=t.objectStore('photos').index('owner').getAll(owner);q.onsuccess=()=>resolve(q.result.sort((a,b)=>b.at-a.at));q.onerror=()=>reject(q.error);});
+  }
+  async function rioFottoPut(row){
+    const db=await rioFottoDB();return new Promise((resolve,reject)=>{const t=db.transaction('photos','readwrite');t.objectStore('photos').put(row);t.oncomplete=()=>resolve(true);t.onerror=t.onabort=()=>reject(t.error||Error('Álbum não salvo'));});
+  }
+  function rioFottoReceipts(){state.cityServices.rioMap??={};return state.cityServices.rioMap.fottoReceipts??={};}
+  function rioFottoDistanceToPass(a,b,p){
+    const dx=b.x-a.x,dz=b.z-a.z,dd=dx*dx+dz*dz,t=dd?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/dd)):0;
+    return Math.hypot(a.x+dx*t-p.x,a.z+dz*t-p.z);
+  }
+  function rioFottoBuild(){
+    if(rioFotto.stations.length)return;
+    for(const {course} of compactRio.courses.values())for(const [index,gate] of course.gates.entries()){
+      if(index!==0&&index!==3)continue;if(rioFotto.stations.some(s=>distance2D(s.gate,gate)<12))continue;
+      const prev=index?course.gates[index-1]:course.start,dx=gate.x-prev.x,dz=gate.z-prev.z,len=Math.hypot(dx,dz)||1;let pos=null;
+      for(const offset of[3.8,-3.8,5,-5,6,-6]){
+        const x=gate.x-dz/len*offset,z=gate.z+dx/len*offset;
+        if(!waterAt(x,z)&&!positionBlockedForPlayer(x,z,.65,{ignoreTraffic:true,ignoreParkedVehicles:true})){pos={x,z};break;}
+      }
+      if(!pos)continue;
+      const id='rio-fotto-'+rioFotto.stations.length,name=['Marina','Bruno','Helena','Rafael'][rioFotto.stations.length%4];
+      const person=createNPC(id,'f_OTTO · '+name,pos.x,pos.z,0x213345,0);person.cityLifeManaged=true;person.group.position.y=groundHeightAt(pos.x,pos.z);person.group.rotation.y=Math.atan2(gate.x-pos.x,gate.z-pos.z);
+      rioFotto.stations.push({id,gate:{x:gate.x,z:gate.z},pos,course:course.name,person,armed:true});
+      const talk=world.interactables.find(a=>a.id==='npc-'+id);if(talk){talk.label='f_OTTO · Ver minhas fotos';talk.actionLabel='Fotos';talk.icon='📷';talk.action=openRioFottoGallery;}
+    }
+  }
+  function rioFottoObserveRun(dt,before){
+    if(!rioFotto.stations.length||!before||player.vehicle||player.boating||otGames.active||currentHouse||!running||paused||!els.modal.hidden)return;
+    const moved=Math.hypot(player.x-before.x,player.z-before.z),speed=moved/Math.max(.001,dt),now=performance.now();
+    for(const s of rioFotto.stations){
+      if(Math.hypot(player.x-s.gate.x,player.z-s.gate.z)>9)s.armed=true;
+      if(!s.armed||rioFotto.pending||rioFotto.busy||now-rioFotto.lastAt<12000||moved>2||speed<1.8||(!input.isSprinting&&!activeRace))continue;
+      if(rioFottoDistanceToPass(before,player,s.gate)>2.4)continue;
+      const owner=rioFottoOwner();if(!owner)continue;s.armed=false;rioFotto.lastAt=now;rioFotto.pending={owner,station:s,at:Date.now(),until:now+1800};break;
+    }
+  }
+  function rioFottoCaptureFrame(){
+    const job=rioFotto.pending;if(!job)return;rioFotto.pending=null;
+    if(job.owner!==rioFottoOwner()||performance.now()>job.until||!running||paused||Math.hypot(player.x-job.station.gate.x,player.z-job.station.gate.z)>8)return;
+    rioFotto.busy=true;let target=null;
+    const oldTarget=renderer.getRenderTarget(),oldViewport=renderer.getViewport(new THREE.Vector4()),oldScissor=renderer.getScissor(new THREE.Vector4()),oldScissorTest=renderer.getScissorTest(),oldVisible=playerGroup.visible;
+    try{
+      const w=768,h=512,at=job.station.pos,cam=new THREE.PerspectiveCamera(48,w/h,.1,120);cam.position.set(at.x,groundHeightAt(at.x,at.z)+1.85,at.z);cam.lookAt(player.x,player.y+1.05,player.z);
+      target=new THREE.WebGLRenderTarget(w,h,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;
+      playerGroup.visible=true;renderer.setRenderTarget(target);renderer.setScissorTest(false);renderer.render(scene,cam);
+      const pixels=new Uint8Array(w*h*4);renderer.readRenderTargetPixels(target,0,0,w,h,pixels);
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;const ctx=cv.getContext('2d'),data=ctx.createImageData(w,h);
+      for(let row=0;row<h;row++)data.data.set(pixels.subarray((h-1-row)*w*4,(h-row)*w*4),row*w*4);ctx.putImageData(data,0,0);
+      cv.toBlob(async blob=>{try{
+        if(!blob||job.owner!==rioFottoOwner())return;
+        const id=job.owner+':'+(globalThis.crypto?.randomUUID?.()||String(job.at)+'-'+Math.random().toString(36).slice(2));
+        await rioFottoPut({id,owner:job.owner,at:job.at,course:job.station.course,blob});
+        if(job.owner===rioFottoOwner())toast('📷 f_OTTO registrou sua corrida! Veja no álbum do Menu.','good',2800);
+      }catch(e){toast('f_OTTO: não foi possível salvar a foto.','warn',2400);}finally{rioFotto.busy=false;}},'image/jpeg',.91);
+    }catch(e){rioFotto.busy=false;toast('f_OTTO: captura indisponível neste aparelho.','warn',2300);}
+    finally{renderer.setRenderTarget(oldTarget);renderer.setViewport(oldViewport);renderer.setScissor(oldScissor);renderer.setScissorTest(oldScissorTest);playerGroup.visible=oldVisible;target?.dispose();}
+  }
+  function rioFottoDownload(row){
+    if(row.owner!==rioFottoOwner()||!rioFottoReceipts()[row.id])return false;
+    const a=document.createElement('a'),url=URL.createObjectURL(row.blob);a.href=url;a.download='f_OTTO-'+row.at+'.jpg';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);return true;
+  }
+  async function rioFottoPreview(row,img,paid){
+    const url=URL.createObjectURL(row.blob);try{
+      const source=new Image();source.src=url;await source.decode();if(!img.isConnected||row.owner!==rioFottoOwner())return;
+      const cv=document.createElement('canvas');cv.width=384;cv.height=256;const ctx=cv.getContext('2d');ctx.drawImage(source,0,0,384,256);
+      if(!paid){ctx.fillStyle='rgba(255,255,255,.72)';ctx.font='bold 27px sans-serif';ctx.textAlign='center';for(const y of[52,130,208])ctx.fillText('f_OTTO • PRÉVIA',192,y);}
+      img.src=cv.toDataURL('image/jpeg',.8);
+    }finally{URL.revokeObjectURL(url);}
+  }
+  async function openRioFottoGallery(){
+    const owner=rioFottoOwner();if(!owner){toast('Defina seu personagem antes de usar o álbum.','warn',2200);return;}
+    let rows;try{rows=await rioFottoRows(owner);}catch(e){toast('Álbum local indisponível neste navegador.','warn',2300);return;}if(owner!==rioFottoOwner())return;
+    openModal('📷 f_OTTO · Álbum de corridas','<p>Fotos registradas na pista ao correr. Prévia gratuita; original JPEG por '+RIO_FOTTO_PRICE+' moedas virtuais. As imagens ficam neste aparelho.</p><div data-fotto-list class="choice-grid"></div><div class="modal-actions"><button class="btn" data-fotto-more>Mostrar mais</button></div>',root=>{
+      const list=root.querySelector('[data-fotto-list]'),more=root.querySelector('[data-fotto-more]');let index=0;
+      if(!rows.length)list.textContent='Nenhuma foto ainda. Corra pela pista da Represa e passe pelos fotógrafos.';
+      function show(){
+        for(const row of rows.slice(index,index+12)){
+          const card=document.createElement('article');card.className='choice';const paid=!!rioFottoReceipts()[row.id];
+          const img=document.createElement('img');img.alt='Prévia da corrida';img.loading='lazy';img.style.cssText='width:100%;height:auto;object-fit:contain;border-radius:8px';
+          const caption=document.createElement('b');caption.textContent=row.course+' · '+new Date(row.at).toLocaleString('pt-BR');
+          const action=document.createElement('button');action.type='button';action.className='btn primary';action.textContent=paid?'BAIXAR ORIGINAL':'COMPRAR · '+RIO_FOTTO_PRICE+' moedas';
+          card.append(img,caption,action);list.append(card);rioFottoPreview(row,img,paid).catch(()=>{img.alt='Prévia indisponível';});
+          action.onclick=async()=>{
+            if(owner!==rioFottoOwner()||action.disabled)return;
+            if(rioFottoReceipts()[row.id]){rioFottoDownload(row);return;}action.disabled=true;
+            if(!await confirmModal('Comprar fotografia','Comprar o JPEG original por '+RIO_FOTTO_PRICE+' moedas virtuais?','Comprar','Cancelar')){openRioFottoGallery();return;}
+            if(owner!==rioFottoOwner())return;const receipts=rioFottoReceipts();
+            if(!receipts[row.id]){
+              if(Number(state.profile.coins||0)<RIO_FOTTO_PRICE){toast('Saldo insuficiente.','warn',2200);openRioFottoGallery();return;}
+              receipts[row.id]={at:Date.now(),price:RIO_FOTTO_PRICE};addCoins(-RIO_FOTTO_PRICE);saveState(true);updateHUD();
+            }openRioFottoGallery();
+          };
+        }index+=12;more.hidden=index>=rows.length;
+      }more.onclick=show;show();
+    });
   }
 
   function updateCompactRio(dt,before){
+    rioFottoObserveRun(dt,before);
     if(player.vehicle&&rioFuelCapacity(currentVehicleRef())){
       const vehicle=currentVehicleRef(),metres=distance2D(player,before),fuel=rioFuelLevel(vehicle);
       if(metres>0&&metres<=40&&!player.car.passengerOf){if(fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-metres*.002);rioMaintenanceWear(rioMaintenanceRecord(vehicle),metres);}
