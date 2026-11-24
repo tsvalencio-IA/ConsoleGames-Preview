@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.42-rio-preto-npc-hud",
+  "build": "705.28.43-rio-preto-vida-regional",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "fa776ca099fec4a6f5bf48e5da40e1aa94021547e1772e0df218aac6d2d443f0"
+      "sha256Body": "b41a6c2f211a26a79077b79d449d70caf64eca06173c73051cc2aa7c01ba2864"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -143,7 +143,7 @@
       "startLine": 2743,
       "endLine": 2991,
       "description": "Casas, interiores, NPCs, inimigos, cristais, veículos e academia",
-      "sha256Body": "94dc58f9ec42576e7cb7fa8bc8e65460233214c5f9d095da449f75ccd12eec8d"
+      "sha256Body": "a1c5014ccf9ee6e21e3976cac0f273f5b09e961a5dcf58a4979192a9e4f83827"
     },
     {
       "file": "src/modules/13a-sports-kart-v705.js",
@@ -534,7 +534,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Destinos acessíveis, marina com lanchas pilotáveis e neve visível",
-      "sha256Body": "9a5a10ca1741e813362afe3a3e4873f42ea684f6d6dd3fca4b550c779e6eff4b"
+      "sha256Body": "8602a728a7ba36ddd1f8496d7a724d53abb29c12d8751935f1da5d5528952c0a"
     },
     {
       "file": "src/modules/58-character-activities.js",
@@ -667,7 +667,7 @@
     },
     {
       "file": "src/modules/84-rio-v51-world.js",
-      "sha256Body": "101ebb65bd2a46a92b881d8aa648a7291c0a01725a7c81934421665b868e7cf1"
+      "sha256Body": "3224c298681b524569454d7cac8eb8f36ff87274a0fef1a4f774936ca1579b32"
     },
     {
       "file": "src/modules/85-rio-city-activities.js",
@@ -683,7 +683,7 @@
     },
     {
       "file": "src/modules/88-rio-places.js",
-      "sha256Body": "c34551aed67c5f625fcacfd423bffb7470943e871d0af2c6a53afabf820df477"
+      "sha256Body": "9ad08de1701a79d413a3d74ce3d863cc349bdd394864e0cd80adf53f74fbf921"
     },
     {
       "file": "src/modules/89-rio-map-world.js",
@@ -714,7 +714,7 @@
     {
       "file": "src/modules/95-rio-open-buildings.js",
       "description": "Playable residences, shops, bakery and oil service",
-      "sha256Body": "acf424fc06040a2901e3b38f52feb1081445734070c805b3925ca0a3e3b88de5"
+      "sha256Body": "7a27b68cdb4a39fc33070f73899246010fafed28abf2b58fcaf2a1550b5bd360"
     },
     {
       "file": "src/modules/96-rio-airport.js",
@@ -734,7 +734,7 @@
     {
       "file": "src/modules/99-rio-compact-world.js",
       "description": "Infraestrutura original e atividades jogáveis da Rio Preto compacta",
-      "sha256Body": "f2c242cab425cbce8a735dbef77886a4679da6301ece957802967d78333f9264"
+      "sha256Body": "cd4fa6480a5417e05eb0bfdb3424b952db52158880da441eaabc8c5d83f92ae5"
     },
     {
       "file": "src/modules/100-rio-weather.js",

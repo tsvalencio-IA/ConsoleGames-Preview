@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.42-rio-preto-npc-hud';
+  const OTTHI_GAME_WEB_BUILD = '705.28.43-rio-preto-vida-regional';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -5329,7 +5329,7 @@
       // Lego/Mario/Minecraft character. Keep the old toy renderers untouched for
       // named OT characters, retro worlds and all other existing NPCs.
       npc.visualStyle='rio-human';
-      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
+      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-|rio-service-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
       npc.visualRole=role;group.userData.visualRole=role;
       const detailLayer=new THREE.Group();detailLayer.name='RIO_NPC_FACE_AND_CLOTHES';group.add(detailLayer);
       const detail=renderMat(shadeColor(color,-42),{roughness:.86});
@@ -14520,13 +14520,90 @@ function precompile(T,renderer,scene,camera,timings){
   groundHeightAt=function(x,z){if(!inRioMap()&&x>=MARINA_DOCK.minX&&x<=MARINA_DOCK.maxX&&z>=499&&z<=549)return .48;return marinaGroundHeight(x,z);};
   const originalFamilyBoatSeat=familyBoatSeatOffset;
   familyBoatSeatOffset=function(i=-1){return world.boat?.seaGoing?world.boat.group.userData.seats[Math.max(0,Math.min(3,i+1))]:originalFamilyBoatSeat(i);};
+  // Keep the original snow scenery and give every existing chalet its own
+  // property, furnishing state and physical interior. Load the room on entry.
+  const snowCabinRecords=new Map();
+  function snowCabinSites(){
+    return [[-52,184,'Pinheiros'],[46,184,'Araucárias'],[85,181,'Mirante']].map(([x,z,name],i)=>{
+      const id='regional-campos-chale-'+(i+1);
+      return {id,key:id,propertyId:id,name:'Chalé '+name+' · Campos do Jordão',
+        kind:'residence',style:'snow-cabin',x,z,w:7,d:5,yaw:0,price:780+i*160,
+        street:'Campos do Jordão · Serra',entry:[x,z+3.7]};
+    });
+  }
+  function registerSnowCabin(site,facade,wall){
+    const entrance={x:site.entry[0],z:site.entry[1]};
+    const record={site,facade,wall,room:null,inside:false};
+    snowCabinRecords.set(site.id,record);
+    const available=()=>facade.visible&&!record.inside&&!rioMap.indoorRoom&&rioPlayerAt(entrance,3.3);
+    function ensureRoom(){
+      if(record.room)return record.room;
+      const room=rioMountPlace(site,worldGroup);
+      record.room=room;room.legacyResidence=true;room.legacyRecord=record;
+      room.root.visible=false;
+      for(const c of room.colliders)c.disabled=true;
+      room.action('chalet-exit','Sair do chalé',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:1.4,priority:260});
+      return room;
+    }
+    function move(p){
+      player.x=p.x;player.z=p.z;player.y=groundHeightAt(p.x,p.z);
+      player.vx=player.vy=player.vz=0;player.grounded=true;
+      playerGroup.position.set(player.x,player.y,player.z);
+      rememberSafePlayerPosition(true);saveState(true);updateContext(true);
+    }
+    function enter(){
+      if(record.inside||rioMap.indoorRoom||player.vehicle||player.boating)return false;
+      const room=ensureRoom();
+      record.inside=true;facade.visible=false;wall.disabled=true;
+      room.root.visible=true;room.selectedUnitId=site.propertyId;
+      for(const c of room.colliders)c.disabled=false;
+      if(room.roof)room.roof.visible=false;
+      if(room.gate)room.gate.disabled=true;
+      if(room.door)room.door.visible=false;
+      room.refreshDecor?.();
+      rioMap.indoors=true;rioMap.indoorRoom=room;
+      rioMapSave().activeSnowCabin=site.id;
+      cameraMode='interior';cameraYaw=site.yaw;cameraPitch=.24;cameraZoom=2.6;
+      player.facing=site.yaw;move(room.point(0,site.d*.22));return true;
+    }
+    function leave(){
+      if(!record.inside)return false;
+      record.inside=false;record.room.root.visible=false;facade.visible=true;wall.disabled=false;
+      for(const c of record.room.colliders)c.disabled=true;
+      rioMap.indoors=false;rioMap.indoorRoom=null;
+      delete rioMapSave().activeSnowCabin;
+      cameraMode='openworld';move({x:entrance.x,z:entrance.z+.65});return true;
+    }
+    record.enter=enter;record.leave=leave;
+    registerInteractable({id:site.id+'-door',type:'door',icon:'🏠',
+      label:'Visitar ou comprar · '+site.name,...entrance,radius:3.2,priority:258,
+      available:()=>available()&&!player.swimming&&!characterActivities.session,
+      action:()=>rioPropertyDoor({id:site.propertyId,name:site.name,price:site.price,available,
+        enter,decorate:()=>{if(enter())record.room.manageFurniture?.();}})});
+    return record;
+  }
   function createSnowDestination(){
     const root=new THREE.Group();root.name='SNOW_VISITOR_AREA';worldGroup.add(root);
     const wood=campaignMaterial(0x876749),snow=campaignMaterial(0xecf3f0),stone=campaignMaterial(0x778c8f),glass=campaignMaterial(0x547d90,.3);
-    for(const[x,z]of[[-52,184],[46,184],[85,181]]){campaignBox(root,wood,x,1.55,z,7,3.1,5);world.colliders.push({x,z,w:7,d:5,height:3.8,snowCabin:true});const roof=new THREE.Mesh(new THREE.ConeGeometry(5,2.3,4),snow);roof.rotation.y=Math.PI/4;roof.position.set(x,4.15,z);root.add(roof);for(const side of[-1,1])campaignBox(root,glass,x+side*2,1.75,z-2.53,1.3,.95,.07);campaignBox(root,stone,x+1.6,4.1,z+1,.6,2.1,.6);}
+    for(const site of snowCabinSites()){
+      const {x,z}=site,facade=new THREE.Group();facade.name='SNOW_CABIN_'+site.key;root.add(facade);
+      campaignBox(facade,wood,x,1.55,z,7,3.1,5);
+      const wall={x,z,w:7,d:5,height:3.8,snowCabin:true};world.colliders.push(wall);
+      const roof=new THREE.Mesh(new THREE.ConeGeometry(5,2.3,4),snow);roof.rotation.y=Math.PI/4;roof.position.set(x,4.15,z);facade.add(roof);
+      for(const side of[-1,1]){
+        campaignBox(facade,glass,x+side*2,1.75,z-2.53,1.3,.95,.07);
+        campaignBox(facade,glass,x+side*2,1.75,z+2.53,1.3,.95,.07);
+        campaignBox(facade,stone,x+side*.85,.10,z+2.9,.14,.20,.76);
+      }
+      campaignBox(facade,stone,x+1.6,4.1,z+1,.6,2.1,.6);
+      campaignBox(facade,wood,x,1.12,z+2.53,1.45,2.2,.14);
+      campaignBox(facade,snow,x,.10,z+3.05,2.2,.2,1.2);
+      mergeTrafficStatic(facade);
+      if(typeof rioCompactWorld==='function'&&rioCompactWorld())registerSnowCabin(site,facade,wall);
+    }
     citySign(root,'CAMPOS DO JORDÃO · NEVE',20,3,183,8,-1,'#315968',.8);
     const snowman=new THREE.Group();snowman.position.set(16,.06,181);root.add(snowman);for(const[y,r]of[[.55,.55],[1.28,.40],[1.85,.29]]){const ball=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),snow);ball.position.y=y;snowman.add(ball);}campaignBox(snowman,wood,0,2.14,0,.45,.15,.43);
-    mergeTrafficStatic(root);worldDestinations.snowRoot=root;
+    worldDestinations.snowRoot=root;
     const positions=new Float32Array(180*3);for(let i=0;i<180;i++){positions[i*3]=(Math.sin(i*93.17)*.5+.5)*36-18;positions[i*3+1]=(i*.173%1)*14;positions[i*3+2]=(Math.cos(i*67.21)*.5+.5)*36-18;}
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
     const canvas=document.createElement('canvas');canvas.width=canvas.height=32;const ctx=canvas.getContext('2d'),g=ctx.createRadialGradient(16,16,0,16,16,16);g.addColorStop(0,'#ffffffff');g.addColorStop(.35,'#ffffffe0');g.addColorStop(1,'#ffffff00');ctx.fillStyle=g;ctx.fillRect(0,0,32,32);
@@ -14536,6 +14613,7 @@ function precompile(T,renderer,scene,camera,timings){
   function worldExploreLocations(){return[
     {id:'marina-costa',name:'Guarujá · marina e embarcações',label:'Guarujá · marina e embarcações',icon:'🚤',group:'Guarujá · praia e barcos',x:-220,z:502,navX:-220,navZ:502,description:'Caminhe pelo píer e escolha uma embarcação. Volte à vaga de embarque para desembarcar.',actions:['Seguir até a marina','Embarcar pelo botão AÇÃO','Pilotar, retornar e estacionar']},
     {id:'snow-lookout',name:'Campos do Jordão · mirante e chalés',label:'Campos do Jordão · mirante e chalés',icon:'❄️',group:'Natureza',x:20,z:180,navX:20,navZ:180,description:'Trecho de neve da OTTOVIAS, com acesso pela Ligação Norte. Neve no solo, pinheiros, chalés e precipitação local.',actions:['Seguir o GPS pela Ligação Norte','Chegar ao mirante']},
+    ...(typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites().map(site=>({id:site.id,name:site.name,icon:'🏡',group:'Campos do Jordão',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:'Chalé visitável e comprável, com móveis e decoração próprios.'})):[]),
     ...Array.from(world.boats?.values()||[]).filter(b=>b.seaGoing||b.rioBerth).map(b=>{
       const step=b.rioBerth?.step,position=b.group.position;
       return {id:'marina-'+b.id,name:b.label,label:b.label,icon:b.kind==='board'?'🏄':b.kind==='ship'?'🛳️':'🚤',
@@ -14562,6 +14640,11 @@ function precompile(T,renderer,scene,camera,timings){
   function updateWorldDestinations(){
     if(!worldDestinations.ready){if(!cityCoast.ready||!world.boats)return;createMarina();createSnowDestination();worldDestinations.ready=true;}
     const focus=otGamesFocus(),now=performance.now(),dt=Math.min(.15,(now-worldDestinations.lastAt)/1000);worldDestinations.lastAt=now;
+    if(typeof rioCompactWorld==='function'&&rioCompactWorld()&&rioMapSave().activeSnowCabin&&!rioMap.indoorRoom){
+      const cabin=snowCabinRecords.get(rioMapSave().activeSnowCabin);
+      if(cabin&&!cabin.inside&&Math.hypot(player.x-cabin.site.x,player.z-cabin.site.z)<4)cabin.enter();
+      else if(cabin&&!cabin.inside&&Math.hypot(player.x-cabin.site.x,player.z-cabin.site.z)>8)delete rioMapSave().activeSnowCabin;
+    }
     const snow=focus.z>147&&focus.z<480&&focus.x>-220&&focus.x<200;worldDestinations.flakes.visible=snow;
     if(snow){const a=worldDestinations.flakes.geometry.attributes.position;worldDestinations.flakes.position.set(focus.x,Math.max(0,groundHeightAt(focus.x,focus.z)),focus.z);for(let i=0;i<a.count;i++){let y=a.getY(i)-dt*(.7+i%5*.11);if(y<0)y+=14;a.setY(i,y);}a.needsUpdate=true;}
     for(const boat of world.boats.values())if(boat.seaGoing){const remote=[...remotePresence.values()].some(p=>p.boating&&p.boatId===boat.id&&p.boatRole!=='passenger'),local=player.boating&&state.boats.activeBoatId===boat.id;boat.group.visible=!remote&&Math.hypot(focus.x-boat.group.position.x,focus.z-boat.group.position.z)<260;if(!local&&!remote){boat.group.position.y=.10+Math.sin(now*.0014+boat.group.position.x)*.025;boat.group.rotation.z=Math.sin(now*.0012+boat.group.position.z)*.008;}else if(local){boat.group.rotation.z=player.boat.steerVisual*clamp(Math.abs(player.boat.speed)/22,0,1)*.11;boat.group.userData.seaPropeller.rotation.z+=dt*player.boat.speed*8;}}
@@ -17375,7 +17458,8 @@ function precompile(T,renderer,scene,camera,timings){
     const historic=typeof rioCompactWorld==='function'&&rioCompactWorld()&&typeof RIO_PRETO_LAYOUT!=='undefined'&&typeof rioHistoricHomeSite==='function'
       ?RIO_PRETO_LAYOUT.lots.filter(lot=>lot.style.startsWith('house-')).map(rioHistoricHomeSite):[];
     const available=[];
-    for(const site of [...compact,...historic]){
+    const cabins=typeof snowCabinSites==='function'&&typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites():[];
+    for(const site of [...compact,...historic,...cabins]){
       if(site.kind!=='residence'||!site.propertyId)continue;
       if(site.style==='rios-ditalia'){
         for(let floor=1;floor<=5;floor++)for(let door=1;door<=4;door++){
@@ -18481,7 +18565,7 @@ function precompile(T,renderer,scene,camera,timings){
   }
 
   function rioBuildShell(site,room){
-    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:base;
+    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:base;
     const {w,d}=site,{box,object,sign}=room;
     const h=p.height,edge=.27,entry=site.kind==='market'?4.8:Math.min(3.1,w*.4);
     const front=d/2-edge,length=(w-entry)/2,center=(w+entry)/4;
@@ -18568,6 +18652,7 @@ function precompile(T,renderer,scene,camera,timings){
   }
   function rioOpenDining(site,room,counter){
     if(!rioPlayerAt(counter))return;
+    const clerk=room.npcs?.find(n=>n.shopSlot==='dining');if(clerk)clerk.servingUntil=performance.now()+2500;
     const stock=site.kind==='bakery'?[{id:'bread-coffee',name:'Pão na chapa e café',price:12,hunger:22},
       {id:'juice',name:'Suco de laranja',price:10,hunger:10},{id:'bread-pack',name:'Pães para levar',price:16,food:3}]:site.key==='canecao_represa'?rioDiningStock:
       [{id:'burger',name:'Hambúrguer',price:14,hunger:38},{id:'juice',name:'Bebida sem álcool',price:10,hunger:10},{id:'parcel',name:'Lanche para levar',price:18,food:2}];
@@ -18629,6 +18714,7 @@ function precompile(T,renderer,scene,camera,timings){
     const counter=rioCounter(room,0,counterZ,Math.min(4.6,w*.53));
     room.sign('PEDIDOS',0,2.31,counterZ-.37,Math.min(3.4,w*.6),.32);
     if(site.kind==='bakery')rioBuildBakeryService(site,room,counterZ,x,z);
+    else rioServiceClerk(site,room,'dining','Atendente do restaurante',0,counterZ-.86,0x99735e);
     room.action('counter','Fazer pedido no balcão',0,counterZ+1.02,()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍽️'});
     const p=marked.approach,dx=p.x-site.x,dz=p.z-site.z,c=Math.cos(site.yaw),s=Math.sin(site.yaw);
     room.action('table','Mesa 1 · sentar e consumir',c*dx-s*dz,s*dx+c*dz,
@@ -18636,6 +18722,14 @@ function precompile(T,renderer,scene,camera,timings){
     room.sign('1',-x,1.05,z+.04,.18,.21,'#6b3f31');
   }
 
+  function rioServiceClerk(site,room,role,name,x,z,color){
+    const p=room.point(x,z),clerk=createNPC('rio-service-'+site.key+'-'+role,name,p.x,p.z,color,0);
+    clerk.stationary=true;clerk.cityLifeManaged=true;clerk.shopSlot=role;
+    clerk.group.rotation.y=site.yaw;room.root.add(clerk.group);
+    room.npcs??=[];room.npcs.push(clerk);
+    world.interactables=world.interactables.filter(a=>a.id!=='npc-'+clerk.id);
+    return clerk;
+  }
   function rioBuildMarket(site,room){
     const {w,d}=site,{box,object,sign}=room, counterZ=-d/2+2.45;
     const items=site.kind==='bakery'?CITY_SHOP_STOCK.cafe:CITY_SHOP_STOCK.market;
@@ -18650,9 +18744,11 @@ function precompile(T,renderer,scene,camera,timings){
       }
     }
     const counter=rioCounter(room,0,counterZ,Math.min(4.7,w*.54));
-    sign(site.kind==='bakery'?'PÃES':'CAIXA',0,2.63,counterZ-.35,3.15,.46);
+    const clerk=rioServiceClerk(site,room,'checkout','Caixa',0,counterZ-.88,0x527e70);
+    sign(site.kind==='bakery'?'PÃES':site.kind==='mall'?'MERCADO · CAIXA':'CAIXA',0,2.63,counterZ-.35,3.15,.46);
     room.action('counter',site.kind==='bakery'?'Comprar pães no balcão':'Comprar no caixa',0,counterZ+1.02,()=>{
       if(!rioPlayerAt(counter))return;
+      clerk.servingUntil=performance.now()+2500;
       openModal(site.name,'<p>Produtos do jogo disponíveis no balcão.</p><div class="choice-grid">'+items.map(item=>
         '<button class="choice" data-rio-checkout="'+item.id+'"><b>'+item.name+'</b><span>'+item.price+' moedas</span></button>').join('')+'</div>',root=>{
         let sold=false;
@@ -18678,6 +18774,7 @@ function precompile(T,renderer,scene,camera,timings){
     const [sign,title,next,success]=configs[kind], z=-d*.19,x=Math.min(w*.26,4.2),stationX=Math.min(w*.25,3.8),stationZ=-d/2+1.2;
     const counter=rioCounter(room,-x,z,Math.min(w*.33,3.3));
     room.sign(sign,-x,2.23,z-.28,Math.min(w*.4,3.6),.46);
+    rioServiceClerk(site,room,'reception','Recepcionista',-x,z-.80,0x607f91);
     const badge=rioCounter(room,stationX,stationZ,Math.min(2.3,w*.25),0x738889);
     const light=new THREE.Mesh(new THREE.SphereGeometry(.15,8,6),new THREE.MeshBasicMaterial({color:0xf8bb5b}));
     light.position.set(badge.x,1.12,badge.z-1.02);light.visible=false;room.root.add(light);room.lights.push(light);
@@ -20286,7 +20383,7 @@ function precompile(T,renderer,scene,camera,timings){
     const purchase=property?.owned?'':'<button class="btn good" data-rio-property-buy>Comprar por '+price+' moedas</button>';
     const lock=property?.owned?'<button class="btn" data-rio-property-lock>'+(property.locked?'Destrancar':'Trancar')+'</button>':'';
     const decoration=property?.owned&&decorate?'<button class="btn" data-rio-property-decor>Decorar minha casa</button>':'';
-    openModal(name,'<p>'+(property?.owned?'Sua residência em Rio Preto.':'Visite a casa ou compre com moedas do jogo.')+
+    openModal(name,'<p>'+(property?.owned?'Sua residência.':'Visite a casa ou compre com moedas do jogo.')+
       '</p><div class="modal-actions"><button class="btn primary" data-rio-property-enter>'+(property?.owned?'Entrar e morar':'Visitar')+'</button>'+purchase+lock+decoration+'</div>',root=>{
       root.querySelector('[data-rio-property-enter]').onclick=()=>{if(available()){closeModal();enter();}};
       root.querySelector('[data-rio-property-buy]')?.addEventListener('click',event=>{
@@ -20512,7 +20609,7 @@ function precompile(T,renderer,scene,camera,timings){
     // Native inventory/needs/save; each action works on the existing profile.
     room.box(-w*.32,.59,.25,1.46,.12,.74,0xbaa38b);
     room.box(-w*.32,.94,.25,.60,.58,.45,0xe0dfd7);
-    room.action('kitchen','Cozinhar no apartamento',-w*.19,.85,()=>{
+    room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',-w*.19,.85,()=>{
       if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return;}
       state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
       if(condominium){
@@ -20970,7 +21067,7 @@ function precompile(T,renderer,scene,camera,timings){
   function rioBuildBakeryService(site,room,counterZ,x,z){
     const side=-site.w*.39;
     const points=[room.point(side,counterZ-.85),room.point(side,counterZ+1.04),room.point(side,z-.95),room.point(-x-.58,z-.95)];
-    const npc=createNPC('rio-bakery-server','Garçonete',points[0].x,points[0].z,0xe6d6c6,0);
+    const npc=createNPC(site.key==='panificacao-zappas-centro'?'rio-bakery-server':'rio-bakery-server-'+site.key,'Garçonete',points[0].x,points[0].z,0xe6d6c6,0);
     npc.stationary=true;npc.cityLifeManaged=true;npc.group.name='RIO_BAKERY_SERVER';room.root.add(npc.group);
     world.interactables=world.interactables.filter(action=>action.id!=='npc-'+npc.id);
     room.npcs=[npc];
@@ -21048,6 +21145,14 @@ function precompile(T,renderer,scene,camera,timings){
       room.npcs??=[];room.npcs.push(clerk);
       world.interactables=world.interactables.filter(action=>action.id!=='npc-'+clerk.id);
       room.sign(title,index*x,2.52,z-.38,w,.45,index<0?'#69445d':'#395569');
+      // Distinct store frontage with a clear, walkable entrance; retain the original counter coordinates.
+      const edge=Math.min(w*.52,site.w*.10),frontZ=z+1.85,accent=index<0?0x76516a:0x4d677f;
+      for(const side of [-1,1]){
+        room.box(index*x+side*edge,1.40,frontZ,.12,2.8,.16,accent);
+        room.box(index*x+side*edge*.85,.82,frontZ,.34,1.64,.11,0x92b6bc);
+      }
+      room.box(index*x,2.81,frontZ,edge*2+.12,.17,.17,accent);
+      room.box(index*x,.036,frontZ+.05,edge*1.5,.018,.72,index<0?0xb996a0:0x91a9b3);
       for(let n=-1;n<=1;n++){
         room.object(index*x+n*1.49,.68,z-2.3,1.27,1.35,.66,0xb2a496);
         if(slot==='top'){
@@ -21730,6 +21835,7 @@ function precompile(T,renderer,scene,camera,timings){
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
+          if(room.server||room.npcs?.length)rioUpdatePlaceService(site,room,.08);
         }
         continue;
       }
