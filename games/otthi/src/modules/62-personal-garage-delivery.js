@@ -108,6 +108,60 @@
   const d=vehicle.group?.userData?.brazilRoot?.userData||{},rear=Math.max(1.8,-Number(d.rear||-1.8)),front=Math.max(1.8,Number(d.front||1.8)),wide=Math.max(.8,Number(d.halfWidth||.9)),long=Math.max(front,rear),bounds=v704WorldBounds();
   for(const extra of[0,3,6,9,13])for(const side of[0,-3,3,-6,6]){const x=door.x+9.8+rear+extra,z=door.z+side;if(x-long<bounds.minX+1||x+long>bounds.maxX-1||z-wide<bounds.minZ+1||z+wide>bounds.maxZ-1||waterAt(x,z))continue;if((world.colliders||[]).some(c=>!c.disabled&&c.vehicleId!==vehicle.id&&Math.abs(c.x-x)<c.w/2+long+.25&&Math.abs(c.z-z)<c.d/2+wide+.25))continue;if((world.vehicles||[]).some(v=>v!==vehicle&&!v.garageStored&&v.group&&Math.abs(v.group.position.x-x)<long+2.1&&Math.abs(v.group.position.z-z)<wide+1.2))continue;return{x,z,heading:Math.PI/2};}return null;
  }
+ // The controlled player exists independently of the optional walking party.
+ function garageAvatarRoster(selected,party){
+  const own=selected||'player';
+  return [own,...new Set((party?.members||[]).filter(id=>id!==own&&id!==party.controller))];
+ }
+ function garageCloneCustomAvatar(host){
+  // Copy the currently equipped visual hierarchy without copying cyclic
+  // userData or owning/disposal of shared world geometry and materials.
+  const source=playerModel,parts=source?.userData?.parts;
+  if(!source||!parts)return null;
+  const copies=new Map();
+  function copy(node){
+   let clone;
+   if(node.isSkinnedMesh)return null;
+   if(node.isMesh)clone=new THREE.Mesh(node.geometry,node.material);
+   else if(node.isLineSegments)clone=new THREE.LineSegments(node.geometry,node.material);
+   else if(node.isLine)clone=new THREE.Line(node.geometry,node.material);
+   else if(node.isSprite)clone=new THREE.Sprite(node.material);
+   else clone=new THREE.Group();
+   clone.name=node.name;clone.position.copy(node.position);clone.quaternion.copy(node.quaternion);clone.scale.copy(node.scale);
+   clone.visible=node.visible;clone.renderOrder=node.renderOrder;clone.frustumCulled=false;
+   copies.set(node,clone);
+   for(const child of node.children){const visual=copy(child);if(visual)clone.add(visual);}
+   return clone;
+  }
+  const group=copy(source);
+  group.visible=true;group.position.set(0,0,0);group.rotation.set(0,0,0);
+  const rig=Object.fromEntries(Object.entries(parts).filter(([key,node])=>copies.has(node)).map(([key,node])=>[key,copies.get(node)]));
+  const scale=group.scale.clone(),baseY=Number(source.userData.baseY)||.24;
+  host.add(group);
+  return {group,rig,scale,baseY};
+ }
+ function garageBuildAvatar(id,host){
+  if(id!=='player'){
+   const visual=familyCloneAvatar(id,host);
+   if(visual){
+    if(typeof applyRioWardrobeVisual==='function')applyRioWardrobeVisual(visual,state.avatar?.rioWardrobe?.[id]);
+    visual.group.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=false;});
+    return {id,host,avatar:visual};
+   }
+  }
+  if(id==='player'||id===familyCharacterId(state.avatar?.bodyStyle)){
+   const custom=garageCloneCustomAvatar(host);
+   if(custom)return {id,host,custom};
+  }
+  return null;
+ }
+ function garageAnimateCustomAvatar(custom,walking,sitting,time){
+  const swing=walking?Math.sin(time*9)*.52:0;
+  const {rig}=custom;
+  for(const [key,angle] of [['leftArm',sitting?-.8:swing],['rightArm',sitting?-.8:-swing],['leftLeg',sitting?1.25:-swing],['rightLeg',sitting?1.25:swing]]){
+   if(rig[key])rig[key].rotation.x=angle;
+  }
+ }
  function openPersonalGarageRoom(floor=0){
   const door=worldLayoutPoint('homeGarage');if(!running||(paused&&els.modal.hidden)||worldVenues.session||otGames.active||currentHouse||player.boating||Math.hypot(player.x-door.x,player.z-door.z)>14)return false;
   if(player.vehicle&&!garageStoreHere(player.car.id))return false;closeModal();clearMovementInputs();savePlayerPosition(true);ensurePlayerGarageState();
@@ -123,7 +177,13 @@
   const batch=floorPlan[floor].entries,vehicles=[];let loadIndex=0,closed=false,raf=0,last=performance.now(),width=0,height=0,nearest=null;
   for(let i=0;i<(heavyFloor?6:20);i++){const bay=garageRoomBay(i,heavyFloor);for(const dx of[-2.3,2.3])box(white,bay.x+dx,.035,bay.z,.08,.02,heavyFloor?20:6.5);}
   for(const [i,e]of batch.entries()){const marked=garageRoomBay(i,brazilDepotVehicle(e.id)),bay=garageRoomParkingPose(e.id,marked,heavyFloor);sign(e.label+' · #'+e.unit,marked.x,2.0,marked.z+(marked.z<0?-3.5:3.5),5,.46).rotation.y=marked.z>0?Math.PI:0;vehicles.push({entry:e,bay,assignedBay:marked,group:null});}
-  campaignBatch(room);const party=familyCarryParty(),avatars=[];for(const id of party.members){const host=new THREE.Group();room.add(host);const avatar=familyCloneAvatar(id,host);if(avatar)avatars.push({id,host,avatar});}
+  campaignBatch(room);const party=familyCarryParty(),avatars=[];
+  const selected=familyCharacterId(state.avatar?.bodyStyle);
+  for(const id of garageAvatarRoster(selected,party)){
+   const host=new THREE.Group();room.add(host);
+   const entry=garageBuildAvatar(id,host);if(entry)avatars.push(entry);else room.remove(host);
+  }
+  s.avatars=avatars;
   const close=()=>{venueClose();personalGarage.room=null;};ui.querySelector('[data-garage-room-exit]').onclick=close;
   for(const [selector,delta]of[['[data-garage-floor-prev]',-1],['[data-garage-floor-next]',1]])ui.querySelector(selector).onclick=()=>{if(s.car){ui.querySelector('.garage-room-info').textContent='Saia do veículo antes de usar o elevador.';return;}close();openPersonalGarageRoom(floor+delta);};
   const board=ui.querySelector('[data-garage-board]'),engine=ui.querySelector('[data-garage-engine]'),gas=ui.querySelector('[data-garage-gas]'),brake=ui.querySelector('[data-garage-brake]');
@@ -154,12 +214,25 @@
     if(s.body.z>edge&&Math.abs(s.body.x)+garageRoomVehicleExtent(s.car,s.body.yaw).x<9.6){const id=s.car.entry.id,v=vehicleById(id)||ensureCatalogVehicle(id),point=v&&garageDriveOutPoint(v,door);if(point){close();garageDriveOut(id,point);return;}s.speed=0;s.body.z=edge-.8;s.exitBlockedUntil=now+2500;ui.querySelector('.garage-room-info').textContent='Saída ocupada. Aguarde a passagem dos veículos.';}}
    nearest=vehicles.filter(v=>v.group).sort((a,b)=>Math.hypot(a.bay.x-s.body.x,a.bay.z-s.body.z)-Math.hypot(b.bay.x-s.body.x,b.bay.z-s.body.z))[0];if(nearest&&Math.hypot(nearest.bay.x-s.body.x,nearest.bay.z-s.body.z)>4.8)nearest=null;board.disabled=!s.car&&!nearest;
    const info=ui.querySelector('.garage-room-info');info.textContent=s.car?(now<(s.exitBlockedUntil||0)?'Saída ocupada · aguarde e tente novamente':s.engine?'Motor ligado · dirija até a saída amarela':'Ligue o motor para sair dirigindo'):nearest?nearest.entry.label+' · unidade '+nearest.entry.unit+' · ENTRAR':`${parked.length} veículos nos pisos da garagem · caminhe até uma vaga`;
-   for(const [i,a]of avatars.entries()){if(['thiago','thamis'].includes(a.id))familyAnimateAvatar(a.avatar,null,{speed:!s.car&&Math.hypot(ix,iz)>.1?3.3:0,sitting:!!s.car,time:now/1000});if(s.car){const seat=brazilSeatOffset(s.car.entry.model,i-1),scale=brazilSeatScale(s.car.entry.model);a.host.position.copy(s.car.group.position);a.host.rotation.y=s.body.yaw;a.avatar.group.position.set(seat.x,seat.y,seat.z);a.avatar.group.scale.setScalar(a.avatar.source.scale*scale);}
-    else{a.host.position.set(s.body.x+(i?Math.cos(s.body.yaw)*i:0),0,s.body.z-(i?Math.sin(s.body.yaw)*i:0));a.host.rotation.y=s.body.yaw;a.avatar.group.scale.setScalar(a.avatar.source.scale);a.avatar.group.position.set(0,.006-a.avatar.mesh.geometry.boundingBox.min.y*a.avatar.source.scale,0);}}
+   for(const [i,a]of avatars.entries()){
+    const walking=!s.car&&Math.hypot(ix,iz)>.1;
+    if(a.avatar&&['thiago','thamis'].includes(a.id))familyAnimateAvatar(a.avatar,null,{speed:walking?3.3:0,sitting:!!s.car,time:now/1000});
+    if(a.custom)garageAnimateCustomAvatar(a.custom,walking,!!s.car,now/1000);
+    if(s.car){
+     const seat=brazilSeatOffset(s.car.entry.model,i-1),scale=brazilSeatScale(s.car.entry.model);
+     a.host.position.copy(s.car.group.position);a.host.rotation.y=s.body.yaw;
+     if(a.avatar){a.avatar.group.position.set(seat.x,seat.y,seat.z);a.avatar.group.scale.setScalar(a.avatar.source.scale*scale);}
+     else if(a.custom){a.custom.group.position.set(seat.x,seat.y,seat.z);a.custom.group.scale.copy(a.custom.scale).multiplyScalar(scale);}
+    }else{
+     a.host.position.set(s.body.x+(i?Math.cos(s.body.yaw)*i:0),0,s.body.z-(i?Math.sin(s.body.yaw)*i:0));a.host.rotation.y=s.body.yaw;
+     if(a.avatar){a.avatar.group.scale.setScalar(a.avatar.source.scale);a.avatar.group.position.set(0,.006-a.avatar.mesh.geometry.boundingBox.min.y*a.avatar.source.scale,0);}
+     else if(a.custom){a.custom.group.scale.copy(a.custom.scale);a.custom.group.position.set(0,a.custom.baseY+(walking?Math.abs(Math.sin(now/1000*9))*.035:0),0);}
+    }
+   }
    if(!look&&now>(s.lookUntil||0))s.freeCamera=false;
    if(s.car&&!s.freeCamera&&!look&&now>(s.lookUntil||0))s.cameraYaw=lerpAngle(s.cameraYaw,s.body.yaw+Math.PI,Math.min(1,dt*3));const distance=s.car?11:10,y=1.2;cam.position.set(s.body.x+Math.sin(s.cameraYaw)*distance*Math.cos(s.cameraPitch),y+Math.sin(s.cameraPitch)*distance,s.body.z+Math.cos(s.cameraYaw)*distance*Math.cos(s.cameraPitch));cam.lookAt(s.body.x-Math.sin(s.cameraYaw)*4,y,s.body.z-Math.cos(s.cameraYaw)*4);render.render(room,cam);
   };
-  s.cleanup=()=>{if(closed)return;if(s.car)garageRememberRoomPose(s.car,heavyFloor);closed=true;cancelAnimationFrame(raf);reset();s.voice?.dispose();window.removeEventListener('keydown',key,true);window.removeEventListener('keyup',key,true);window.removeEventListener('blur',reset);for(const a of avatars)releaseFamilyAvatarVisual(a.avatar.group);for(const v of vehicles)if(v.group)brazilDetach(v.group);for(const g of geo)g.dispose();for(const m of mats){m.map?.dispose();m.dispose();}render.dispose();render.forceContextLoss();personalGarage.room=null;};raf=requestAnimationFrame(frame);return true;
+  s.cleanup=()=>{if(closed)return;if(s.car)garageRememberRoomPose(s.car,heavyFloor);closed=true;cancelAnimationFrame(raf);reset();s.voice?.dispose();window.removeEventListener('keydown',key,true);window.removeEventListener('keyup',key,true);window.removeEventListener('blur',reset);for(const a of avatars){if(a.avatar)releaseFamilyAvatarVisual(a.avatar.group);a.host.parent?.remove(a.host);}for(const v of vehicles)if(v.group)brazilDetach(v.group);for(const g of geo)g.dispose();for(const m of mats){m.map?.dispose();m.dispose();}render.dispose();render.forceContextLoss();personalGarage.room=null;};raf=requestAnimationFrame(frame);return true;
  }
  function garageDriveOut(id,readyPoint=null){
   const e=playerVehicleCatalogEntry(id),door=worldLayoutPoint('homeGarage'),v=ensureCatalogVehicle(id);if(!e||!v||!state.vehicles.owned.includes(id))return false;
@@ -179,4 +252,4 @@
  const garageOldExpansion=updateWorldExpansion;updateWorldExpansion=function(){garageOldExpansion();garageSyncIgnition();if(!world.playerGarage)return;
   if(!world.playerGarage.privateParkingAction){const p=worldLayoutPoint('homeGarage');registerInteractable({id:'private-garage-park',type:'garage',vehicleOnly:true,icon:'🏠',label:'Estacionar na minha garagem',actionLabel:'Garagem',x:p.x+9,z:p.z,radius:5.5,priority:800,available:()=>player.vehicle&&!player.car.passengerOf&&state.vehicles.owned.includes(player.car.id),action:()=>openPersonalGarageRoom()});world.playerGarage.privateParkingAction=true;}
   for(const i of world.interactables)if(i.id==='player-home-garage'||i.id==='player-home-garage-west'){i.label='Entrar na minha garagem';i.action=()=>openPersonalGarageRoom();}const sign=world.playerGarage.group?.children.find(o=>o.geometry?.type==='PlaneGeometry'&&o.position.y>2);if(sign&&!sign.userData.privateGarage){sign.material.map?.dispose();sign.material.map=signTexture('MINHA GARAGEM · ENTRADA','#173b59','#ffffff');sign.material.needsUpdate=true;sign.userData.privateGarage=true;}};
- window.OT_PERSONAL_GARAGE={diagnostics:()=>({active:!!personalGarage.room,floor:personalGarage.room?.floor,inside:personalGarage.room?{...personalGarage.room.body,vehicle:personalGarage.room.car?.entry.id,engine:personalGarage.room.engine}:null,units:garageOwnedEntries().map(e=>({id:e.id,catalogId:e.catalogId,model:e.model,unit:e.unit,stored:!!state.vehicles.garage.stored[e.id]})),lastDelivery:personalGarage.lastDelivery})};
+ window.OT_PERSONAL_GARAGE={diagnostics:()=>({active:!!personalGarage.room,floor:personalGarage.room?.floor,inside:personalGarage.room?{...personalGarage.room.body,vehicle:personalGarage.room.car?.entry.id,engine:personalGarage.room.engine,avatars:(personalGarage.room.avatars||[]).map(a=>({id:a.id,visible:a.host.visible&&!!(a.avatar?.group||a.custom?.group)?.visible,kind:a.avatar?'family':'custom'}))}:null,units:garageOwnedEntries().map(e=>({id:e.id,catalogId:e.catalogId,model:e.model,unit:e.unit,stored:!!state.vehicles.garage.stored[e.id]})),lastDelivery:personalGarage.lastDelivery})};

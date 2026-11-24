@@ -13,3 +13,11 @@ test('personal garage: the physical floor plan retains hundreds of vehicles inst
 test('personal garage: concurrent purchases on two devices never share the same vehicle instance key',()=>{
  const c=vm.createContext({crypto:{randomUUID:(()=>{let n=0;return()=>String(++n).padStart(32,'0');})()}});vm.runInContext(named('garageNewInstanceId'),c);const a=vm.runInContext("garageNewInstanceId('br-palio',1)",c),b=vm.runInContext("garageNewInstanceId('br-palio',1)",c);assert.notEqual(a,b);assert(a.startsWith('unit-br-palio-1-'));assert(b.startsWith('unit-br-palio-1-'));
 });
+
+test('garage creates the selected avatar without requiring a family walk owner',()=>{
+ const roster=new Function(named('garageAvatarRoster')+';return garageAvatarRoster;')();
+ assert.deepEqual(roster('thiago',{members:[],controller:''}),['thiago']);
+ assert.deepEqual(roster('thamis',{members:['thiago','thamis','luna','liz'],controller:'thamis'}),['thamis','thiago','luna','liz']);
+ assert.deepEqual(roster('',{members:[],controller:''}),['player']);
+ assert.deepEqual(roster('thiago',{members:['thiago','luna','luna'],controller:'thiago'}),['thiago','luna']);
+});
