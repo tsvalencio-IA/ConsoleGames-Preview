@@ -14,7 +14,7 @@
       "startLine": 51,
       "endLine": 367,
       "description": "Registro central de assets, LOD gerenciado, orçamento visual e esquema de avatar V2",
-      "sha256Body": "83fca53158aa762aab69d402a3889e16bd01bea43c66ac63cdbf039521940f36"
+      "sha256Body": "b2d17d26cfc03d346f00c5270e15cdd0b7b5490d295e23e32c0e6af3453b4261"
     },
     {
       "file": "src/modules/81-rio-wardrobe.js",
@@ -588,7 +588,7 @@
     {
       "file": "src/modules/66-civil-missions.js",
       "description": "Missões individuais e cooperativas do mundo civil",
-      "sha256Body": "eb61097091fadd530ae56a777262a5a27cd1772fb757a26e6a6584aa4b632276",
+      "sha256Body": "0b88ee4daed57c3543e4444a132a04df7571a1595ea321428987e4c0e46903ad",
       "startLine": 0,
       "endLine": 0
     },

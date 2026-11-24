@@ -279,7 +279,9 @@
   function updateManagedOutlineVisibility(){
     if(!world?.outlines||!camera)return;
     const profile=visualFoundation.qualityProfile||visualQualityProfile(qualityTier?.()||'balanced');
-    const position=new THREE.Vector3(),visited=new Set();
+    const position=new THREE.Vector3(),visited=new Set(),ancestorHidden=new Map();
+    const maxDistanceSq=profile.outlineDistance*profile.outlineDistance;
+    function hiddenBranch(node){if(!node)return false;if(ancestorHidden.has(node))return ancestorHidden.get(node);const hidden=node.visible===false||hiddenBranch(node.parent);ancestorHidden.set(node,hidden);return hidden;}
     let visible=0,hidden=0;
     for(const line of world.outlines){
       if(!line?.parent)continue;
@@ -289,8 +291,9 @@
         visible++;
         continue;
       }
+      if(hiddenBranch(line.parent)){line.visible=false;hidden++;continue;}
       position.setFromMatrixPosition(visualWorldMatrix(line,visited));
-      const show=position.distanceTo(camera.position)<=profile.outlineDistance;
+      const show=position.distanceToSquared(camera.position)<=maxDistanceSq;
       line.visible=show;
       if(show)visible++;else hidden++;
     }
@@ -15742,7 +15745,7 @@ function precompile(T,renderer,scene,camera,timings){
  function civilAvailableTarget(current=civilCurrent()){
   if(!current)return null;const p=current.book.progress(current.r.id,current.uid);if(!p?.step||p.count>=p.quota)return null;
   if(p.step.requiresRide&&!p.record.rides[current.uid]?.[p.step.requiresRide]){const station=p.step.requiresRide==='cable-up'?'base':'top';return{id:'civil-cable-boarding',label:'Embarcar na '+CIVIL_CABLE[station].label,name:'Teleférico · embarque',...CIVIL_CABLE[station],x:CIVIL_CABLE[station].x+3.2,z:CIVIL_CABLE[station].z+3.4,boarding:true};}
-  for(const id of p.step.targets){const token=`${p.record.phase}:${p.step.sharedSubjects?'team':current.uid}:${id}`;if(!p.record.tokens[token])return civilSubject(id,current.uid);}return null;
+  for(const id of p.step.targets){const token=`${p.record.phase}:${p.step.sharedSubjects?'team':current.uid}:${id}`;if(!p.record.tokens[token]){const target=civilSubject(id,current.uid);if(target&&Number.isFinite(target.x)&&Number.isFinite(target.z))return target;}}return null;
  }
  // The photo follows the balloon's real body, including any unvisited nearby
  // panorama. GPS may keep its suggested order without hiding another valid stop.
@@ -15780,6 +15783,21 @@ function precompile(T,renderer,scene,camera,timings){
    const message=otGames.ui?.querySelector('.ot-games-mission');if(message)message.textContent=!civilTeamReady(current.r)?'Aguardando a dupla reconectar. Progresso preservado.':p.count>=p.quota?'Sua parte foi registrada. Aguardando a dupla.':p.step?.vehicle?'📷 '+p.step.title+' · '+p.count+'/'+p.quota+' · F ou Tirar foto no panorama':p.step?.title||p.definition.title;
   }return result;
  };
+ function civilAuditCatalog(definitions,difficulties,resolve,legacy){
+  return Object.entries(definitions).map(([id,d])=>({id,title:d.title,description:d.description,reward:d.reward,offered:id!=='rio-avenidas'||legacy,coop:!d.soloOnly,steps:d.steps.map(step=>{
+   const targets=[...new Set(step.targets||[])].map(id=>{const p=resolve(id);return{id,registered:!!p&&Number.isFinite(p.x)&&Number.isFinite(p.z),x:Number.isFinite(p?.x)?p.x:null,z:Number.isFinite(p?.z)?p.z:null};});
+   const available=targets.filter(t=>t.registered).length,quotas=Object.fromEntries(Object.keys(difficulties).map(k=>[k,typeof step.quota==='number'?step.quota:step.quota?.[k]??0])),issues=[];
+   if(!step.title||!step.action)issues.push('Instrução ou ação ausente');
+   if(targets.some(t=>!t.registered))issues.push('Alvo ausente ou sem coordenadas');
+   for(const [k,q] of Object.entries(quotas)){if(!Number.isInteger(q)||q<1||q>available)issues.push('Cota individual inviável: '+k);if(!d.soloOnly&&step.sharedSubjects&&q*2>available)issues.push('Cota da dupla inviável: '+k);}
+   return{id:step.id,title:step.title,action:step.action,vehicle:step.vehicle||null,ride:step.requiresRide||null,quotas,targets,issues};
+  })}));
+ }
+ function civilMissionAudit(){
+  if(!civilMissions.ready)return{ready:false,missions:[]};
+  const p=civilAvailableTarget();
+  return{ready:true,missions:civilAuditCatalog(OTCivilMissionCore.definitions,OTCivilMissionCore.difficulties,id=>civilSubject(id),legacyRegionalLayout),target:p?{id:p.id,x:p.x,z:p.z,radius:p.radius||3.4,boarding:!!p.boarding,label:p.label||p.name||p.id}:null};
+ }
  function civilMissionLocation(){const p=civilAvailableTarget();return p?{...p,id:'civil-objective',name:p.label||p.name,label:p.label||p.name,navX:p.x,navZ:p.z,icon:p.icon||'🤝',group:'Missão atual',description:civilCurrent()?.book.progress(civilCurrent().r.id,civilCurrent().uid)?.step?.title||''}:null;}
  function civilRoute(force=false){const c=civilCurrent(),p=civilMissionLocation(),key=c?.r.id+':'+c?.r.phase+':'+p?.label;if(!p||!state.civilWorld.routeEnabled)return;if(force||key!==civilMissions.routeKey){civilMissions.routeKey=key;civilMissions.syncingRoute=true;setWaypoint('civil-objective');civilMissions.syncingRoute=false;}}
  const civilClearWaypointBefore=clearWaypoint;clearWaypoint=function(...args){if(!civilMissions.syncingRoute&&state.civilWorld&&state.waypoint?.id==='civil-objective')state.civilWorld.routeEnabled=false;return civilClearWaypointBefore(...args);};
@@ -15838,7 +15856,7 @@ function precompile(T,renderer,scene,camera,timings){
  evaluateMissions=function(){activeMission=null;if(civilMissions.ready)updateCivilHUD();};updateMissionHUD=updateCivilHUD;chapterNextDestination=()=>null;openObjectivesPanel=openCivilMissions;openCoopMissionCenter=()=>openCivilMissions('coop');updateCoopMissions=()=>{};coopMissionMapLocations=()=>[];activeCoopMission=()=>null;activeCoopRecord=()=>null;campaignOpen=openCivilWorldHub;
  Object.assign(window.OTTHI_COOP,{open:()=>openCivilMissions('coop'),active:()=>null,templates:()=>OTCivilMissionCore.definitions});window.OTTHI_CAMPAIGN.open=openCivilWorldHub;window.OT_GAMES.open=openCivilWorldHub;if(window.OTTHI_DESTINATIONS)window.OTTHI_DESTINATIONS.open=openCivilWorldHub;Object.assign(window.OTTHOS_TEST_API,{openJobCenter:openCivilMissions,openObjectivesPanel:openCivilMissions});
  Object.assign(CHARACTER_ACTIVITIES,{'civil-pickup':['Recolhendo para reciclagem',2],'civil-deliver':['Conversando e entregando',2],'civil-hose':['Usando a mangueira',2],'civil-cone':['Posicionando cone',2],'civil-escort':['Acompanhando a travessia',2]});
- window.OT_CIVIL_MISSIONS={open:openCivilMissions,details:openCivilMissionDetails,diagnostics:()=>({ready:civilMissions.ready,current:civilCurrent()?JSON.parse(JSON.stringify(civilCurrent().r)):null,solo:civilMissions.solo?.snapshot(),shared:civilMissions.shared?.snapshot(),task:civilMissions.task,team:civilCurrent()?civilTeamReady(civilCurrent().r):true,routeEnabled:state.civilWorld?.routeEnabled,definitions:OTCivilMissionCore.definitions})};
+ window.OT_CIVIL_MISSIONS={open:openCivilMissions,details:openCivilMissionDetails,audit:civilMissionAudit,diagnostics:()=>({ready:civilMissions.ready,current:civilCurrent()?JSON.parse(JSON.stringify(civilCurrent().r)):null,solo:civilMissions.solo?.snapshot(),shared:civilMissions.shared?.snapshot(),task:civilMissions.task,team:civilCurrent()?civilTeamReady(civilCurrent().r):true,routeEnabled:state.civilWorld?.routeEnabled,definitions:OTCivilMissionCore.definitions})};
 
  const civilMergeBefore=mergeCloudProgress;mergeCloudProgress=function(remote){const result=civilMergeBefore(remote);if(result&&civilMissions.ready){civilMissions.solo=new OTCivilMissionCore.CivilMissionBook(state.civilWorld.solo);civilRebindSolo();}return result;};
 
