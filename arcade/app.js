@@ -6,7 +6,7 @@
 (() => {
   "use strict";
   const BASE = "../games/";
-  const REPO_BASE = "https://github.com/tsvalencio-IA/";
+  const REPO_BASE = "https://github.com/tsvalencio-IA/ConsoleGames-Preview/tree/main/games/";
   const entries = Object.freeze([
     { id:"otthi", title:"OTThi World", category:"aventura", categoryLabel:"Mundo aberto", short:"Viva em Rio Preto, explore bairros, trabalhe e viaje com a família.", icon:"🏡", coverA:"#123c75", coverB:"#1f8ca3", source:"OTThi-World3", url:BASE+"otthi/", tint:"#6ee9fe", destination:"direct" },
     { id:"familia", title:"Aventuras em Família 3D", category:"aventura", categoryLabel:"Universo 3D", short:"Corra pelo parque, brinque com Luna e Liz e descubra estrelas e desafios.", icon:"🌳", coverA:"#17554b", coverB:"#367b96", source:"hq", url:BASE+"familia/3d/", tint:"#8af2bf", destination:"direct" },
@@ -80,9 +80,9 @@
     const title=el("h3","",game.title);
     const description=el("p","",game.short);
     const footer=el("div","game-foot");
-    const source=el("a","origin", "↗ "+game.source);
-    source.href=REPO_BASE+encodeURIComponent(game.source); source.target="_blank"; source.rel="noopener noreferrer";
-    source.title="Ver código do projeto "+game.source;
+    const source=el("a","origin", "↗ Código atual");
+    source.href=REPO_BASE+encodeURIComponent(game.id)+(game.id==="familia"?"/3d":""); source.target="_blank"; source.rel="noopener noreferrer";
+    source.title="Ver código atual de "+game.title+" no ConsoleGames-Preview";
     const play=el("a","game-open",game.destination==="menu"?"Abrir menu GAME ↗":"Jogar agora ↗");
     play.href=destination(game); play.target="_self"; play.rel="noopener noreferrer"; play.dataset.launch=game.id;
     play.setAttribute("aria-label",(game.destination==="menu"?"Abrir menu do GAME para escolher ":"Jogar ")+game.title+" no console");

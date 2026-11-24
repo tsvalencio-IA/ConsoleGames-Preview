@@ -150,15 +150,22 @@ def main() -> None:
             original = item.read_text("utf-8")
         except UnicodeError:
             continue
-        # Rewrite the staged source before generating the final release hashes.
+        relative = item.relative_to(OUTPUT).as_posix()
+        # Signed native APK metadata describes immutable binary contents.
+        # Never rewrite its embedded server address during web packaging.
+        if relative in {"arcade/downloads/release.json", "arcade/downloads/release-ot.json"}:
+            continue
+        # Rewrite staged web paths, not signed native package metadata.
         revised = original.replace(OLD_BASE, NEW_BASE)
+        if item.suffix.lower() in {'.html', '.htm'}:
+            revised = re.sub(r"""https://github\.com/tsvalencio-IA/ConsoleGames(?=["']|$)""",
+                             'https://github.com/tsvalencio-IA/ConsoleGames-Preview', revised)
         if item.suffix.lower() in {'.html', '.htm'}:
             revised = prepare_document(revised, bootstrap)
         elif item.name == 'sw.js':
             revised = "'use strict';\n" + bootstrap + '\n' + revised
         elif item.name == 'firebase-config.js' and not FIREBASE_ENABLED:
             revised = 'window.OTTHOS_FIREBASE_CONFIG = Object.freeze({enabled: false});\n'
-        relative = item.relative_to(OUTPUT).as_posix()
         if FIREBASE_ENABLED and relative in LIVE_SOURCE_PATCHES:
             for before, after in LIVE_SOURCE_PATCHES[relative]:
                 if revised.count(before) != 1:
@@ -178,6 +185,9 @@ def main() -> None:
                 raise SystemExit("Original Firebase configuration changed: " + relative)
     subprocess.run([sys.executable, str(OUTPUT / 'games/otthi/tools/build_project.py')], check=True)
     release = verify_manifest()
+    for relative in ('arcade/downloads/release.json', 'arcade/downloads/release-ot.json'):
+        if (OUTPUT / relative).read_bytes() != (ROOT / relative).read_bytes():
+            raise SystemExit('Native APK metadata must not be rewritten: ' + relative)
     git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     metadata = {'source': SOURCE_SHA, 'commit': git_sha, 'build': release['build'],
                 'revision': release['revision'], 'storagePrefix': 'consolegames-preview:', 'firebase': FIREBASE_MODE}

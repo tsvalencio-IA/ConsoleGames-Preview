@@ -109,6 +109,23 @@ try {
   }
   await go('arcade/');
   await inspectConsole();
+  const project='https://github.com/tsvalencio-IA/ConsoleGames-Preview';
+  const sourceLinks=await page.locator('a.origin').evaluateAll(links=>links.map(a=>a.href));
+  assert.equal(sourceLinks.length,8);
+  assert(sourceLinks.every(link=>link.startsWith(project+'/tree/main/games/')));
+  assert.equal(await page.locator('footer.footer a').getAttribute('href'),project);
+  await go('arcade/instalar/');
+  await page.waitForFunction(()=>!document.querySelector('#download-status').textContent.includes('Verificando'));
+  const legacy=await (await context.request.get(href('arcade/downloads/release.json'))).json();
+  const legacyOT=await (await context.request.get(href('arcade/downloads/release-ot.json'))).json();
+  assert.equal(legacy.consoleUrl,'https://tsvalencio-ia.github.io/ConsoleGames/arcade/?android=1');
+  assert.equal(legacyOT.consoleUrl,'https://otthi-world-campanha-teste.vercel.app/arcade/?android=1');
+  assert(await page.locator('#download-apk').isHidden());
+  assert.equal(await page.locator('#download-apk').getAttribute('href'),null);
+  assert(await page.locator('#web-install-help').isVisible());
+  report.checks.push('canonical-source-links-and-no-incompatible-apk');
+  await go('arcade/');
+  await inspectConsole();
   report.release = await (await context.request.get(href('preview-release.json'))).json();
   if (process.env.GITHUB_SHA) assert.equal(report.release.commit, process.env.GITHUB_SHA);
   const releaseUrl = href('games/otthi/release-manifest.json');

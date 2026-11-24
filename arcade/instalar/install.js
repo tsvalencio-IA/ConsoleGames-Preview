@@ -4,6 +4,7 @@
   const download=document.getElementById("download-apk");
   const status=document.getElementById("download-status");
   const consoleUrl = new URL('../', location.href);
+  const webHelp=document.getElementById('web-install-help');
   async function findCompatiblePackage() {
     for (const metadata of ['release-ot.json', 'release.json']) {
       try {
@@ -19,6 +20,7 @@
         download.href = new URL(path + release.file, consoleUrl).href;
         document.getElementById('release-version').textContent = release.version;
         download.hidden = false;
+        if(webHelp)webHelp.hidden=true;
         document.getElementById('apk-instructions').hidden = false;
         document.getElementById('apk-release').hidden = false;
         document.getElementById('apk-installed-info').hidden = false;
@@ -26,7 +28,8 @@
         return;
       } catch { /* A missing or incompatible package leaves the browser entry available. */ }
     }
-    status.textContent = 'Abra o console no navegador para jogar nesta versão.';
+    download.hidden=true;download.removeAttribute('href');
+    status.textContent = 'Não há APK compatível confirmado para este endereço. Jogue ou instale a versão web atual pelo navegador.';
   }
   findCompatiblePackage();
   download.addEventListener("click",()=>{
