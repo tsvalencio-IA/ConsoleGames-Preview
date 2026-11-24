@@ -97,6 +97,24 @@ test('delivery pickup survives a re-created World with retained save data',()=>{
 });
 
 
+function prepareTourismFixture(ctx,key,name){
+  const p={key,id:'regional-'+key,name,shape:key==='parque_peao_barretos'?'arena':'pool',
+    x:31,z:24,w:26,d:18,face:1,visitX:31,visitZ:35};
+  let scheduled=null;
+  ctx.player.x=p.visitX;ctx.player.z=p.visitZ;
+  ctx.CHARACTER_ACTIVITIES={};
+  ctx.characterActivities={session:null};
+  ctx.groundHeightAt=()=>0;
+  ctx.beginCharacterActivity=(kind,opts)=>{
+    scheduled={kind,...opts};
+    ctx.characterActivities.session={kind,phase:'perform',elapsed:0,pose:opts.pose};
+    return true;
+  };
+  ctx.testPlace=p;
+  vm.runInContext("rioAttractionScenes.set(testPlace.id,{p:testPlace,root:{visible:true},y:.42,guests:[]})",ctx);
+  return {p,get scheduled(){return scheduled}};
+}
+
 test('Ibirá, Olímpia and Barretos have independent paid experiences with persistently recorded visits',()=>{
   const {ctx,model}=setup();
   const catalog=JSON.parse(vm.runInContext('JSON.stringify(RIO_REGIONAL_ACTIVITIES)',ctx));
@@ -108,11 +126,18 @@ test('Ibirá, Olímpia and Barretos have independent paid experiences with persi
   ];
   let spent=0;
   for(const [key,name] of attractions){
-    vm.runInContext('rioRegionalExperience('+JSON.stringify({id:'regional-'+key,key,name})+')',ctx);
+    const fixture=prepareTourismFixture(ctx,key,name);
+    vm.runInContext('rioRegionalExperience(testPlace)',ctx);
     const join=model.single['[data-regional-join]'];
     assert(join?.onclick,key+' button missing');
-    const ticket=catalog[key].ticket;spent+=ticket;
-    join.onclick();join.onclick(); // no double charge from a repeated click
+    const ticket=catalog[key].ticket;
+    join.onclick();join.onclick();
+    assert(fixture.scheduled,'native activity must start');
+    assert.equal(model.state.profile.coins,500-spent,'no charge when starting');
+    assert.equal(model.save.regionExperience.visits['regional-'+key],undefined);
+    assert.equal(fixture.scheduled.commit(),true);
+    assert.equal(fixture.scheduled.commit(),false);
+    spent+=ticket;
     assert.equal(model.save.regionExperience.visits['regional-'+key].count,1);
     assert.equal(model.save.regionExperience.visits['regional-'+key].spent,ticket);
   }
@@ -135,15 +160,11 @@ test('regional tourism refuses unaffordable visits without spending money or cha
 
 test('a thermal-pool visit moves the avatar before charging and records only a completed swim',()=>{
   const {ctx,model}=setup();
-  let scheduled=null;
-  ctx.CHARACTER_ACTIVITIES={'rio-pool':['Nadando na piscina',4]};
-  ctx.beginCharacterActivity=(name,opts)=>{assert.equal(name,'rio-pool');scheduled=opts;return true;};
-  vm.runInContext('rioRegionalExperience('+JSON.stringify({
-    key:'termas_ibira',id:'regional-termas_ibira',name:'Termas de Ibirá',
-    shape:'pool',x:31,z:24,d:16,face:1
-  })+')',ctx);
+  const fixture=prepareTourismFixture(ctx,'termas_ibira','Termas de Ibirá');
+  vm.runInContext('rioRegionalExperience(testPlace)',ctx);
   model.single['[data-regional-join]'].onclick();
-  assert(scheduled&&scheduled.pose.lying,'physical pool visit was not scheduled');
+  const scheduled=fixture.scheduled;
+  assert(scheduled&&scheduled.kind==='rio-tourism-thermal'&&scheduled.pose.lying,'physical pool visit was not scheduled');
   assert.equal(model.state.profile.coins,500,'must not charge until swimming completes');
   assert.equal(model.save.regionExperience.visits['regional-termas_ibira'],undefined);
   assert.equal(scheduled.commit(),true);
@@ -207,4 +228,18 @@ test('furniture store delivers the same native catalog object to exactly one own
  assert.equal(model.save.properties[id].decorLayout['sofa-modular'].stored,true);
  assert.equal(model.save.constructionInventory['sofa-modular'],undefined);
  assert.equal(action.available(),false);assert.equal(model.state.profile.coins,320);
+});
+
+test('tourism does not create a successful visit or charge if the attraction is not mounted',()=>{
+  const {ctx,model}=setup();
+  vm.runInContext("rioRegionalExperience({id:'regional-parque_peao_barretos',key:'parque_peao_barretos',name:'Barretos'})",ctx);
+  model.single['[data-regional-join]'].onclick();
+  assert.equal(model.state.profile.coins,500);
+  assert.equal(model.save.regionExperience.visits['regional-parque_peao_barretos'],undefined);
+});
+test('Barretos timing requires player input and scores across frame boundaries',()=>{
+  const {ctx}=setup();
+  assert.equal(vm.runInContext('rioRodeoSample({sampled:0,correct:0,input:0},8)',ctx),0);
+  assert.equal(vm.runInContext('rioRodeoSample({sampled:0,correct:0,input:-1},8)',ctx),50);
+  assert.equal(vm.runInContext('(()=>{const r={sampled:0,correct:0,input:0};for(let i=0;i<8;i++){r.input=rioRodeoDirection(i);rioRodeoSample(r,i+1);}return rioRodeoSample(r,8);})()',ctx),100);
 });
