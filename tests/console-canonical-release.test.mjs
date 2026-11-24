@@ -13,13 +13,14 @@ test('ID instalado do console permanece fixo, sem versão, em Pages e Vercel',()
   const start=new URL(doc.start_url,url);
   const previousId=new URL('./',url);
   assert.equal(start.pathname,mount+'arcade/');
-  assert.equal(new URL(doc.id,start.origin).href,previousId.href);
-  assert.equal(new URL(doc.id,start.origin).search,'');
+  assert.equal(new URL(doc.id||start.href,start.origin).href,previousId.href);
+  assert.equal(start.search,'');
   assert.equal(new URL(doc.scope,url).pathname,mount);
-  const futureStart=new URL('./?release=99999',url);
-  assert.equal(new URL(doc.id,futureStart.origin).href,previousId.href);
+  assert.equal(doc.start_url,'./'); // portable source must never include release parameters
  }
  assert.match(m.name,/8 jogos/);
+ const builder=read('tools/build-github-pages-preview.py');
+ assert(builder.includes("arcade['id'] = NEW_BASE + 'arcade/'"));
 });
 test('Manifesto legado do mundo conserva a identidade histórica sem lançar uma versão antiga',()=>{
  const m=JSON.parse(read('games/otthi/manifest.webmanifest'));

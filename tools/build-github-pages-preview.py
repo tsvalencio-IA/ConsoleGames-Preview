@@ -183,6 +183,14 @@ def main() -> None:
         for relative in ("arcade/firebase-config.js", "games/otthi/firebase-config.js"):
             if (OUTPUT / relative).read_bytes() != (ROOT / relative).read_bytes():
                 raise SystemExit("Original Firebase configuration changed: " + relative)
+    # Pin the public Pages ID only in the deployed mount, preserving the
+    # portable source manifest and the original implicit installed identity.
+    arcade_manifest = OUTPUT / 'arcade/manifest.webmanifest'
+    arcade = json.loads(arcade_manifest.read_text('utf-8'))
+    if arcade.get('start_url') != './' or arcade.get('scope') != '../':
+        raise SystemExit('Canonical Arcade launch URL or scope changed')
+    arcade['id'] = NEW_BASE + 'arcade/'
+    arcade_manifest.write_text(json.dumps(arcade, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     subprocess.run([sys.executable, str(OUTPUT / 'games/otthi/tools/build_project.py')], check=True)
     release = verify_manifest()
     for relative in ('arcade/downloads/release.json', 'arcade/downloads/release-ot.json'):

@@ -18,7 +18,7 @@
     const fill=new THREE.DirectionalLight(0xb9ddff,.16);fill.position.set(-28,20,-18);scene.add(fill); // preenchimento barato (sem sombra) para suavizar o lado escuro dos objetos
     createPlayerModel();playerModel.position.y=playerModel.userData.baseY;applyAvatarCustomization();const separateRio=typeof inRioMap==='function'&&inRioMap();
     if(separateRio)buildRioMapWorld();
-    else{buildWorld();restoreActiveJobRuntime();reconcileCloudHouses();}
+    else{buildWorld();restoreActiveJobRuntime();reconcileCloudHouses();buildMetroNetwork();}
     lockStableSceneVisibility();freezeWorldFrustumCulling();restorePosition();
     if(!separateRio){initLocalMultiplayer();for(const [remoteUid,data] of remotePresence)remotePlayerEvent({uid:remoteUid,...data});}
     applyQuality();applyAdaptiveRenderSettings(true);resize(true);return true;
