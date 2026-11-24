@@ -137,7 +137,9 @@
       chunks:rioMap.tiles.size,loadedPlaces:[...rioMap.sites.keys()],
       actors:{residents:[...rioCityActors.folks.values()].flat().length,traffic:[...rioCityActors.traffic.values()].flat().length,animals:0},
       fleet:rioMap.vehicle?{id:rioMap.vehicle.id,model:rioMap.vehicle.brazilModel}:null,
-      craft:[...(world.boats?.values()||[])].filter(boat=>boat.rioBerth).map(boat=>({id:boat.id,kind:boat.kind})),
+      craft:(rioMap.coastalDock?.craft||[]).filter(boat=>boat.rioBerth).map(boat=>({id:boat.id,kind:boat.kind,region:'guaruja',
+        berth:{...boat.rioBerth.step},x:boat.group.position.x,z:boat.group.position.z})),
+      reservoirCraft:rioMap.waterfront?.craft?.length||0,
       swimmers:rioMap.waterfront?.swimmers.length||0,
       course:rioMap.course?.id||null
     })

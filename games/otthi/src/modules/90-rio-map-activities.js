@@ -289,9 +289,9 @@
     const object=actor.npc?.group||actor.root,p=object.position,target=actor.route[actor.index];
     const dx=target.x-p.x,dz=target.z-p.z,d=Math.hypot(dx,dz);
     if(d<.18){actor.index=(actor.index+1)%actor.route.length;return;}
+    if(actor.npc){v705NpcWalk(actor.npc,dt,target,speed,true);p.y=rioTerrainY(p.x,p.z);return;}
     const step=Math.min(d,dt*speed),x=p.x+dx/d*step,z=p.z+dz/d*step;
     if(rioGeometryBlocked(x,z,.35)||rioWaterAt(x,z)){actor.index=(actor.index+1)%actor.route.length;return;}
-    if(actor.npc&&Math.hypot(player.x-x,player.z-z)<1.18)return;
     p.set(x,rioTerrainY(x,z),z);object.rotation.y=lerpAngle(object.rotation.y,Math.atan2(dx,dz),dt*8);
   }
   function updateRioMapActors(dt){

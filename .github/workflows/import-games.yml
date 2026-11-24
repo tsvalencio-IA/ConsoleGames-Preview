@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   importar:
+    if: github.repository == 'tsvalencio-IA/ConsoleGames'
     name: Copiar projetos, preservar IDs e aplicar melhorias
     runs-on: ubuntu-latest
     timeout-minutes: 20

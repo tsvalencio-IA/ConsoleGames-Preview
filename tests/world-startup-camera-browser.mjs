@@ -7,19 +7,31 @@ import {execFileSync} from 'node:child_process';
 import {chromium} from 'playwright';
 import {multiplayerServer} from './helpers/multiplayer-browser-fixture.mjs';
 const revision=process.env.OT_START_REVISION||'current',quality=process.env.OT_START_QUALITY||'low';
+const compact=process.env.OT_START_LAYOUT==='compact';
+const sampleSeconds=Number(process.env.OT_START_SAMPLE_SECONDS||0);
+const cameraFull=process.env.OT_START_CAMERA_FULL==='1';
 const out=process.env.OT_START_OUT||'test-results/startup-camera-'+revision.slice(0,8)+'-'+quality;
 const read=p=>revision==='current'?fs.readFileSync(p):execFileSync('git',['show',revision+':'+p],{maxBuffer:8e6});
 const source=read('games/otthi/app.js').toString(),end=source.lastIndexOf('})();');
 assert(end>0);fs.mkdirSync(out,{recursive:true});
 const hook=`
-const startupQa={loadingCalls:0,modalBuilds:0,finishCalls:0,compileCalls:0};
+const startupQa={loadingCalls:0,modalBuilds:0,finishCalls:0,compileCalls:0,fleetPasses:0,fleetTemplates:0,shaderMs:0,firstWorldFrame:null,frames:[]};
 const startupQaLoading=showWorldLoading,startupQaModal=openModal,startupQaInit=initThree;
 showWorldLoading=function(...args){startupQa.loadingCalls++;return startupQaLoading(...args);};
 openModal=function(...args){if(args[0]==='Preparando o mundo')startupQa.modalBuilds++;return startupQaModal(...args);};
-initThree=function(...args){const result=startupQaInit(...args);if(renderer){const gl=renderer.getContext(),finish=gl.finish.bind(gl),compile=renderer.compile.bind(renderer);gl.finish=function(...a){startupQa.finishCalls++;return finish(...a);};renderer.compile=function(...a){startupQa.compileCalls++;return compile(...a);};}return result;};
+initThree=function(...args){const result=startupQaInit(...args);if(renderer){
+ const gl=renderer.getContext(),finish=gl.finish.bind(gl),compile=renderer.compile.bind(renderer),render=renderer.render.bind(renderer);
+ gl.finish=function(...a){startupQa.finishCalls++;return finish(...a);};
+ renderer.compile=function(...a){startupQa.compileCalls++;const start=performance.now();try{return compile(...a);}finally{startupQa.shaderMs+=performance.now()-start;}};
+ renderer.render=function(...a){const start=performance.now();try{return render(...a);}finally{if(perf.scenePreparation&&!paused&&running){startupQa.firstWorldFrame??=performance.now();if(startupQa.collect)startupQa.frames.push({at:performance.now(),cpu:performance.now()-start});}}};
+ const precompile=OTBrazilVehicles.precompile;
+ OTBrazilVehicles.precompile=function(...a){const count=precompile(...a);startupQa.fleetPasses++;startupQa.fleetTemplates+=count;return count;};
+ }return result;};
 window.__START_QA={
  freeze:()=>cancelAnimationFrame(raf),
- state:()=>({counters:{...startupQa},vehiclePreparation:perf.vehiclePreparation,scenePreparation:perf.scenePreparation,lightPreparation:worldLightBudget.preparation,quality:qualityTier(),npcs:world.npcs.length,traffic:completeTraffic.created.size,programs:renderer.info.programs.length,memory:{...renderer.info.memory},buffer:{width:renderer.domElement.width,height:renderer.domElement.height,dpr:renderer.getPixelRatio()}}),
+ state:()=>({counters:{...startupQa,frames:undefined},boot:window.OTTHI_BOOT_METRICS?.snapshot?.(),vehiclePreparation:perf.vehiclePreparation,scenePreparation:perf.scenePreparation,lightPreparation:worldLightBudget.preparation,quality:qualityTier(),npcs:world.npcs.length,traffic:completeTraffic.created.size,catalog:Object.keys(OTBrazilVehicles.catalog).length,programs:renderer.info.programs.length,memory:{...renderer.info.memory},buffer:{width:renderer.domElement.width,height:renderer.domElement.height,dpr:renderer.getPixelRatio()}}),
+ collect:()=>{startupQa.collect=true;startupQa.frames.length=0;},
+ samples:()=>{startupQa.collect=false;return startupQa.frames.slice();},
  draw:(yaw,pitch)=>{cameraYaw=yaw;cameraPitch=pitch;updateCamera(1);updateVisualLOD();const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera),before=renderer.info.programs.length,start=performance.now();try{renderer.render(scene,camera);renderer.getContext().finish();return{ms:performance.now()-start,newPrograms:renderer.info.programs.length-before,programs:renderer.info.programs.length,lights:{...worldLightBudget.stats},memory:{...renderer.info.memory}};}finally{restoreLights?.();restoreHome?.();}}
 };`;
 const server=await multiplayerServer(),browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
@@ -34,18 +46,44 @@ try{
   await page.route(path==='index.html'?/\/games\/otthi\/(?:index\.html)?(?:\?.*)?$/:new RegExp('/games/otthi/'+path.replaceAll('.','\\.')+'(?:\\?.*)?$'),r=>r.fulfill({body,contentType}));
  }
  await page.route('**/app.js*',r=>r.fulfill({contentType:'application/javascript',body:source.slice(0,end)+hook+source.slice(end)}));
- const start=Date.now();await page.goto(server.origin+'/games/otthi/');const clickAt=Date.now();await page.locator('#playBtn').click();
+ const target=new URL('/games/otthi/',server.origin);
+ if(compact)target.searchParams.set('map','rio-preto');
+ if(cameraFull)target.searchParams.set('cameraFull','1');
+ const start=Date.now();await page.goto(target.href);const clickAt=Date.now();await page.locator('#playBtn').click();
  await page.waitForFunction(()=>window.__START_QA&&OTTHOS_TEST_API.getGame().running&&!OTTHOS_TEST_API.getGame().paused&&document.getElementById('modal').hidden,null,{timeout:240000});
  report.bootMs=Date.now()-start;report.playToReadyMs=Date.now()-clickAt;
  // Family members join on the first native simulation frames. Keep the
  // complete population for both cases instead of freezing that work early.
- await page.waitForFunction(()=>OTTHOS_TEST_API.getGame().objects.npcs===138&&OTTHI_WORLD_TRAFFIC.diagnostics().created===44,null,{timeout:120000});
+ if(compact){
+  await page.waitForFunction(()=>window.OTTHI_ROAD_CONTINUITY?.diagnostics().ready&&window.OT_WORLD_RESIDENTS?.diagnostics().ready&&__START_QA.state().counters.firstWorldFrame!==null,null,{timeout:120000});
+  assert.equal(await page.locator('body').getAttribute('data-otthi-map'),'rio-preto-compacto');
+ }else await page.waitForFunction(()=>OTTHOS_TEST_API.getGame().objects.npcs===138&&OTTHI_WORLD_TRAFFIC.diagnostics().created===44,null,{timeout:120000});
  report.fullPopulationReadyMs=Date.now()-start;
- await page.evaluate(()=>__START_QA.freeze());report.initial=await page.evaluate(()=>__START_QA.state());
+ report.initial=await page.evaluate(()=>__START_QA.state());
+ if(sampleSeconds){
+  const cdp=await context.newCDPSession(page);
+  const getHeap=()=>cdp.send('Runtime.getHeapUsage');
+  report.heapStart=await getHeap();
+  const movement=await page.evaluate(()=>{
+   const p=OTTHOS_TEST_API.getGame().player;return{x:p.x,z:p.z};
+  });
+  await page.evaluate(()=>__START_QA.collect());
+  const inputAt=Date.now();
+  await page.keyboard.down('KeyW');
+  try{
+   await page.waitForFunction(({x,z})=>{const p=OTTHOS_TEST_API.getGame().player;return Math.hypot(p.x-x,p.z-z)>.08;},movement,{timeout:15000});
+   report.firstMovementMs=Date.now()-inputAt;
+  }finally{await page.keyboard.up('KeyW');}
+  await page.waitForTimeout(sampleSeconds*1000);
+  report.frames=await page.evaluate(()=>__START_QA.samples());report.heapEnd=await getHeap();
+ }
+ await page.evaluate(()=>__START_QA.freeze());
  for(const pitch of[-.55,.28,1.35])for(const yaw of[0,Math.PI/2,Math.PI,Math.PI*1.5]){
   const first=await page.evaluate(p=>__START_QA.draw(...p),[yaw,pitch]),repeat=await page.evaluate(p=>__START_QA.draw(...p),[yaw,pitch]);report.samples.push({yaw,pitch,first,repeat});
  }
- report.final=await page.evaluate(()=>__START_QA.state());report.errors=errors;assert.deepEqual(errors,[]);assert.equal(report.initial.traffic,44);assert.equal(report.initial.npcs,138);
+ report.final=await page.evaluate(()=>__START_QA.state());report.errors=errors;assert.deepEqual(errors,[]);
+ if(compact){assert.equal(report.initial.catalog,44);assert.equal(report.initial.traffic,44);assert(report.initial.npcs>100);}
+ else{assert.equal(report.initial.traffic,44);assert.equal(report.initial.npcs,138);}
  report.passed=true;report.checkedAt=new Date().toISOString();fs.writeFileSync(out+'/result.json',JSON.stringify(report,null,2));
  console.log(JSON.stringify({passed:true,revision,quality,bootMs:report.bootMs,playToReadyMs:report.playToReadyMs,initial:report.initial,maxFirstDrawMs:Math.max(...report.samples.map(r=>r.first.ms)),newPrograms:report.samples.reduce((n,r)=>n+r.first.newPrograms,0)}));
 }catch(e){report.passed=false;report.errors=errors;report.failure=e.stack;fs.writeFileSync(out+'/result.json',JSON.stringify(report,null,2));throw e;}finally{await browser.close();await server.close();}

@@ -719,6 +719,14 @@
       room.door.visible=true;room.gate.disabled=false;
     }
     const server=room.server;
+    const now=performance.now();
+    for(const clerk of room.npcs||[]){
+      if(!clerk.shopSlot)continue;
+      const p=clerk.group.position,customer=rioMap.indoorRoom===room&&!player.vehicle&&distance2D(player,p)<3.5;
+      const heading=customer?Math.atan2(player.x-p.x,player.z-p.z):site.yaw;
+      clerk.group.rotation.y=lerpAngle(clerk.group.rotation.y,heading,Math.min(1,dt*5));
+      poseResident(clerk,now<(clerk.servingUntil||0)?'serve':'work',now/1000);
+    }
     if(!server?.serving)return;
     const {npc,points,tray}=server,target=points[server.index],p=npc.group.position,distance=distance2D(p,target);
     if(distance>.08){
@@ -735,6 +743,8 @@
 
   function rioWardrobeShop(site,room,counter,slot){
     if(!rioPlayerAt(counter))return false;
+    const clerk=room.npcs?.find(npc=>npc.shopSlot===slot);
+    if(clerk)clerk.servingUntil=performance.now()+2500;
     const choices=Object.entries(RIO_WARDROBE_CATALOG).filter(([kind])=>slot==='top'?kind!=='shoes':kind==='shoes').flatMap(([kind,items])=>items.map(item=>[...item,kind])).filter(([id])=>RIO_WARDROBE_STORE[id]);
     openModal(slot==='shoes'?'Loja de calçados':'Loja de roupas','<div class="choice-grid">'+choices.map(([id,label,color,category])=>
       '<button class="choice" data-rio-clothing-buy="'+id+'" '+(rioWardrobeHasItem(id)?'disabled':'')+'><b>'+RIO_WARDROBE_LABELS[category]+' · '+label+'</b><span>'+
@@ -764,6 +774,7 @@
         slot==='top'?'Atendente de moda':'Atendente de calçados',
         clerkPoint.x,clerkPoint.z,slot==='top'?0x90648c:0x486f80,0);
       clerk.stationary=true;clerk.cityLifeManaged=true;
+      clerk.shopSlot=slot;
       clerk.group.rotation.y=site.yaw;
       room.root.add(clerk.group);
       room.npcs??=[];room.npcs.push(clerk);

@@ -51,7 +51,9 @@ test('loading warms both point-light variants, including hidden scenery and cach
   const mesh=new f.THREE.Mesh(new f.THREE.BoxGeometry(),new f.THREE.MeshStandardMaterial());mesh.visible=false;parent.add(mesh);const children=[...f.scene.children],snap=f.scene.toJSON();let templates=0;const counts=[];
   f.c.renderer.compile=(scene,camera)=>{assert.equal(scene,f.scene);assert.equal(camera,f.camera);assert.equal(mesh.parent,parent);assert.equal(mesh.visible,false);assert.equal(sun.visible,true);let count=0;scene.traverseVisible(o=>{if(o.isPointLight&&o.layers.test(camera.layers))count++;});counts.push(count);};
   f.c.window.OTBrazilVehicles={precompile(THREE,renderer,scene,camera){assert.equal(THREE,f.THREE);templates++;renderer.compile(scene,camera);return 44;}};
-  const prepared=f.c.precompileWorldLighting();assert.equal(prepared.templates,44);assert.equal(prepared.lightingVariants,2);assert.equal(templates,2);assert.deepEqual(counts,[1,0]);assert(lamp.visible&&hiddenLamp.visible);assert(!disabled.visible);assert.deepEqual([...f.scene.children],children);assert.deepEqual(f.scene.toJSON(),snap);
+  const prepared=f.c.precompileWorldLighting();assert.equal(prepared.templates,44);assert.equal(prepared.lightingVariants,2);assert.equal(templates,1);assert.deepEqual(counts,[1,0]);assert(lamp.visible&&hiddenLamp.visible);assert(!disabled.visible);assert.deepEqual([...f.scene.children],children);assert.deepEqual(f.scene.toJSON(),snap);
+  const deferred=f.c.precompileWorldLighting({pointLights:24,includeVehicleTemplates:false});
+  assert.equal(deferred.templates,0);assert.equal(templates,1);assert.deepEqual(counts,[1,0,24]);assert.deepEqual(f.scene.toJSON(),snap);
 });
 test('shader preparation restores every lamp if the second compilation fails',()=>{
   const f=fixture(),a=f.add(0,0),b=f.add(1,0),hidden=f.add(2,0);hidden.visible=false;let calls=0;

@@ -44,11 +44,26 @@ jobs:
       - name: Validate generated game
         run: |
           node --check games/otthi/app.js
-          node --test tests/rio-compact-layout.test.mjs tests/rio-wardrobe.test.mjs tests/world-integrity.test.mjs tests/otthi-simulator-commerce.test.mjs
+          node --test tests/rio-compact-layout.test.mjs tests/rio-wardrobe.test.mjs tests/world-integrity.test.mjs tests/otthi-simulator-commerce.test.mjs tests/world-light-budget.test.mjs tests/world-pedestrian-navigation.test.mjs tests/kart-racecraft.test.mjs tests/war-camera-body-only.test.mjs tests/world-traffic-flow.test.mjs
+          git diff --exit-code -- games/otthi
           git diff --check
 
       - name: Prepare isolated GitHub Pages paths
         run: python3 tools/build-github-pages-preview.py
+
+      - name: Verify the final mounted artifact in Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium --with-deps
+          node tests/pages-preview-browser.mjs
+
+      - name: Store browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-preview-browser-evidence
+          path: test-results/pages-preview/
+          if-no-files-found: ignore
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

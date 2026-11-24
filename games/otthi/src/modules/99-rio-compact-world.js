@@ -164,7 +164,7 @@
         room.roof.visible=!inside;
         if(inside){rioMap.indoors=true;rioMap.indoorRoom=room;}
       }
-      if(room.server||room.door)rioUpdatePlaceService(site,room,.08);
+      if(room.server||room.door||room.npcs?.length)rioUpdatePlaceService(site,room,.08);
       if(rioMap.order?.site===site.id&&distance2D(player,site)>Math.max(site.w,site.d)+8){
         rioMap.order=null;
         if(room.servedDish)room.servedDish.visible=false;
@@ -189,13 +189,6 @@
     const dock=rioMap.waterfront?.entry,course=rioMap.course;
     places.push({id:'rio-ponte-julio-zacarin',name:'Ponte Estaiada Júlio Zacarin · Lago 3',group:'Represa de Rio Preto',icon:'🌉',x:-121,z:65.8,navX:-121,navZ:65.8,description:'Ponte estaiada, orla e passeio do Lago 3'});
     if(dock)places.push({id:'rio-represa-cais',name:'Mirante da Represa Municipal',group:'Represa de Rio Preto',icon:'🌳',...dock});
-    // All four native boats are moored at this same Represa, not the Guarujá beach.
-    // GPS entry locations are derived from their actual native berths.
-    for(const boat of rioMap.waterfront?.craft||[]){
-      const boarding=boat.rioBerth?.step;
-      if(!boarding)continue;
-      places.push({id:'gps-'+boat.id,name:'Represa · '+boat.label,icon:boat.kind==='board'?'🏄':'🛶',group:'Represa de Rio Preto',x:boarding.x,z:boarding.z,navX:boarding.x,navZ:boarding.z,description:'Embarque no cais da Represa'});
-    }
     if(course)places.push({id:'rio-orla-largada',name:'Corrida a pé na Represa',group:'Rio Preto',icon:'🏃',...course.start});
     const hall=places.find(place=>place.id==='regional-prefeitura_andalo');
     if(hall)places.push({...hall,id:'castle'});
@@ -210,7 +203,7 @@
     url.searchParams.set('map','rio-preto');
     if(url.href!==location.href)history.replaceState(history.state,'',url);
     const site=compactRio.sites.find(place=>place.key===entrance);
-    const target=entrance==='represa-cais'?rioMap.waterfront?.entry:site?{
+    const target=entrance==='represa-cais'?rioMap.waterfront?.entry:entrance==='guaruja-marina'?rioMap.coastalDock?.entry:site?{
       x:site.entry[0]+2.2*Math.sin(site.yaw||0),z:site.entry[1]+2.2*Math.cos(site.yaw||0)
     }:null;
     if(target){

@@ -2204,24 +2204,24 @@ body:is(.ui-portrait,.ui-landscape).otthi-v705-world .primary-actions .round spa
 /* The complete layout is still available from the same menu. */
 #worldMenuBackdrop{display:none}
 .exploration-menu-header{display:none}
-body.world-hud-clean.otthi-v705-world #quickBar{scroll-padding-block:80px 12px!important;grid-template-rows:none!important;grid-auto-rows:minmax(64px,auto)!important}
-body.world-hud-clean.otthi-v705-world #quickBar button{scroll-margin-block:4px!important}
+body.otthi-v705-world #game #quickBar{scroll-padding-block:80px 12px!important;grid-template-rows:none!important;grid-auto-rows:minmax(64px,auto)!important}
+body.otthi-v705-world #game #quickBar button{scroll-margin-block:4px!important}
 body.world-hud-clean.otthi-v705-world #quickToggleBtn{top:calc(66px + var(--safe-top,0px))!important;right:calc(8px + var(--safe-right,0px))!important;left:auto!important;width:44px!important;height:44px!important;z-index:162!important}
-body.world-hud-clean.otthi-v705-world #quickBar[hidden]{display:none!important}
-body.world-hud-clean.otthi-v705-world #quickBar:not([hidden]){position:absolute!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-content:start!important;gap:8px!important;top:calc(62px + var(--safe-top,0px))!important;left:50%!important;right:auto!important;bottom:auto!important;transform:translateX(-50%)!important;width:min(660px,calc(100% - 24px))!important;height:auto!important;max-height:calc(var(--otthi-height,100dvh) - 84px - var(--safe-top,0px) - var(--safe-bottom,0px))!important;padding:12px!important;box-sizing:border-box!important;overflow:auto!important;overscroll-behavior:contain;touch-action:pan-y;z-index:170!important;background:#102936fa!important;border:1px solid #7da99b!important;border-radius:16px!important;box-shadow:0 12px 40px #0008!important}
-body.world-hud-clean.otthi-v705-world #quickBar>button{position:static!important;inset:auto!important;transform:none!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;width:100%!important;height:auto!important;min-height:64px!important;min-width:44px!important;margin:0!important;padding:8px 4px!important;font-size:22px!important;line-height:1.2!important;box-sizing:border-box!important;border-radius:10px!important}
-body.world-hud-clean.otthi-v705-world #quickBar>button span{font:600 12px/1.2 system-ui!important;overflow-wrap:normal!important;word-break:normal!important;white-space:normal!important}
-body.world-hud-clean.otthi-v705-world #quickBar>#worldCampaignBtn{font-size:13px!important}
-body.world-hud-clean.otthi-v705-world #quickBar>button[aria-pressed=true]{border-color:#b4e5b4!important;background:#315544!important}
-body.world-hud-clean.otthi-v705-world #quickBar .exploration-menu-header{display:flex!important;grid-column:1/-1;position:sticky;top:-12px;align-items:center;justify-content:space-between;gap:8px;background:#102936;z-index:3;padding:4px 0 8px;font:700 16px system-ui}
-body.world-hud-clean.otthi-v705-world #worldMenuClose{position:static!important;display:flex!important;flex-direction:row!important;gap:5px;width:auto!important;min-width:72px!important;height:44px!important;min-height:44px!important;border-radius:9px!important;font-size:16px!important;padding:8px!important}
-body.world-hud-clean.otthi-v705-world #worldMenuClose span{font-size:12px!important}
-body.world-hud-clean.otthi-v705-world.quick-open #worldMenuBackdrop{display:block!important;position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0;background:#00172077;z-index:161;touch-action:none}
-body.world-hud-clean.otthi-v705-world #quickBar .camera-controls{position:static!important;inset:auto!important;transform:none!important;display:flex!important;flex-wrap:wrap!important;justify-content:center!important;grid-column:1/-1;width:100%!important;height:auto!important;gap:6px!important;visibility:visible!important;pointer-events:auto!important;padding:8px 0!important;border-top:1px solid #7da99b55}
-body.world-hud-clean.otthi-v705-world #quickBar .camera-controls:before{content:'Câmera';flex-basis:100%;text-align:center;font:600 13px system-ui;color:#d8e9df}
-body.world-hud-clean.otthi-v705-world #quickBar .camera-controls{flex-direction:row!important;align-items:center!important;opacity:1!important}
-body.world-hud-clean.otthi-v705-world #quickBar .camera-controls button{opacity:1!important}
-body.world-hud-clean.otthi-v705-world #quickBar .camera-controls button{position:static!important;display:flex!important;align-items:center!important;justify-content:center!important;min-width:44px!important;min-height:44px!important;width:44px!important;height:44px!important;margin:0!important;visibility:visible!important;pointer-events:auto!important;font-size:22px!important}
+body.otthi-v705-world #game #quickBar[hidden]{display:none!important}
+body.otthi-v705-world #game #quickBar:not([hidden]){position:absolute!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;align-content:start!important;gap:8px!important;top:calc(62px + var(--safe-top,0px))!important;left:calc(50% + (var(--safe-left,0px) - var(--safe-right,0px)) / 2)!important;right:auto!important;bottom:auto!important;transform:translateX(-50%)!important;width:min(560px,calc(100% - 24px - var(--safe-left,0px) - var(--safe-right,0px)))!important;height:auto!important;max-height:calc(var(--otthi-height,100dvh) - 74px - var(--safe-top,0px) - var(--safe-bottom,0px))!important;padding:12px!important;box-sizing:border-box!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;touch-action:pan-y;z-index:170!important;background:#102936fa!important;border:1px solid #7da99b!important;border-radius:16px!important;box-shadow:0 12px 40px #0008!important}
+body.otthi-v705-world #game #quickBar>button{position:static!important;inset:auto!important;transform:none!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;width:100%!important;height:auto!important;min-height:64px!important;min-width:44px!important;max-width:none!important;grid-area:auto!important;flex:none!important;margin:0!important;padding:8px 4px!important;font-size:22px!important;line-height:1.2!important;box-sizing:border-box!important;border-radius:10px!important}
+body.otthi-v705-world #game #quickBar>button span{font:600 12px/1.2 system-ui!important;overflow-wrap:normal!important;word-break:normal!important;white-space:normal!important;text-align:center;text-wrap:balance;max-width:100%!important}
+body.otthi-v705-world #game #quickBar>#worldCampaignBtn{font-size:13px!important}
+body.otthi-v705-world #game #quickBar>button[aria-pressed=true]{border-color:#b4e5b4!important;background:#315544!important}
+body.otthi-v705-world #game #quickBar .exploration-menu-header{display:flex!important;grid-column:1/-1;position:sticky;top:-12px;align-items:center;justify-content:space-between;gap:8px;background:#102936;z-index:3;padding:4px 0 8px;min-width:0;font:700 16px system-ui}
+body.otthi-v705-world #game #worldMenuClose{position:static!important;display:flex!important;flex-direction:row!important;gap:5px;width:auto!important;min-width:72px!important;height:44px!important;min-height:44px!important;border-radius:9px!important;font-size:16px!important;padding:8px!important;margin:0!important}
+body.otthi-v705-world #game #worldMenuClose span{font-size:12px!important}
+body.otthi-v705-world.quick-open #worldMenuBackdrop{display:block!important;position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0;background:#00172077;z-index:161;touch-action:none}
+body.otthi-v705-world #game #quickBar .camera-controls{position:static!important;inset:auto!important;transform:none!important;display:flex!important;flex-wrap:wrap!important;justify-content:center!important;grid-column:1/-1;width:100%!important;height:auto!important;gap:6px!important;visibility:visible!important;pointer-events:auto!important;padding:8px 0!important;border-top:1px solid #7da99b55}
+body.otthi-v705-world #game #quickBar .camera-controls:before{content:'Câmera';flex-basis:100%;text-align:center;font:600 13px system-ui;color:#d8e9df}
+body.otthi-v705-world #game #quickBar .camera-controls{flex-direction:row!important;align-items:center!important;opacity:1!important}
+body.otthi-v705-world #game #quickBar .camera-controls button{opacity:1!important}
+body.otthi-v705-world #game #quickBar .camera-controls button{position:static!important;display:flex!important;align-items:center!important;justify-content:center!important;min-width:44px!important;min-height:44px!important;width:44px!important;height:44px!important;margin:0!important;visibility:visible!important;pointer-events:auto!important;font-size:22px!important}
 body.world-hud-clean.otthi-v705-world .secondary-actions{z-index:155!important}
 body.world-hud-clean.otthi-v705-world #secondaryActions.secondary-actions{--exploration-skills-bottom:calc(2 * var(--land-action,var(--action,60px)) + 18px + var(--gap,6px) + var(--safe-bottom,0px));position:absolute!important;inset:auto!important;right:calc(8px + var(--safe-right,0px))!important;bottom:var(--exploration-skills-bottom)!important;transform:none!important;width:min(420px,calc(100% - 24px))!important;height:auto!important;max-height:calc(var(--otthi-height,100dvh) - var(--exploration-skills-bottom) - 112px)!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;grid-template-rows:none!important;grid-auto-rows:minmax(64px,auto)!important;align-content:start!important;gap:6px!important;padding:8px!important;box-sizing:border-box!important;overflow:auto!important;overscroll-behavior:contain;background:#102936fa!important}
 body.world-hud-clean.otthi-v705-world.skills-open #secondaryActions.secondary-actions{display:grid!important}
@@ -2248,12 +2248,27 @@ body.world-hud-walking.otthi-v705-world #miniNav.active :is(b,small){display:blo
 body.world-hud-walking.otthi-v705-world #miniNav.active b{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
 body.world-hud-walking.otthi-v705-world #miniNav.active small{max-height:42px!important;overflow:hidden!important}
 body.world-hud-walking.otthi-v705-world.world-hud-action-idle #actionBtn{display:none!important}
-@media (orientation:landscape){body.world-hud-clean.otthi-v705-world #quickToggleBtn,body.world-hud-walking.otthi-v705-world :is(#miniNav,#missionCard){top:calc(48px + var(--safe-top,0px))!important}body.world-hud-walking.otthi-v705-world #missionCard{width:min(35vw,340px)!important}body.world-hud-clean.otthi-v705-world #quickBar:not([hidden]){top:calc(8px + var(--safe-top,0px))!important;max-height:calc(var(--otthi-height,100dvh) - 16px - var(--safe-top,0px) - var(--safe-bottom,0px))!important;grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media (orientation:landscape){body.world-hud-clean.otthi-v705-world #quickToggleBtn,body.world-hud-walking.otthi-v705-world :is(#miniNav,#missionCard){top:calc(48px + var(--safe-top,0px))!important}body.world-hud-walking.otthi-v705-world #missionCard{width:min(35vw,340px)!important}body.otthi-v705-world #game #quickBar:not([hidden]){top:calc(8px + var(--safe-top,0px))!important;max-height:calc(var(--otthi-height,100dvh) - 16px - var(--safe-top,0px) - var(--safe-bottom,0px))!important}}
+@media (min-width:560px){body.otthi-v705-world #game #quickBar:not([hidden]){grid-template-columns:repeat(4,minmax(0,1fr))!important}}
 body[data-otthi-map="rio-preto-compacto"] #actionBtn.pulse{animation:none}
 body[data-otthi-map="rio-preto-compacto"].mode-paddle #specialBtn{display:none!important}
 body[data-otthi-map="rio-preto-compacto"].world-hud-clean.mode-mobility-driver #miniNav{
   right:calc(62px + var(--safe-right,0px))!important;
   max-width:min(44vw,220px)!important;
+}
+
+/* Full and clean HUDs share the same map and menu touch lanes. */
+body.otthi-v705-world #game #quickBar>button[hidden]{display:none!important}
+body.otthi-v705-world.ui-portrait:not(.world-hud-clean) #game #missionCard{
+  left:calc(8px + var(--safe-left,0px))!important;
+  width:min(52vw,340px)!important;
+  max-width:calc(100% - 142px - var(--safe-left,0px) - var(--safe-right,0px))!important;
+  box-sizing:border-box!important;
+}
+body.otthi-v705-world.ui-portrait:not(.world-hud-clean) #game #miniNav{
+  right:calc(8px + var(--safe-right,0px))!important;
+  width:min(38vw,220px)!important;
+  box-sizing:border-box!important;
 }
 
 /* ===== MODULE: 30-rio-wardrobe.css ===== */

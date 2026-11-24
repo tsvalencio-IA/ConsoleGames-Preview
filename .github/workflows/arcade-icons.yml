@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   icons:
+    if: github.repository == 'tsvalencio-IA/ConsoleGames'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

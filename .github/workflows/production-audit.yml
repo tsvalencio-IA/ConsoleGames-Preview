@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   production-audit:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: github.repository == 'tsvalencio-IA/ConsoleGames' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:

@@ -8,7 +8,7 @@
   const BASE = "../games/";
   const REPO_BASE = "https://github.com/tsvalencio-IA/";
   const entries = Object.freeze([
-    { id:"otthi", title:"OTThi World", category:"aventura", categoryLabel:"Mundo aberto", short:"Crie sua vida na Vila do Sol, explore bairros, aprenda e encontre amigos.", icon:"🏡", coverA:"#123c75", coverB:"#1f8ca3", source:"OTThi-World3", url:BASE+"otthi/", tint:"#6ee9fe", destination:"direct" },
+    { id:"otthi", title:"OTThi World", category:"aventura", categoryLabel:"Mundo aberto", short:"Viva em Rio Preto, explore bairros, trabalhe e viaje com a família.", icon:"🏡", coverA:"#123c75", coverB:"#1f8ca3", source:"OTThi-World3", url:BASE+"otthi/", tint:"#6ee9fe", destination:"direct" },
     { id:"familia", title:"Aventuras em Família 3D", category:"aventura", categoryLabel:"Universo 3D", short:"Corra pelo parque, brinque com Luna e Liz e descubra estrelas e desafios.", icon:"🌳", coverA:"#17554b", coverB:"#367b96", source:"hq", url:BASE+"familia/3d/", tint:"#8af2bf", destination:"direct" },
     { id:"kart", title:"Kart Legends", category:"acao", categoryLabel:"Corrida", short:"Acelere, faça curvas, use o turbo e conquiste o primeiro lugar.", icon:"🏎️", coverA:"#67404b", coverB:"#c06b36", source:"GAME", url:BASE+"kart/", tint:"#ffd18d", destination:"direct" },
     { id:"boxe", title:"Boxing Pro", category:"acao", categoryLabel:"Esporte com câmera", short:"Lute usando a câmera ou os botões de toque. Defenda, ataque e vença o campeonato.", icon:"🥊", coverA:"#72364b", coverB:"#af435e", source:"GAME", url:BASE+"boxe/", tint:"#ffc1be", destination:"direct" },
@@ -169,13 +169,14 @@
   function safeString(value,max=60) {return typeof value==="string" ? value.trim().slice(0,max) : "";}
   function updateAccountUI() {
     const logged=Boolean(state.cloudUser);
+    const preview=Boolean(window.CONSOLEGAMES_PREVIEW);
     const profile=state.cloudProfile;
     const display=safeString(profile?.name)||safeString(profile?.displayName)||safeString(profile?.username)||safeString(state.cloudUser?.displayName)||"Jogador";
     $("profile-name").textContent=logged?display:"Jogador";
     $("avatar").textContent=(logged ? display : "Jogador").slice(0,1).toLocaleUpperCase("pt-BR");
-    $("profile-status").textContent=logged?"Conta OTThi":"Perfil local";
-    $("account-state").replaceChildren(el("span","status-dot"),el("span","",logged?"Conectado à conta Firebase OTThi":"Modo visitante • dados locais"));
-    $("login-form").hidden=logged;
+    $("profile-status").textContent=preview?"Perfil de teste":logged?"Conta OTThi":"Perfil local";
+    $("account-state").replaceChildren(el("span","status-dot"),el("span","",preview?"Homologação • progresso salvo neste navegador":logged?"Conectado à conta Firebase OTThi":"Modo visitante • dados locais"));
+    $("login-form").hidden=preview||logged;
     $("account-details").hidden=!logged;
     if(logged){
       $("account-summary").textContent="Conta autenticada. "+(profile?"Perfil do OTThi consultado com sucesso.":"Nenhum perfil OTThi disponível para esta conta.");
@@ -244,6 +245,7 @@
   }
   $("profile-btn").addEventListener("click",()=>{
     const d=$("profile-dialog");d.showModal();setFeedback("");
+    if(window.CONSOLEGAMES_PREVIEW){setFeedback("Use um perfil de teste. Contas e progresso deste ambiente ficam separados dos jogos publicados.");return;}
     // Carrega a SDK apenas quando alguém abre o perfil, poupando rede no acesso aos jogos.
     ensureFirebase().catch(e=>setFeedback("Consulta à conta OTThi indisponível. Você pode continuar usando os jogos e os favoritos. "+e.message,true));
   });

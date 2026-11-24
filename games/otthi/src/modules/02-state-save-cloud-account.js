@@ -290,6 +290,15 @@
     });
   }
   function openAccountCenter(required=false,onReady=null){
+    if(window.CONSOLEGAMES_PREVIEW){
+      openModal('Perfil de teste','<div class="account-card"><div><b>Homologação OTThi World</b><small>Seu progresso de teste é salvo neste navegador.</small></div></div><div class="modal-actions"><button class="btn primary xl" data-account-offline>Continuar com perfil de teste</button></div>',root=>{
+        $('[data-account-offline]',root).onclick=()=>{
+          if(!required){closeModal();return;}
+          openPlayerNameModal(true,()=>{state.flags.accountPromptedV635=true;saveState(true);onReady?.();});
+        };
+      });
+      return;
+    }
     const linked=accountLinked(),last=Number(state.account?.lastCloudSync||0),lastText=last?new Date(last).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'aguardando primeira cópia';
     openModal(linked?'Minha conta':'Proteja seu progresso',linked?`<div class="account-card linked"><span>✓</span><div><b>${escapeHtml(state.account.username||accountSession.username)}</b><small>Progresso criptografado • última cópia ${lastText}</small></div></div><div class="modal-actions"><button class="btn primary" data-account-sync>Sincronizar agora</button><button class="btn" data-account-logout>Sair da conta neste aparelho</button></div>`:`<div class="account-intro"><span>☁️</span><h3>Continue em qualquer celular</h3><p>Crie uma conta do jogo ou entre com a combinação cadastrada. Não informe telefone, endereço, escola ou nome completo.</p></div><div class="choice-grid"><button class="choice" data-account-create><b>🔐 Criar conta</b><span>Protege o progresso atual</span></button><button class="choice" data-account-login><b>🔑 Entrar</b><span>Recupera conquistas antigas</span></button>${required?'<button class="choice muted" data-account-offline><b>📱 Jogar neste aparelho</b><span>O progresso continuará salvo localmente</span></button>':''}</div>`,root=>{
       $('[data-account-create]',root)?.addEventListener('click',()=>openAccountForm('create',required,onReady));$('[data-account-login]',root)?.addEventListener('click',()=>openAccountForm('login',required,onReady));

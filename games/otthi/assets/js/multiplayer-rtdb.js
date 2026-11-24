@@ -47,7 +47,7 @@ function chatAllowed(){return communicationAllowed()&&parentalControls.chatEnabl
 function isBlocked(uid){return!!(uid&&blockedCache[String(uid)])}
 function serverNow(){return Date.now()+Number(serverTimeOffset||0)}
 function storedConfig(){try{return JSON.parse(localStorage.getItem(CONFIG_KEY)||'null')}catch{return null}}
-function getConfig(){const base=window.OTTHOS_FIREBASE_CONFIG||{},saved=storedConfig();return saved?.apiKey?{...base,...saved}:{...base}}
+function getConfig(){if(window.CONSOLEGAMES_PREVIEW)return{enabled:false};const base=window.OTTHOS_FIREBASE_CONFIG||{},saved=storedConfig();return saved?.apiKey?{...base,...saved}:{...base}}
 function validConfig(c){return!!(c?.enabled&&c.apiKey&&c.authDomain&&c.databaseURL&&c.projectId&&c.appId)}
 function configuredRooms(){return(Array.isArray(window.OTTHI_CONFIG?.rooms)?window.OTTHI_CONFIG.rooms:[]).filter(room=>VALID_ROOM_SET.has(room?.id))}
 function roomCapacity(room=currentRoom()){return Math.min(10,Math.max(1,Number(configuredRooms().find(item=>item.id===sanitizeRoom(room))?.capacity||window.OTTHI_CONFIG?.multiplayer?.maxPlayersPerRoom||10)))}

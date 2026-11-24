@@ -39,8 +39,122 @@
   function v705NpcEvadeTarget(npc,threat){const mag=Math.max(.001,Math.hypot(threat.vx,threat.vz)),nx=-threat.vz/mag,nz=threat.vx/mag;let sign=((npc.group.position.x-player.x)*nx+(npc.group.position.z-player.z)*nz)>=0?1:-1;for(const s of[sign,-sign])for(const dist of[5.2,4.0,3.0,2.2]){const x=npc.group.position.x+nx*s*dist,z=npc.group.position.z+nz*s*dist;if(v705NpcPositionClear(x,z))return{x,z};}return{x:npc.baseX,z:npc.baseZ};}
   function v705NpcSocialPeer(npc){const b=v705NpcBrain(npc);if(b.traits.social<.43)return null;let best=null,bestD=3.8;for(const other of world.npcs||[]){if(other===npc||other.passengerMode||other.mobility||other.coopRaceMode)continue;const d=Math.hypot(npc.group.position.x-other.group.position.x,npc.group.position.z-other.group.position.z);if(d<bestD){best=other;bestD=d;}}return best;}
   function v705NpcThink(npc){const b=v705NpcBrain(npc),now=performance.now(),near=distance2D(player,npc.group.position),threat=v705NpcVehicleThreat(npc);if(threat){b.state='evade';b.target=v705NpcEvadeTarget(npc,threat);b.fearUntil=now+2600+1700*b.traits.cautious;b.lastVehicle=threat.id;b.lastVehicleAt=now;v705NpcRemember(npc,'vehicle-threat',{vehicle:threat.id,ttc:+threat.ttc.toFixed(2)});if(now-Number(npc.lastDangerSpeech||0)>7000){npc.lastDangerSpeech=now;npcSpeech(npc,threat.horn?'Ouvi a buzina. Vou sair da frente.':'Cuidado! Vou para um lugar seguro.','warn');}return;}if(now<b.fearUntil){if(!b.target||Math.hypot(npc.group.position.x-b.target.x,npc.group.position.z-b.target.z)<.5)b.target={x:npc.baseX,z:npc.baseZ};b.state='recover';return;}if(npc.following){b.state='follow';return;}if(near<3.2){b.state='social';b.lastPlayerAt=now;return;}if(now<b.socialUntil&&b.peerId){b.state='peer-social';return;}const peer=v705NpcSocialPeer(npc);if(peer&&Math.random()<.16*b.traits.social){b.peerId=peer.id;b.socialUntil=now+1400+Math.random()*2400;b.state='peer-social';v705NpcRemember(npc,'talked-to',{peer:peer.id});return;}if(now<Number(b.idleUntil||0)){b.state='idle-look';return;}if(Math.random()<.12){b.idleUntil=now+800+Math.random()*1800;b.state='idle-look';return;}if(!b.target||now>b.wanderUntil||Math.hypot(npc.group.position.x-b.target.x,npc.group.position.z-b.target.z)<.35)v705NpcPickWander(npc);}
-  function v705NpcSeparation(npc){let sx=0,sz=0,count=0;for(const other of world.npcs||[]){if(other===npc||other.passengerMode)continue;const dx=npc.group.position.x-other.group.position.x,dz=npc.group.position.z-other.group.position.z,d=Math.hypot(dx,dz);if(d>.001&&d<1.15){const w=(1.15-d)/1.15;sx+=dx/d*w;sz+=dz/d*w;count++;}}return count?{x:sx/count,z:sz/count}:{x:0,z:0};}
-  function v705NpcWalk(npc,dt,target,speed=1.35){if(!target)return 0;const sep=v705NpcSeparation(npc),dx0=target.x-npc.group.position.x,dz0=target.z-npc.group.position.z,d0=Math.hypot(dx0,dz0);if(d0<.04)return 0;let nx=dx0/d0+sep.x*.62,nz=dz0/d0+sep.z*.62,n=Math.max(.001,Math.hypot(nx,nz));nx/=n;nz/=n;const step=Math.min(d0,speed*v705NpcBrain(npc).traits.pace*dt),nextX=npc.group.position.x+nx*step,nextZ=npc.group.position.z+nz*step;if(!v705NpcPositionClear(nextX,nextZ)){v705NpcBrain(npc).target=null;return 0;}npc.group.position.x=nextX;npc.group.position.z=nextZ;npc.group.rotation.y=lerpAngle(npc.group.rotation.y,Math.atan2(nx,nz),Math.min(1,dt*7));return step;}
+  const pedestrianNavigation={nextPlanAt:0,actorCells:new Map(),actorSampleAt:-Infinity,plans:0,detours:0,waits:0};
+
+  function nearbyPedestrians(position,now){
+    const nav=pedestrianNavigation,size=4;
+    const cell=(x,z)=>`${Math.floor(x/size)}:${Math.floor(z/size)}`;
+    if(now-nav.actorSampleAt>=100||nav.actorCount!==world.npcs.length){
+      nav.actorCells.clear();nav.actorSampleAt=now;nav.actorCount=world.npcs.length;
+      for(const npc of world.npcs){
+        if(npc.passengerMode||npc.lifeAction==='swim'||npc.group.parent!==worldGroup)continue;
+        const {x,z}=npc.group.position,key=cell(x,z);
+        let actors=nav.actorCells.get(key);
+        if(!actors)nav.actorCells.set(key,actors=[]);
+        actors.push(npc);
+      }
+    }
+    const nearby=[];
+    for(const dx of[-size,0,size])for(const dz of[-size,0,size]){
+      const actors=nav.actorCells.get(cell(position.x+dx,position.z+dz));
+      if(actors)nearby.push(...actors);
+    }
+    return nearby;
+  }
+
+  function pedestrianStepClear(npc,x,z,allowRoads,peers,vehicles,parked){
+    if(!allowRoads&&v704RoadAt(x,z,.10,false))return false;
+    if(positionBlockedForPlayer(x,z,.31,{ignoreTraffic:true,allowWater:false,parkedVehicleCandidates:parked}))return false;
+    const from=npc.group.position;
+    for(const other of peers){
+      if(other===npc||other.passengerMode)continue;
+      const p=other.group.position,distance=Math.hypot(x-p.x,z-p.z);
+      if(distance<.75&&Math.abs(p.y-from.y)<1.55&&distance<Math.hypot(from.x-p.x,from.z-p.z)+.001)return false;
+    }
+    if(!player.vehicle&&!player.boating&&!player.transit?.mode&&Math.abs(player.y-from.y)<1.55&&
+        Math.hypot(x-player.x,z-player.z)<.83&&Math.hypot(x-player.x,z-player.z)<distance2D(player,from)+.001)return false;
+    for(const vehicle of vehicles){
+      const p=vehicle.group.position;
+      if(Math.abs(p.y-from.y)>1.7||Math.abs(x-p.x)>10||Math.abs(z-p.z)>10)continue;
+      const heading=vehicle.group.rotation.y,body=trafficBody(vehicle,heading);
+      const reach=Math.min(4,vehicle.speed*.55);
+      const side=(x-body.x)*body.c-(z-body.z)*body.s,along=(x-body.x)*body.s+(z-body.z)*body.c;
+      if(Math.abs(side)<body.w+.43&&along>-body.l-.4&&along<body.l+reach+.4)return false;
+    }
+    return true;
+  }
+
+  function findPedestrianDetour(from,goal,clear){
+    // Local A* follows a routine's waypoint and searches around obstacles only
+    // after a blocked step. A bounded frontier spreads the cost across frames.
+    const spacing=.72,limit=11,key=(i,j)=>i*32+j,heuristic=(x,z)=>Math.hypot(goal.x-x,goal.z-z);
+    const start={i:0,j:0,x:from.x,z:from.z,cost:0,score:heuristic(from.x,from.z),previous:null};
+    const frontier=[start],visited=new Map([[key(0,0),0]]),passable=new Map();
+    const open=(i,j)=>{
+      const id=key(i,j);
+      if(!passable.has(id))passable.set(id,clear(from.x+i*spacing,from.z+j*spacing));
+      return passable.get(id);
+    };
+    let best=start,bestDistance=start.score;
+    for(let scans=0;scans<100&&frontier.length;scans++){
+      let selected=0;
+      for(let index=1;index<frontier.length;index++)if(frontier[index].score<frontier[selected].score)selected=index;
+      const [node]=frontier.splice(selected,1),distance=heuristic(node.x,node.z);
+      if(distance<bestDistance){best=node;bestDistance=distance;}
+      if(distance<spacing*.7)break;
+      for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){
+        if(!di&&!dj)continue;
+        const i=node.i+di,j=node.j+dj,id=key(i,j),cost=node.cost+Math.hypot(di,dj)*spacing;
+        if(Math.abs(i)>limit||Math.abs(j)>limit||cost>=(visited.get(id)??Infinity)||!open(i,j))continue;
+        if(di&&dj&&(!open(i,node.j)||!open(node.i,j)))continue;
+        const x=from.x+i*spacing,z=from.z+j*spacing;
+        if(!clear((node.x+x)/2,(node.z+z)/2))continue;
+        visited.set(id,cost);frontier.push({i,j,x,z,cost,score:cost+heuristic(x,z),previous:node});
+      }
+    }
+    const path=[];
+    if(bestDistance>start.score-.24)return path;
+    for(let node=best;node.previous;node=node.previous)path.push({x:node.x,z:node.z});
+    return path.reverse();
+  }
+
+  function v705NpcWalk(npc,dt,target,speed=1.35,allowRoads=false){
+    if(!target||dt<=0)return 0;
+    const position=npc.group.position,now=performance.now();
+    const navigator=npc.pedestrianNav??={goal:null,path:[],blocked:0,retryAt:0,replans:0};
+    if(!navigator.goal||distance2D(navigator.goal,target)>1.1){
+      Object.assign(navigator,{goal:{x:target.x,z:target.z},path:[],blocked:0,retryAt:0});
+    }
+    if(navigator.path.length&&distance2D(position,navigator.path[0])<.11)navigator.path.shift();
+    const waypoint=navigator.path[0]||target,dx=waypoint.x-position.x,dz=waypoint.z-position.z,distance=Math.hypot(dx,dz);
+    if(distance<.035)return 0;
+    const peers=nearbyPedestrians(position,now),vehicles=nearbyTrafficActors(position.x,position.z,12);
+    const parked=(world.vehicles||[]).filter(vehicle=>vehicle.group?.visible&&
+      Math.abs(vehicle.group.position.x-position.x)<15&&Math.abs(vehicle.group.position.z-position.z)<15);
+    const clear=(x,z)=>pedestrianStepClear(npc,x,z,allowRoads,peers,vehicles,parked);
+    const wanted=Math.min(distance,speed*v705NpcBrain(npc).traits.pace*dt),segments=Math.ceil(wanted/.24);
+    let moved=0;
+    for(let segment=1;segment<=segments;segment++){
+      const step=wanted*segment/segments;
+      if(!clear(position.x+dx/distance*step,position.z+dz/distance*step))break;
+      moved=step;
+    }
+    if(moved>.001){
+      position.x+=dx/distance*moved;position.z+=dz/distance*moved;
+      npc.group.rotation.y=lerpAngle(npc.group.rotation.y,Math.atan2(dx,dz),Math.min(1,dt*7));
+      navigator.blocked=0;
+      return moved;
+    }
+    navigator.blocked+=dt;
+    if(navigator.blocked<.28||now<navigator.retryAt||now<pedestrianNavigation.nextPlanAt)return 0;
+    pedestrianNavigation.nextPlanAt=now+64;
+    navigator.path=findPedestrianDetour(position,target,clear);
+    navigator.replans++;pedestrianNavigation.plans++;
+    navigator.retryAt=now+(navigator.path.length?420:1200)+(v705NpcSeed(npc.id)%280);
+    if(navigator.path.length)pedestrianNavigation.detours++;
+    else pedestrianNavigation.waits++;
+    return 0;
+  }
   function updateNPCs(dt){
     const now=performance.now();
     for(const npc of world.npcs){
@@ -57,7 +171,7 @@
       else{
         if(now>Number(b.nextThink||0)){b.nextThink=now+260+Math.random()*260;v705NpcThink(npc);}
         if(escort?.paused){b.state='follow-wait';}
-        else if(npc.following){const leader=escort||player,backX=leader.x-Math.sin(leader.facing)*2.1,backZ=leader.z-Math.cos(leader.facing)*2.1;v705NpcWalk(npc,dt,{x:backX,z:backZ},2.65);npc.group.rotation.y=lerpAngle(npc.group.rotation.y,leader.facing,Math.min(1,dt*6));}
+        else if(npc.following){const leader=escort||player,backX=leader.x-Math.sin(leader.facing)*2.1,backZ=leader.z-Math.cos(leader.facing)*2.1;const moved=v705NpcWalk(npc,dt,{x:backX,z:backZ},2.65,true);if(!moved&&Math.hypot(backX-npc.group.position.x,backZ-npc.group.position.z)<.45)npc.group.rotation.y=lerpAngle(npc.group.rotation.y,leader.facing,Math.min(1,dt*6));}
         else if(b.state==='social'||near){const look=Math.atan2(player.x-npc.group.position.x,player.z-npc.group.position.z);npc.group.rotation.y=lerpAngle(npc.group.rotation.y,look,Math.min(1,dt*5.8));if(Math.hypot(player.vx,player.vz)>4.2&&distance2D(player,npc.group.position)<1.6){const side=Math.sin(player.facing+(npc.id.length%2?Math.PI/2:-Math.PI/2)),sideZ=Math.cos(player.facing+(npc.id.length%2?Math.PI/2:-Math.PI/2)),target={x:npc.group.position.x+side*1.8,z:npc.group.position.z+sideZ*1.8};if(v705NpcPositionClear(target.x,target.z)){b.target=target;b.state='step-aside';}}}
         else if(b.state==='peer-social'){const peer=(world.npcs||[]).find(item=>item.id===b.peerId);if(peer&&peer.group){const look=Math.atan2(peer.group.position.x-npc.group.position.x,peer.group.position.z-npc.group.position.z);npc.group.rotation.y=lerpAngle(npc.group.rotation.y,look,Math.min(1,dt*4.5));if(Math.hypot(npc.group.position.x-peer.group.position.x,npc.group.position.z-peer.group.position.z)>2.3)v705NpcWalk(npc,dt,{x:peer.group.position.x,z:peer.group.position.z},.75);}else{b.peerId='';b.socialUntil=0;}}
         else if(b.state==='idle-look'){npc.group.rotation.y+=Math.sin(animTime*.7+npc.phase)*dt*.08;}

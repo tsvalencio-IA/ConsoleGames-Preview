@@ -59,16 +59,19 @@
     for(const[countIndex,count]of critical.entries()){
       showWorldLoading(86+Math.round(countIndex/Math.max(1,critical.length)*9),`Preparando câmera · ${countIndex+1}/${critical.length}`);await nextPaint();
       const started=performance.now(),programs=renderer.info.programs.length;
-      const prepared=precompileWorldLighting({pointLights:count});perf.vehicleShaderTemplates=prepared.templates;lightingVariants++;
+      const prepared=precompileWorldLighting({pointLights:count,includeVehicleTemplates:countIndex===0});
+      if(countIndex===0)perf.vehicleShaderTemplates=prepared.templates;
+      lightingVariants++;
       markLightingBucketPrepared(count);
-      otthiBootMetrics.lighting.push({index:countIndex+1,total:critical.length,lights:count,ms:Math.round(performance.now()-started),programs:renderer.info.programs.length-programs});
+      otthiBootMetrics.lighting.push({index:countIndex+1,total:critical.length,lights:count,ms:Math.round(performance.now()-started),templates:prepared.templates,...prepared.timings,programs:renderer.info.programs.length-programs});
     }
     const lightingMs=Math.round(performance.now()-preparationStart);
     worldLightBudget.preparation={...plan,criticalBuckets:[...critical],scan,ms:lightingMs,mode:forceFull?'full':'fast-preview'};
     otthiBootMetrics.events.push({event:'camera-precompile',ms:lightingMs,total:critical.length,possible:plan.pointLightBuckets.length});
     const gpuWarmup=await warmWorldCameraViews();
-    const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);
+    const firstFrameStart=performance.now(),restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);
     try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();}
+    otthiBootMetrics.events.push({event:'first-world-frame',ms:Math.round(performance.now()-firstFrameStart),sinceBootMs:Math.round(performance.now()-otthiBootMetrics.startedAt)});
     perf.scenePreparation={ms:Math.round(performance.now()-start),programs:renderer.info.programs.length,lightingVariants,pointLightBuckets:[...plan.pointLightBuckets],criticalLightBuckets:[...critical],expanded:perf.expandedScenePreparation,gpuWarmup};
   }
   // Count lights in all twelve startup views without drawing a pixel or
@@ -100,7 +103,7 @@
     const pending=plan?.pointLightBuckets?.find(count=>!worldLightBudget.preparedBuckets.has(count));
     if(pending===undefined)return null;
     const started=performance.now();
-    try{precompileWorldLighting({pointLights:pending});markLightingBucketPrepared(pending);}
+    try{precompileWorldLighting({pointLights:pending,includeVehicleTemplates:false});markLightingBucketPrepared(pending);}
     catch(error){console.warn('[OTTHI CAMERA] Falha preparando variante adiada:',error);return null;}
     const result={event:'deferred-lighting',lights:pending,ms:Math.round(performance.now()-started)};
     otthiBootMetrics.events.push(result);return result;
@@ -156,6 +159,7 @@
     // A slow download must not indefinitely block entry into an offline world.
     const imported=keys.filter(key=>window.OTBrazilImports?.requires(key));let timer;
     if(imported.length)await Promise.race([Promise.all(imported.map(key=>requestBrazilModel(key))).finally(()=>clearTimeout(timer)),new Promise(resolve=>{timer=setTimeout(resolve,4000);})]);
+    const geometryStart=performance.now(),assetMs=Math.round(geometryStart-start);
     let prepared=0;
     for(const key of keys){
       // Keep every vehicle; update the loading progress once every four models.
@@ -163,8 +167,9 @@
       if(!window.OTBrazilImports?.requires(key)||window.OTBrazilImports.ready(key))fleet.prepare(THREE,key);
       prepared++;
     }
+    const geometryMs=Math.round(performance.now()-geometryStart);
     await prepareWorldFirstFrame();
-    perf.vehicleTemplatesReady=true;perf.vehiclePreparation={models:keys.length,ms:Math.round(performance.now()-start)};
+    perf.vehicleTemplatesReady=true;perf.vehiclePreparation={models:keys.length,assetMs,geometryMs,ms:Math.round(performance.now()-start)};
   }
   function showWorldLoading(progress,label){
     const value=clamp(Math.round(Number(progress)||0),0,100);

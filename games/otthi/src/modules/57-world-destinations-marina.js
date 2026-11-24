@@ -49,9 +49,11 @@
       group.position.set(pose.x,.1,pose.z);group.rotation.y=pose.heading;worldGroup.add(group);world.boats.set(spec.id,boat);
       registerInteractable({id:'board-'+spec.id,type:'boat',icon:'🚤',label:'Pilotar '+spec.label,radius:boat.boardRadius,priority:240,getPos:()=>({x:group.position.x,z:group.position.z}),available:()=>!player.boating&&!player.vehicle&&!otGames.active,action:()=>enterBoat(boat)});
     }
+    if(rioCompactWorld())rioBuildCoastalCraft(root);
     world.navCache?.clear?.();
   }
   function seaNavigationBlocked(x,z,heading){
+    if(rioMap.coastalDock&&world.boat?.seaGoing)return !rioMarineCanNavigate(world.boat,x,z,heading);
     const mine={x,z,w:1.08,l:2.68,s:Math.sin(heading),c:Math.cos(heading)},pier={x:-220,z:524,w:4,l:25,s:0,c:1};
     if(trafficBodiesOverlap(mine,pier,.06))return true;
     for(const b of world.boats?.values()||[]){if(b===world.boat||!b.seaGoing)continue;const host=[...remotePresence.values()].find(p=>p.boating&&p.boatId===b.id&&p.boatRole!=='passenger'),pose=host?{x:host.x,z:host.z,heading:host.r}:b.group.position,angle=host?Number(host.r||0):b.heading;
@@ -60,11 +62,13 @@
   }
   function styleGhostBoat(ghost,target){
     const group=ghost?.userData.boatVisual;if(!group)return;
-    const spec=SEA_CRAFT.find(b=>b.id===target.boatId),key=spec?.id||'lake-boat';if(group.userData.craftKey===key)return;
+    const key=target.boatId||'lake-boat';if(group.userData.craftKey===key)return;
+    const spec=SEA_CRAFT.find(b=>b.id===(key==='rio-lancha-familia'?'sea-familia':key));
+    const model=spec?createSeaCraftModel(spec):key==='rio-prancha'?rioMakeBoard(0x35b4ad):key==='rio-navio-passeio'?rioMakeTourShip():null;
     group.userData.lakeParts??=group.children.slice();if(group.userData.seaModel){otGamesDisposeGroup(group.userData.seaModel);group.userData.seaModel=null;}
-    for(const part of group.userData.lakeParts)part.visible=!spec;
-    if(spec){const model=createSeaCraftModel(spec);group.add(model);group.userData.seaModel=model;}
-    group.position.y=spec?-.08:-.68;group.userData.craftKey=key;
+    for(const part of group.userData.lakeParts)part.visible=!model;
+    if(model){group.add(model);group.userData.seaModel=model;}
+    group.position.y=model?-.08:-.68;group.userData.craftKey=key;
   }
   const marinaGroundHeight=groundHeightAt;
   groundHeightAt=function(x,z){if(!inRioMap()&&x>=MARINA_DOCK.minX&&x<=MARINA_DOCK.maxX&&z>=499&&z<=549)return .48;return marinaGroundHeight(x,z);};
@@ -84,9 +88,14 @@
     registerInteractable({id:'snow-lookout',type:'viewpoint',icon:'❄️',label:'Mirante da Neve',x:20,z:180,radius:3,priority:120,action:()=>toast('Trecho de neve da OTTOVIAS. A pista continua liberada para viajar.','good',2600)});
   }
   function worldExploreLocations(){return[
-    {id:'marina-costa',name:'Guarujá · marina e lanchas',label:'Guarujá · marina e lanchas',icon:'🚤',group:'Guarujá · praia e barcos',x:-220,z:502,navX:-220,navZ:502,description:'Caminhe pelo píer, aproxime-se de uma lancha e toque em AÇÃO para pilotar. Pare ao lado do píer para desembarcar.',actions:['Seguir até a marina','Embarcar pelo botão AÇÃO','Pilotar, retornar e estacionar']},
+    {id:'marina-costa',name:'Guarujá · marina e embarcações',label:'Guarujá · marina e embarcações',icon:'🚤',group:'Guarujá · praia e barcos',x:-220,z:502,navX:-220,navZ:502,description:'Caminhe pelo píer e escolha uma embarcação. Volte à vaga de embarque para desembarcar.',actions:['Seguir até a marina','Embarcar pelo botão AÇÃO','Pilotar, retornar e estacionar']},
     {id:'snow-lookout',name:'Campos do Jordão · mirante e chalés',label:'Campos do Jordão · mirante e chalés',icon:'❄️',group:'Natureza',x:20,z:180,navX:20,navZ:180,description:'Trecho de neve da OTTOVIAS, com acesso pela Ligação Norte. Neve no solo, pinheiros, chalés e precipitação local.',actions:['Seguir o GPS pela Ligação Norte','Chegar ao mirante']},
-    ...Array.from(world.boats?.values()||[]).filter(b=>b.seaGoing).map(b=>({id:'marina-'+b.id,name:b.label,label:b.label,icon:'🚤',group:'Embarcações',x:b.group.position.x,z:b.group.position.z,navX:-220,navZ:clamp(b.group.position.z,513,548),description:'Lancha utilizável. O ponto de embarque fica no píer da marina. A embarcação permanece onde você a estacionar.',actions:['Caminhar pelo píer','Toque em AÇÃO ao lado da lancha']}))
+    ...Array.from(world.boats?.values()||[]).filter(b=>b.seaGoing||b.rioBerth).map(b=>{
+      const step=b.rioBerth?.step,position=b.group.position;
+      return {id:'marina-'+b.id,name:b.label,label:b.label,icon:b.kind==='board'?'🏄':b.kind==='ship'?'🛳️':'🚤',
+        group:'Guarujá · praia e barcos',x:position.x,z:position.z,navX:step?.x??-220,navZ:step?.z??clamp(position.z,513,548),
+        description:step?'Embarque e desembarque na vaga do píer.':'O ponto de embarque fica no píer da marina.',actions:['Caminhar pelo píer','Toque em AÇÃO para embarcar']};
+    })
   ];}
   function worldExploreDirectoryHtml(){
     const destinations=[

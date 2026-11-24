@@ -22,11 +22,14 @@
     return{population,pointLightBuckets};
   }
   function precompileWorldLighting(options={}){
-    const compile=()=>{
-      const templates=window.OTBrazilVehicles?.precompile?.(THREE,renderer,scene,camera);
-      if(!templates)renderer.compile(scene,camera);
+    const timings={fleetSetupMs:0,shaderCompileMs:0};
+    const now=()=>globalThis.performance?.now?.()??Date.now();
+    const compile=(includeTemplates)=>{
+      const templates=includeTemplates&&window.OTBrazilVehicles?.precompile?.(THREE,renderer,scene,camera,timings);
+      if(!templates){const started=now();renderer.compile(scene,camera);timings.shaderCompileMs+=now()-started;}
       return Number(templates||0);
     };
+    const includeTemplates=options.includeVehicleTemplates!==false;
     const lights=[],temporary=[];
     if(Number.isFinite(options.pointLights)){
       const states=[];scene.traverse(object=>{if(object.isPointLight){states.push([object,object.visible]);object.visible=false;}});
@@ -35,7 +38,7 @@
       const count=Math.max(0,Math.floor(options.pointLights));
       try{
         for(let i=0;i<count;i++){const light=new THREE.PointLight(0x000000,0,1,1);scene.add(light);temporary.push(light);}
-        return{templates:compile(),lightingVariants:1,pointLightBuckets:[count]};
+        return{templates:compile(includeTemplates),lightingVariants:1,pointLightBuckets:[count],timings};
       }finally{for(const light of temporary)scene.remove(light);for(const[light,visible]of states)light.visible=visible;}
     }
     scene.traverseVisible(object=>{if(object.isPointLight&&object.layers.test(camera.layers))lights.push(object);});
@@ -50,12 +53,12 @@
     // This changes no material, quality setting or light in a painted frame.
     let templates;
     try{
-      templates=compile();
-      if(lights.length){try{for(const light of lights)light.visible=false;compile();}finally{for(const light of lights)light.visible=true;}}
+      templates=compile(includeTemplates);
+      if(lights.length){try{for(const light of lights)light.visible=false;compile(false);}finally{for(const light of lights)light.visible=true;}}
     }finally{
       for(const light of temporary)scene.remove(light);
     }
-    return{templates,lightingVariants:lights.length?2:1};
+    return{templates,lightingVariants:lights.length?2:1,timings};
   }
   // Pure culling, with the same geometry rules as normal rendering.
   function collectWorldPointLights(view){
@@ -87,7 +90,7 @@
     // and compile any previously unseen bucket before its first render.
     const bucket=lightingBucketFor(active);
     if(active&&!budget.preparedBuckets.has(bucket)&&budget.preparation?.criticalBuckets?.length){
-      try{precompileWorldLighting({pointLights:bucket});markLightingBucketPrepared(bucket);budget.onDemand++;}
+      try{precompileWorldLighting({pointLights:bucket,includeVehicleTemplates:false});markLightingBucketPrepared(bucket);budget.onDemand++;}
       catch(error){console.warn('[OTTHI CAMERA] Variante adicional:',error);}
     }
     const padded=active?Math.max(16,Math.ceil(active/8)*8)-active:0;

@@ -6,8 +6,13 @@ script changes ONLY files copied to _pages_preview; sources are never rewritten.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,8 +29,17 @@ EXCLUDED_DIRS = {
     "_pages_preview", "test-results", ".pytest_cache",
 }
 EXCLUDED_ROOT = {
-    ".gitignore", "README.md", "tools", "tests", "enhancements",
+    ".gitignore", "README.md", "tools", "tests",
 }
+SOURCE_SHA = "df28dd51f9624347330ec97dbb804804d72468bf"
+FIREBASE_SDK_TAG = re.compile(r'<script\b[^>]*\bsrc=["\']https://www\.gstatic\.com/firebasejs/[^"\']+["\'][^>]*>\s*</script>', re.I)
+PREVIEW_POLICY = (
+    "connect-src 'self' https://cdn.jsdelivr.net https://unpkg.com "
+    "https://storage.googleapis.com/mediapipe-models/ https://storage.googleapis.com/tfhub-lite-models/ "
+    "https://tfhub.dev https://www.kaggle.com https://www.youtube.com https://www.youtube-nocookie.com; "
+    "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; "
+    "form-action 'self'; object-src 'none'; base-uri 'self'"
+)
 MINIMUM_ROUTES = (
     "index.html", "arcade/index.html", "games/otthi/index.html",
     "games/otthi/app.js", "games/otthi/style.css",
@@ -41,6 +55,28 @@ def ignored(directory: str, names: list[str]) -> set[str]:
     if Path(directory).resolve() == ROOT:
         excluded |= EXCLUDED_ROOT.intersection(names)
     return excluded
+
+
+def prepare_document(source: str, bootstrap: str) -> str:
+    source = FIREBASE_SDK_TAG.sub('', source)
+    source = re.sub(r'<meta\s+charset=[^>]+>', '', source, flags=re.I)
+    injection = f'\n<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="{PREVIEW_POLICY}">\n<script>\n{bootstrap}\n</script>\n'
+    head = re.search(r'<head\b[^>]*>', source, re.I)
+    if head:
+        return source[:head.end()] + injection + source[head.end():]
+    doctype = re.match(r'\s*<!doctype[^>]*>', source, re.I)
+    start = doctype.end() if doctype else 0
+    return source[:start] + '<head>' + injection + '</head>' + source[start:]
+
+
+def verify_manifest() -> dict:
+    world = OUTPUT / 'games' / 'otthi'
+    release = json.loads((world / 'release-manifest.json').read_text('utf-8'))
+    for filename, digest in release['files'].items():
+        entry = (world / filename).resolve()
+        if not entry.is_relative_to(OUTPUT) or hashlib.sha256(entry.read_bytes()).hexdigest() != digest:
+            raise SystemExit('Hash incompatível no pacote final: ' + filename)
+    return release
 
 
 def main() -> None:
@@ -62,6 +98,7 @@ def main() -> None:
         elif child.is_file():
             shutil.copy2(child, target)
 
+    bootstrap = (ROOT / 'tools' / 'pages-preview-isolation.js').read_text('utf-8')
     changed = 0
     for item in OUTPUT.rglob("*"):
         if not item.is_file() or item.suffix.lower() not in TEXT_EXTENSIONS:
@@ -70,21 +107,31 @@ def main() -> None:
             original = item.read_text("utf-8")
         except UnicodeError:
             continue
-        # Relative GitHub Pages project path; never rewrite Firebase project IDs,
-        # login identities, keys or source files.
+        # Rewrite the staged source before generating the final release hashes.
         revised = original.replace(OLD_BASE, NEW_BASE)
+        if item.suffix.lower() in {'.html', '.htm'}:
+            revised = prepare_document(revised, bootstrap)
+        elif item.name == 'sw.js':
+            revised = "'use strict';\n" + bootstrap + '\n' + revised
+        elif item.name == 'firebase-config.js':
+            revised = 'window.OTTHOS_FIREBASE_CONFIG = Object.freeze({enabled: false});\n'
         if revised != original:
             item.write_text(revised, encoding="utf-8")
             changed += 1
 
+    subprocess.run([sys.executable, str(OUTPUT / 'games/otthi/tools/build_project.py')], check=True)
+    release = verify_manifest()
+    git_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    metadata = {'source': SOURCE_SHA, 'commit': git_sha, 'build': release['build'],
+                'revision': release['revision'], 'storagePrefix': 'consolegames-preview:', 'firebase': 'disabled'}
+    (OUTPUT / 'preview-release.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
     (OUTPUT / ".nojekyll").write_text("", encoding="utf-8")
     for route in MINIMUM_ROUTES:
         if not (OUTPUT / route).is_file():
             raise SystemExit("Missing game route in Pages artifact: " + route)
 
-    print(f"Prepared {OUTPUT}: rewrote paths in {changed} text files.")
-    print("This is an isolated Pages project path, not a production deploy.")
-    print("WARNING: backend/Firebase and browser origin may still share user data.")
+    print(f"Prepared {OUTPUT}: {changed} text files adapted, {len(release['files'])} final hashes verified.")
+    print(f"Pages preview {release['build']} / {release['revision']} with isolated local storage and disconnected Firebase.")
 
 
 if __name__ == "__main__":

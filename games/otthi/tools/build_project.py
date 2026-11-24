@@ -13,6 +13,7 @@ MANIFEST = json.loads((ROOT / 'src/module-order.json').read_text('utf-8'))
 VERSION = json.loads((ROOT / 'VERSION.json').read_text('utf-8'))
 RELEASE_FILES = [
     'index.html',
+    'src/module-order.json',
     'game-audio.js',
     'console-world.js',
     'console-world.css',

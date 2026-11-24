@@ -31,10 +31,56 @@
   if(!npc.mealProp&&action==='eat'){npc.mealProp=new THREE.Mesh(new THREE.SphereGeometry(.11,8,6),renderMat(0xd3a268));npc.mealProp.scale.y=.50;npc.mealProp.position.set(0,-.66,.07);l.rightArm.add(npc.mealProp);}if(npc.mealProp)npc.mealProp.visible=action==='eat';
  }
  function updateWorldResidents(){
-  ensureWorldResidents();if(!worldResidents.ready||paused)return;const now=performance.now(),dt=Math.min(.10,Math.max(0,(now-(worldResidents.lastAt||now))/1000)),time=now/1000,focus=otGamesFocus(),authority=typeof sharedWorldIsAuthority!=='function'||sharedWorldIsAuthority();worldResidents.lastAt=now;worldResidents.ticks++;
-  for(const n of worldResidents.actors){if(n.following||n.passengerMode||n.pendingRide||n.coopRaceMode)continue;const distant=Math.hypot(focus.x-n.group.position.x,focus.z-n.group.position.z)>125;if(distant&&n.rioCityLocal)continue;let actorDt=dt;if(distant){if(now<Number(n.nextBackgroundLifeAt||0))continue;actorDt=Math.min(1,Math.max(0,(now-Number(n.lastLifeAt||now))/1000));n.nextBackgroundLifeAt=now+1000;}n.lastLifeAt=now;const r=n.routine;if(!r){poseResident(n,now<(n.servingUntil||0)?'serve':'work',time);continue;}const p=r.stops[r.index],dx=p.x-n.group.position.x,dz=p.z-n.group.position.z,d=Math.hypot(dx,dz);let action=p.action||'look',seat;
-   if(d>.22){action=p.action==='swim'?'swim':p.action==='run'?'run':'walk';if((authority||n.rioCityLocal)&&actorDt){if(action==='swim'){const step=Math.min(d,actorDt*.75);n.group.position.x+=dx/d*step;n.group.position.z+=dz/d*step;n.group.rotation.y=Math.atan2(dx,dz);}else if(Math.hypot(player.x-n.group.position.x,player.z-n.group.position.z)>1.1)v705NpcWalk(n,actorDt,p,action==='run'?3.05:1.15);}r.remaining=0;}else{seat=p.seat;if(p.yaw!==undefined)n.group.rotation.y=p.yaw;if(!r.remaining)r.remaining=Number(p.duration)||.15;r.remaining-=actorDt;if(r.remaining<=0){r.index=(r.index+1)%r.stops.length;r.remaining=0;}}if(distant){n.lifeAction=action;n.group.position.y=groundHeightAt(n.group.position.x,n.group.position.z);}else poseResident(n,action,time,seat);
+  ensureWorldResidents();
+  if(!worldResidents.ready||paused)return;
+  const now=performance.now(),dt=Math.min(.10,Math.max(0,(now-(worldResidents.lastAt||now))/1000));
+  const time=now/1000,focus=otGamesFocus(),authority=typeof sharedWorldIsAuthority!=='function'||sharedWorldIsAuthority();
+  worldResidents.lastAt=now;worldResidents.ticks++;
+  for(const n of worldResidents.actors){
+   if(n.following||n.passengerMode||n.pendingRide||n.coopRaceMode)continue;
+   const position=n.group.position,distant=distance2D(focus,position)>125;
+   if(distant&&(n.rioCityLocal||now<Number(n.nextBackgroundLifeAt||0)))continue;
+   const actorDt=distant?Math.min(1,Math.max(0,(now-Number(n.lastLifeAt||now))/1000)):dt;
+   if(distant)n.nextBackgroundLifeAt=now+1000;
+   n.lastLifeAt=now;
+   const routine=n.routine;
+   if(!routine){
+    if(n.stationaryHeading!==undefined)n.group.rotation.y=n.stationaryHeading;
+    if(!distant)poseResident(n,now<(n.servingUntil||0)?'serve':'work',time);
+    continue;
+   }
+   const stop=routine.stops[routine.index],dx=stop.x-position.x,dz=stop.z-position.z,distance=Math.hypot(dx,dz);
+   const canAdvance=authority||n.rioCityLocal;
+   let action=stop.action||'look',seat;
+   if(distance>.22){
+    if(action==='swim'&&canAdvance){
+     const step=Math.min(distance,actorDt*.75);
+     position.x+=dx/distance*step;position.z+=dz/distance*step;
+     n.group.rotation.y=lerpAngle(n.group.rotation.y,Math.atan2(dx,dz),Math.min(1,actorDt*6));
+    }else if(action!=='swim'){
+     const moved=canAdvance?v705NpcWalk(n,actorDt,stop,action==='run'?3.05:1.15,true):0;
+     action=moved?(action==='run'?'run':'walk'):'look';
+     if(canAdvance)routine.blockedSeconds=moved?0:(routine.blockedSeconds||0)+actorDt;
+     if(routine.blockedSeconds>12&&routine.stops.length>1){
+      // Resume the next authored stop when furniture or a closure prevents arrival.
+      routine.index=(routine.index+1)%routine.stops.length;
+      routine.blockedSeconds=0;routine.skipped=(routine.skipped||0)+1;
+     }
+    }
+    routine.remaining=0;
+   }else{
+    seat=stop.seat;
+    if(stop.yaw!==undefined)n.group.rotation.y=lerpAngle(n.group.rotation.y,stop.yaw,Math.min(1,actorDt*6));
+    if(!routine.remaining)routine.remaining=Number(stop.duration)||.15;
+    routine.remaining-=actorDt;
+    if(routine.remaining<=0){routine.index=(routine.index+1)%routine.stops.length;routine.remaining=0;routine.blockedSeconds=0;}
+   }
+   if(distant){n.lifeAction=action;position.y=action==='swim'?-.06:groundHeightAt(position.x,position.z);}
+   else poseResident(n,action,time,seat);
   }
  }
  const residentsPreviousExpansion=updateWorldExpansion;updateWorldExpansion=function(){residentsPreviousExpansion();updateWorldResidents();};
- window.OT_WORLD_RESIDENTS={diagnostics:()=>({ready:worldResidents.ready,total:world.npcs.length,actors:worldResidents.actors.map(n=>({id:n.id,name:n.name,x:n.group.position.x,y:n.group.position.y,z:n.group.position.z,action:n.lifeAction||'work',visible:n.group.visible,stop:n.routine?.index??null}))})};
+ window.OT_WORLD_RESIDENTS={diagnostics:()=>({ready:worldResidents.ready,total:world.npcs.length,navigation:{
+  plans:pedestrianNavigation.plans,detours:pedestrianNavigation.detours,waits:pedestrianNavigation.waits},
+  actors:worldResidents.actors.map(n=>({id:n.id,name:n.name,x:n.group.position.x,y:n.group.position.y,z:n.group.position.z,
+   action:n.lifeAction||'work',visible:n.group.visible,stop:n.routine?.index??null,skipped:n.routine?.skipped||0}))})};
