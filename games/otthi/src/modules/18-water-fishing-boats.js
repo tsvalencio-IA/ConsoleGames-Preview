@@ -119,8 +119,31 @@
     const now=performance.now();for(const npc of world.shoreFishers){const act=npc.fishingActivity;if(!act)continue;npc.group.position.set(npc.baseX,0,npc.baseZ);npc.group.rotation.y=act.heading;const pulse=Math.sin(now*.0021+act.phase),bite=Math.sin(now*.006+act.phase)> .92;act.rod.rotation.x=-.58+pulse*.035-(bite?.1:0);if(npc.limbs){npc.limbs.leftArm.rotation.x=lerp(npc.limbs.leftArm.rotation.x,-1.55+(bite?-.18:0),.18);npc.limbs.rightArm.rotation.x=lerp(npc.limbs.rightArm.rotation.x,-1.72+(bite?-.25:0),.18);npc.limbs.leftLeg.rotation.x=lerp(npc.limbs.leftLeg.rotation.x,.16,.18);npc.limbs.rightLeg.rotation.x=lerp(npc.limbs.rightLeg.rotation.x,-.16,.18);}act.bobber.position.y=.15+Math.sin(now*.004+act.phase)*.035-(bite?.055:0);const tip=new THREE.Vector3();act.rod.localToWorld(tip.set(0,1.08,0));const arr=act.line.geometry.attributes.position.array;arr[0]=tip.x;arr[1]=tip.y;arr[2]=tip.z;arr[3]=act.bobber.position.x;arr[4]=act.bobber.position.y;arr[5]=act.bobber.position.z;act.line.geometry.attributes.position.needsUpdate=true;}
   }
   function createLakeBoatHull(){
-    const g=new THREE.Group();g.name='LAKE_FISHING_BOAT';const hull=renderMat(0x7b3f20,{roughness:.72}),edge=renderMat(0xe3ad55,{roughness:.62}),seat=renderMat(0x374151,{roughness:.72});
-    premiumBox(2.4,.42,4.4,hull,0,.38,0,g);premiumBox(2.75,.25,3.85,edge,0,.67,0,g);premiumBox(1.85,.23,3.15,renderMat(0x2d6f8d,{roughness:.48}),0,.83,0,g);premiumBox(1.75,.25,.55,seat,0,1.02,-.65,g);premiumBox(1.75,.25,.55,seat,0,1.02,.72,g);premiumBox(.12,1.8,.12,0xd8c28d,.95,1.35,.1,g);premiumBox(1.45,.05,.72,0xf5f1df,.25,2.05,.1,g);return g;
+    const g=new THREE.Group();g.name='LAKE_FISHING_BOAT';
+    const hull=renderMat(0x315868,{roughness:.55,metalness:.18}),trim=renderMat(0xe6e1cf,{roughness:.55}),wood=renderMat(0x9c7652,{roughness:.72}),seat=renderMat(0x374151,{roughness:.72}),metal=renderMat(0x78868a,{roughness:.5,metalness:.3});
+    // Tapered hull; retain the approved length, beam and both seat anchors.
+    const stations=[[-2.19,.94,.18,.70],[-1.85,1.28,.07,.76],[-.90,1.35,.05,.78],[.6,1.32,.05,.78],[1.45,.93,.14,.80],[2.19,.03,.38,.85]];
+    g.add(new THREE.Mesh(seaCraftHullGeometry(stations,false),hull));
+    campaignBox(g,wood,0,.76,-.15,1.86,.10,3.28);
+    for(const z of[-.65,.72]){
+      campaignBox(g,seat,0,1.02,z,1.75,.22,.55);
+      for(const side of[-1,1])campaignBox(g,metal,side*.72,.87,z,.12,.28,.39);
+    }
+    for(const side of[-1,1]){
+      for(let i=1;i<stations.length;i++){
+        const prev=stations[i-1],next=stations[i],dx=side*(next[1]-prev[1]),dz=next[0]-prev[0];
+        const rail=campaignBox(g,trim,side*(prev[1]+next[1])/2,(prev[3]+next[3])/2,(prev[0]+next[0])/2,.09,.075,Math.hypot(dx,dz));
+        if(rail?.rotation)rail.rotation.y=Math.atan2(dx,dz);
+      }
+      campaignBox(g,metal,side*1.1,.92,-.22,.13,.16,.34);
+    }
+    campaignBox(g,metal,0,.75,-2.12,.49,.72,.28);
+    campaignBox(g,seat,0,1.14,-2.12,.57,.34,.42);
+    campaignBox(g,metal,0,.36,-2.17,.16,.43,.16);
+    campaignBox(g,metal,.24,1.04,-1.81,.50,.06,.07);
+    campaignCylinder(g,metal,.91,1.20,.10,.035,.9);
+    campaignBox(g,trim,.25,1.69,.10,1.45,.045,.72);
+    return g;
   }
   function createBoatModel(){
     const g=createLakeBoatHull();g.position.set(-70,.1,54);worldGroup.add(g);world.boat={id:'lake-boat',group:g,x:-70,z:54,heading:0,driverUid:'',passengerUid:''};
