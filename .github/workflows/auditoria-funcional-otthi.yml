@@ -5,6 +5,7 @@ on:
     branches: [fix/otthi-mapa-integridade-20261124]
     paths:
       - '.github/workflows/auditoria-funcional-otthi.yml'
+      - 'tools/package-world-preview.py'
 permissions:
   contents: read
 concurrency:

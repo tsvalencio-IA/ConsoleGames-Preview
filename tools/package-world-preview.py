@@ -62,6 +62,13 @@ def root_site_installer(document):
     release = android_release()
     if release is None:
         return document
+    # The current installer resolves a compatible package from signed release
+    # metadata at runtime. Keep its download anchor hidden and without an
+    # href; rewriting it to an old native binary bypasses that origin check.
+    if 'id="download-apk" class="button primary" hidden download' in document:
+        if 'id="web-install-help"' not in document or './install.js' not in document:
+            raise RuntimeError('Dynamic Android installer is missing compatibility controls')
+        return document
     original = json.loads((ROOT / 'arcade/downloads/release.json').read_text('utf-8'))
     replacements = {
         'href="../downloads/' + original['file'] + '" download':
