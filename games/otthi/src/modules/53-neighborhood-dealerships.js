@@ -40,13 +40,20 @@
       for(const dz of[-dealer.d/2+1.5,dealer.d/2-1.5])box(concrete,0,3.1,dz,dealer.w,.24,3);
       const sign=campaignSign(root,dealer.title.toUpperCase(),dealer.category==='cars'?'CLÁSSICOS · ESPORTIVOS · PICAPES':dealer.category==='bikes'?'URBANAS · TRAIL · BICICLETAS':'CARGA · RODOVIÁRIOS · ÔNIBUS',4.5);sign.position.x=entrySide*(dealer.w/2-.3);sign.rotation.y=entrySide*Math.PI/2;sign.scale.set(.85,.7,1);
       const deskX=entrySide*(dealer.w/2-3);box(concrete,deskX,.55,0,1.2,1.1,3.6);box(trim,deskX,1.15,0,1.4,.14,3.9);registerCollider(dealer.x+deskX,dealer.z,1.4,3.9,{dealer:dealer.id});
+      box(concrete,deskX-entrySide*1.5,.49,-1.12,.62,.98,.62);box(trim,deskX-entrySide*1.5,1.17,-1.12,.62,.50,.12);
+      box(metal,deskX,1.43,.95,.12,.42,.66);box(concrete,deskX-entrySide*.28,1.22,-.82,.34,.025,.48);
       campaignBatch(root);worldGroup.add(root);
+      const seller=createNPC('dealer-seller-'+dealer.id,'Consultor de vendas',dealer.x+deskX-entrySide*1.5,dealer.z-.6,dealer.color,0);
+      seller.stationary=true;seller.cityLifeManaged=true;seller.rioFloorY=groundHeightAt(dealer.x+deskX,dealer.z)+.20;
+      seller.group.rotation.y=entrySide*Math.PI/2;
+      world.interactables=world.interactables.filter(a=>a.id!=='npc-'+seller.id);
+      registerInteractable({id:'dealer-consultant-'+dealer.id,type:'shop',icon:'💬',label:'Conversar com consultor de vendas',x:dealer.x+deskX+entrySide*1.05,z:dealer.z-.6,radius:2.4,priority:349,available:()=>root.visible&&!player.vehicle&&!player.boating,action:()=>{seller.servingUntil=performance.now()+3000;openDealer(dealer.id);}});
       const stock=neighborhoodDealerStock(dealer),displays=stock.map((entry,index)=>{const point=dealerDisplayPoint(dealer,index),host=new THREE.Group();host.name='SHOWROOM_'+entry.id;host.position.set(point.x,.23,point.z);host.rotation.y=point.heading;worldGroup.add(host);host.visible=false;
         const pad=new THREE.Mesh(sharedBoxGeometry(dealer.category==='trucks'?13:dealer.category==='bikes'?2.1:5.2,.10,dealer.category==='trucks'?4.2:dealer.category==='bikes'?2.5:2.8),campaignMaterial(0x697b80,.18));pad.position.set(point.x,.22,point.z);worldGroup.add(pad);
         const plate=new THREE.Mesh(new THREE.PlaneGeometry(dealer.category==='trucks'?4.2:3.0,.62),new THREE.MeshBasicMaterial({map:signTexture(entry.label+' · '+entry.price+' moedas','#133a4a','#ffffff'),side:THREE.DoubleSide}));plate.position.set(point.x,.9,point.z+(dealer.category==='trucks'?3.2:dealer.category==='bikes'?2.0:1.9));worldGroup.add(plate);
         const record={entry,point,host,pad,plate,ready:false};registerInteractable({id:'showroom-'+entry.id,type:'shop',icon:entry.icon,label:'Ver '+entry.label,x:plate.position.x,z:plate.position.z,radius:2.1,priority:310,available:()=>host.visible&&record.ready,action:()=>openDealerVehicle(dealer.id,entry.id)});
         return record;});
-      registerInteractable({id:dealer.id,type:'shop',icon:dealer.icon,label:'Entrar em '+dealer.title,x:dealer.entryX,z:dealer.entryZ,radius:4,priority:345,action:()=>openDealer(dealer.id)});neighborhoodDealers.stores.push({dealer,root,displays});
+      registerInteractable({id:dealer.id,type:'shop',icon:dealer.icon,label:'Entrar em '+dealer.title,x:dealer.entryX,z:dealer.entryZ,radius:4,priority:345,action:()=>openDealer(dealer.id)});neighborhoodDealers.stores.push({dealer,root,displays,seller});
     }
     neighborhoodDealers.ready=true;world.navCache?.clear?.();
   }
@@ -59,6 +66,7 @@
   function updateNeighborhoodDealers(){
     createNeighborhoodDealers();updateNeighborhoodVehicleAccess();const now=performance.now();if(now-neighborhoodDealers.lastAt<120)return;neighborhoodDealers.lastAt=now;const focus=otGamesFocus();let budget=2;
     for(const store of neighborhoodDealers.stores){const near=Math.hypot(focus.x-store.dealer.x,focus.z-store.dealer.z)<100;store.root.visible=near;
+      if(store.seller){store.seller.group.visible=near;if(near)poseResident(store.seller,now<(store.seller.servingUntil||0)?'serve':'work',now/1000);}
       for(const display of store.displays){const visible=near&&Math.hypot(focus.x-display.point.x,focus.z-display.point.z)<(qualityTier()==='low'?48:72);display.pad.visible=display.plate.visible=visible;display.host.visible=visible;
         if(!visible||display.ready||budget<=0)continue;const model=neighborhoodVehicleModel(display.entry);if(window.OTBrazilImports.requires(model)&&!window.OTBrazilImports.ready(model)){requestBrazilModel(model);continue;}
         display.host.add(window.OTBrazilVehicles.create(THREE,model,window.OTBrazilVehicles.catalog[model].color));display.ready=true;display.host.updateWorldMatrix(true,true);const bounds=new THREE.Box3().setFromObject(display.host),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());registerCollider(center.x,center.z,size.x,size.z,{dealerExhibit:display.entry.id});budget--;
