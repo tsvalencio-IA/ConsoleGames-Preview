@@ -35,3 +35,23 @@ test('snow keeps the old resort but excludes urban backdrop buildings in compact
  assert.equal(run('rioCompactSnowBackdrop({x:58,z:-248})'),false);
  assert.match(source('14-world-district-decoration'),/rioCompactWorld\(\)&&rioCompactSnowBackdrop\(p\)/);
 });
+
+test('three distinct native lake basins, both race paths and vendor positions remain separated',()=>{
+ const lakes=run('RIO_COMPACT_LAKES'),paths=run('[RIO_COMPACT_LAYOUT.sections,RIO_COMPACT_DAMHA_COURSE]'),vendors=run('RIO_COMPACT_PARK_STALLS');
+ assert.equal(lakes.length,3);
+ const inside=(x,z,r,m=0)=>Math.abs(x-r.x)<r.w/2+m&&Math.abs(z-r.z)<r.d/2+m;
+ for(let i=0;i<lakes.length;i++)for(let j=i+1;j<lakes.length;j++){const a=lakes[i],b=lakes[j];assert(Math.abs(a.x-b.x)>=(a.w+b.w)/2||Math.abs(a.z-b.z)>=(a.d+b.d)/2);}
+ for(const path of paths)for(let i=1;i<path.length;i++){
+   const a=path[i-1],b=path[i],len=Math.hypot(b[0]-a[0],b[1]-a[1]),steps=Math.ceil(len/.25);
+   for(let n=0;n<=steps;n++){const x=a[0]+(b[0]-a[0])*n/steps,z=a[1]+(b[1]-a[1])*n/steps;assert(!lakes.some(l=>inside(x,z,l,.45)),JSON.stringify({x,z}));}
+ }
+ for(const v of vendors)assert(!lakes.some(l=>inside(v.x,v.z,l,1)));
+ assert.match(source('12-world-resources-nature'),/RIO_REPRESA_TRES_LAGOS/);
+ assert.match(source('99-rio-compact-world'),/id:'corrida_rua_represa_damha'/);
+});
+test('audit every personal home and all active regional building parcels instead of one test identity',()=>{
+ const ctx=vm.createContext({window:{},regionalRouteVisible:()=>false,Math});
+ for(const name of ['78-rio-preto-layout','78a-rio-compact-layout','83-rio-v51-layout','80-rio-regional-circuits','05a-world-layout-v704'])vm.runInContext(source(name),ctx);
+ const result=JSON.parse(vm.runInContext("JSON.stringify((()=>{const profiles=[];for(let i=0;i<OTTHI_PERSONAL_HOME_LOTS.length;i++){otthiHomeLotIndex=()=>i;profiles.push(v704StaticWorldAudit().problems);}const h=RIO_PRETO_LAYOUT.lots.map(l=>({id:l.id,x:l.x,z:l.z,w:Math.abs(Math.sin(l.yaw))>.5?l.d:l.w,d:Math.abs(Math.sin(l.yaw))>.5?l.w:l.d}));const r=RIO_V51.places.filter(p=>!p.nativeVenue&&RIO_RECOVERED_SECTORS.includes(p.sector));const lots=[...h,...r,...RIO_COMPACT_LAYOUT.lots.map(rioCompactLotRect),...WORLD_LAYOUT_V704.structures.filter(s=>['house','civil-home','city','garage','campaign','family-home','dealer'].includes(s.kind)).map(s=>worldLayoutStructure(s.id))];const overlaps=[];for(let i=0;i<lots.length;i++)for(let j=i+1;j<lots.length;j++)if(v704RectOverlap(lots[i],lots[j],-.15))overlaps.push([lots[i].id,lots[j].id]);return {profiles,overlaps,count:lots.length};})())",ctx));
+ assert.equal(result.profiles.length,10);assert(result.profiles.every(p=>p.length===0),JSON.stringify(result.profiles));assert(result.count>=100);assert.deepEqual(result.overlaps,[]);
+});

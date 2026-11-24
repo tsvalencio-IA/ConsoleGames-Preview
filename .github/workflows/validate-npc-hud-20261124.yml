@@ -29,16 +29,17 @@ jobs:
           git diff --check
       - name: Package isolated site
         run: python3 tools/build-github-pages-preview.py
-      - name: Verify mobile menu and all eight routes
+      - name: Install Chromium
         run: |
           npm install --no-save --ignore-scripts playwright@1.56.1
           npx playwright install chromium --with-deps
-          node tests/pages-preview-browser.mjs
-      - name: Verify real regional interiors and chalet ownership
-        run: node tests/rio-regional-interiors-browser.mjs
       - name: Verify park bridge, running course and real purchases
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124'
         run: node tests/rio-park-integrity-browser.mjs
+      - name: Verify mobile menu and all eight routes
+        run: node tests/pages-preview-browser.mjs
+      - name: Verify real regional interiors and chalet ownership
+        run: node tests/rio-regional-interiors-browser.mjs
       - name: Store evidence
         if: always()
         uses: actions/upload-artifact@v4

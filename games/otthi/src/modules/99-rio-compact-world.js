@@ -1,6 +1,7 @@
 /** Adapt Rio Preto's playable places to the original World scene and save. */
 // @otthi-module-body
-  const compactRio={sites:[],nextUpdate:0};
+  const compactRio={sites:[],nextUpdate:0,courses:new Map()};
+  function rioSelectCompactCourse(id){const record=compactRio.courses.get(id);if(!record||activeRace)return false;for(const m of rioMap.courseMarkers||[])m.visible=false;rioMap.course=record.course;rioMap.courseMarkers=record.markers;return true;}
   const compactRioStreets=[
     ['bady','Avenida Bady Bassitt',-95,0],
     ['andalo','Avenida Alberto Andaló',0,-52],
@@ -93,8 +94,8 @@
     const root=new THREE.Group();root.name='RIO_PRETO_PONTE_JULIO_ZACARIN';worldGroup.add(root);
     const steel=renderMat(0xd1d7d7,{roughness:.67,metalness:.22}),cable=renderMat(0xb6c1c4,{roughness:.48,metalness:.38});
     const b=RIO_COMPACT_BRIDGE,bx=b.x,bz=b.z,deckY=b.top-.165;
-    stableBox(36,.22,4.8,0x788890,bx,deckY,bz,root,2);
-    stableBox(36,.05,3.2,0x58626b,bx,deckY+.14,bz,root,3);
+    stableBox(b.deckLength,.22,b.width,0x788890,bx,deckY,bz,root,2);
+    stableBox(b.deckLength,.05,3.2,0x58626b,bx,deckY+.14,bz,root,3);
     // Ramps and deck share the height function used by resolveWaterWalking.
     // No generic platform threshold is allowed to drop the actor into water.
     for(const side of[-1,1]){
@@ -105,12 +106,12 @@
       registerCollider(bx,bz+side*(b.width/2-.045),b.deckLength,.12,{height:1.4,rioBridge:'julio-zacarin-rail'});
     }
     for(const side of[-1,1]){
-      stableBox(36,.58,.12,steel,bx,deckY+.55,bz+side*2.35,root);
-      for(let i=-8;i<=8;i++)stableBox(.085,.56,.10,steel,bx+i*2,deckY+.38,bz+side*2.35,root);
+      stableBox(b.deckLength,.58,.12,steel,bx,deckY+.55,bz+side*2.35,root);
+      for(let i=-6;i<=6;i++)stableBox(.085,.56,.10,steel,bx+i*2,deckY+.38,bz+side*2.35,root);
     }
     for(const z of[bz-1.45,bz+1.45]){
       stableBox(.64,13.4,.67,steel,bx,7.25,z,root);
-      for(const dx of[-16,-12,-8,-4,4,8,12,16]){
+      for(const dx of[-12,-9,-6,-3,3,6,9,12]){
         const start=new THREE.Vector3(bx,13.9,z),end=new THREE.Vector3(bx+dx,deckY+.82,z);
         const vec=end.clone().sub(start),length=vec.length();
         const line=new THREE.Mesh(new THREE.CylinderGeometry(.032,.032,length,6),cable);
@@ -175,10 +176,10 @@
     batch.part('box',x,4.43,z,16.2,.36,.55,trim);batch.commit();
     citySign(root,'DAMHA · AV. NADIMA DAMHA',x,4.46,z+.30,12,1,'#48665a',.56);
     citySign(root,'DAMHA · AV. NADIMA DAMHA',x,4.46,z-.30,12,-1,'#48665a',.56);
-    registerInteractable({id:'regional-portaria_damha',type:'viewpoint',icon:'🏡',label:'Acesso aos imóveis Damha',x:213.8,z:100.5,radius:3.2,priority:218,
+    registerInteractable({id:'rio-damha-residencias',type:'viewpoint',icon:'🏡',label:'Acesso aos imóveis Damha',x:213.8,z:100.5,radius:3.2,priority:218,
       available:()=>!player.vehicle&&!player.boating,
       action:()=>openModal('Damha · Rio Preto','<p>Visite as duas residências e as respectivas áreas de lazer. A pista da Represa continua disponível no mapa.</p><div class="choice-grid">'+
-      '<button class="choice" data-damha-route="regional-casa-damha">Casa contemporânea</button><button class="choice" data-damha-route="regional-casa-damha-varanda">Casa com varanda</button><button class="choice" data-damha-route="rio-orla-largada">Corrida na Represa</button></div>',modal=>{
+      '<button class="choice" data-damha-route="regional-casa-damha">Casa contemporânea</button><button class="choice" data-damha-route="regional-casa-damha-varanda">Casa com varanda</button><button class="choice" data-damha-route="regional-portaria_damha">Corrida Represa e Damha</button></div>',modal=>{
         for(const button of modal.querySelectorAll('[data-damha-route]'))button.onclick=()=>{closeModal();setWaypoint(button.dataset.damhaRoute);};
       })});
   }
@@ -194,8 +195,9 @@
     // Continuous red running surface with two lanes and marked edges.
     // Use the existing six-checkpoint 300m route; no reset of race records.
     const batch=rioCreateBatch(walk);batch.root=walk;
-    for(let i=1;i<shore.length;i++){
-      const a=shore[i-1],b=shore[i],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz),yaw=Math.atan2(dx,dz),x=(a.x+b.x)/2,z=(a.z+b.z)/2;
+    const paths=[shore,RIO_COMPACT_UPPER_PATH.map(([x,z])=>({x,z}))];
+    for(const path of paths)for(let i=1;i<path.length;i++){
+      const a=path[i-1],b=path[i],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz),yaw=Math.atan2(dx,dz),x=(a.x+b.x)/2,z=(a.z+b.z)/2;
       batch.part('box',x,.080,z,2.7,.10,len+.20,0xae5848,yaw);
       for(const side of[-1,0,1]){
         const offset=side*1.22;
@@ -212,6 +214,32 @@
     // Two passes around the shore provide six checkpoints at the same 50 m spacing.
     rioPrepareWaterfrontRun([...RIO_COMPACT_LAYOUT.sections,...RIO_COMPACT_LAYOUT.sections.slice(1)],
       'represa_rio_preto_compacta_300m');
+    compactRio.courses.set(rioMap.course.id,{course:rioMap.course,markers:rioMap.courseMarkers});
+    const route=RIO_COMPACT_DAMHA_COURSE.map(([x,z])=>({x,z})),startDamha=route[0];
+    const length=route.slice(1).reduce((sum,p,i)=>sum+distance2D(route[i],p),0);
+    const labels=['Orla superior','Lago 2','Orla do Canecão','Retorno Swift','Lago 3','Chegada · Damha'];
+    const gates=[];
+    let traversed=0;
+    for(let i=1;i<route.length;i++){
+      const a=route[i-1],b=route[i],span=distance2D(a,b);
+      while(gates.length<6&&(gates.length+1)*length/6<=traversed+span+1e-6){
+        const t=clamp(((gates.length+1)*length/6-traversed)/span,0,1);
+        gates.push({x:lerp(a.x,b.x,t),z:lerp(a.z,b.z,t),label:labels[gates.length]});
+      }
+      traversed+=span;
+    }
+    const marks=new THREE.Group();marks.name='RIO_DAMHA_CHECKPOINTS';walk.add(marks);
+    const markerGeo=new THREE.RingGeometry(1.22,1.75,22),markerMat=new THREE.MeshBasicMaterial({color:0xffd850,side:THREE.DoubleSide});
+    const markers=gates.map(p=>{const mesh=new THREE.Mesh(markerGeo,markerMat);mesh.rotation.x=-Math.PI/2;mesh.position.set(p.x,groundHeightAt(p.x,p.z)+.18,p.z);mesh.visible=false;marks.add(mesh);return mesh;});
+    const damha={id:'corrida_rua_represa_damha',name:'Corrida de Rua · Represa e Damha',startId:'regional-portaria_damha',start:startDamha,route,gates,distance:length};
+    compactRio.courses.set(damha.id,{course:damha,markers});
+    const portico=new THREE.Group();portico.name='RIO_DAMHA_LARGADA_SUPERIOR';walk.add(portico);
+    for(const side of[-1,1])stableBox(.20,2.8,.20,0x536f61,startDamha.x,1.4,startDamha.z+side*1.72,portico);
+    stableBox(.24,.26,3.68,0x536f61,startDamha.x,2.88,startDamha.z,portico);
+    const board=citySign(portico,'DAMHA · LARGADA',startDamha.x,2.88,startDamha.z,3.4,1,'#3c6156',.38);board.rotation.y=Math.PI/2;
+    registerInteractable({id:'regional-portaria_damha',type:'race',icon:'🏃',label:'Largar · Represa e Damha',...startDamha,radius:2.8,priority:279,
+      available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,
+      action:()=>{if(!rioSelectCompactCourse(damha.id))return false;return openRioGeoRun();}});
   }
 
   function updateCompactRio(dt,before){
@@ -234,6 +262,7 @@
         // native room is visible only to the player who entered the door.
         const inside=!!room.legacyRecord?.inside;
         room.root.visible=inside;
+        if(room.poolExterior)room.poolExterior.visible=distance2D(focus,site)<(qualityTier()==='low'?142:195);
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
@@ -270,11 +299,12 @@
     if(!rioCompactWorld())return existing;
     const places=compactRio.sites.map(compactRioDestination);
     const streets=compactRioStreets.map(([id,name,x,z])=>({id:'rio-via-'+id,name,x,z,icon:'🛣️',group:'Ruas e rodovias'}));
-    const dock=rioMap.waterfront?.entry,course=rioMap.course;
+    const dock=rioMap.waterfront?.entry,course=compactRio.courses.get('represa_rio_preto_compacta_300m')?.course||rioMap.course;
     places.push({id:'rio-ponte-julio-zacarin',name:'Ponte Estaiada Júlio Zacarin · Lago 3',group:'Represa de Rio Preto',icon:'🌉',x:-126.5,z:65.8,navX:-126.5,navZ:65.8,description:'Ponte estaiada, orla e passeio do Lago 3'});
     if(dock)places.push({id:'rio-represa-cais',name:'Mirante da Represa Municipal',group:'Represa de Rio Preto',icon:'🌳',...dock});
     if(course)places.push({id:'rio-orla-largada',name:'Pista de corrida a pé · Represa',group:'Represa de Rio Preto',icon:'🏃',...course.start});
-    places.push({id:'regional-portaria_damha',name:'Damha · Av. Nadima Damha',group:'Rio Preto',icon:'🏡',x:213.8,z:100.5,navX:213.8,navZ:100.5,description:'Acesso às residências e piscinas exteriores'});
+    places.push({id:'regional-portaria_damha',name:'Portaria Damha · Corrida da Represa',group:'Represa de Rio Preto',icon:'🏃',x:-108,z:78.2,navX:-108,navZ:78.2,description:'Pórtico da pista superior, seis pontos e chegada'});
+    places.push({id:'rio-damha-residencias',name:'Damha · Av. Nadima Damha',group:'Rio Preto',icon:'🏡',x:213.8,z:100.5,navX:213.8,navZ:100.5,description:'Acesso às residências e piscinas exteriores'});
     const hall=places.find(place=>place.id==='regional-prefeitura_andalo');
     if(hall)places.push({...hall,id:'castle'});
     return [...existing,...places,...streets];

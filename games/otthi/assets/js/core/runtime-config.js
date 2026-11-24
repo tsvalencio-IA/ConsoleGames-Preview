@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.48-rio-preto-integridade-mapa',
+    build: '705.28.49-rio-preto-represa-damha',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',

@@ -1,6 +1,6 @@
 {
   "version": 705,
-  "build": "705.28.48-rio-preto-integridade-mapa",
+  "build": "705.28.49-rio-preto-represa-damha",
   "name": "OTTHI World",
   "sourceArchitecture": "modular-source-with-generated-runtime-bundle",
   "runtimeBundle": "app.js",
@@ -42,6 +42,7 @@
     }
   },
   "changes": [
+    "R28.49: três lagos físicos separados, pista superior e corrida original Represa/Damha com seis checkpoints e chave histórica de recordes, rampas livres do guarda-corpo, auditoria de 10 lotes pessoais e todos os setores ativos.",
     "R28.48: rampas da ponte com superfície física contínua, pista de corrida sinalizada na Represa, vendedores de coco e milho, acesso Damha, piscinas realmente exteriores e retirada dos prédios urbanos de cenário da neve no mapa Rio Preto.",
     "R28.47: loja de móveis integrada ao catálogo e entrega por imóvel, interiores regionais carregados somente na entrada, identidade de serviços públicos, verificação de pisos e compras no cenário real.",
     "R28.46: fundações e pisos físicos elevados, recorte de paredes por câmera sem clipping global, acabamento e decoração na altura correta, atividades domésticas animadas, NPCs urbanos com silhueta e roupas articuladas, testes reais de piso e praça de alimentação.",

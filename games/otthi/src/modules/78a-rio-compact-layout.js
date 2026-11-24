@@ -61,15 +61,28 @@
       [-89.1,74.5],[-89.1,68.7],[-63,68.7],[-61.4,65],[-61.4,42],[-63,40],[-65,40]]
   };
   // One datum for visible bridge deck, ramps and walking/vehicle physics.
-  const RIO_COMPACT_BRIDGE=Object.freeze({x:-104,z:69,deckLength:36,rampLength:4.5,width:4.8,top:.815});
+  const RIO_COMPACT_BRIDGE=Object.freeze({x:-104,z:69,deckLength:26.4,rampLength:4.5,width:4.8,top:.815});
   function rioCompactBridgeSurface(x,z){
     const b=RIO_COMPACT_BRIDGE,dx=Math.abs(x-b.x);
     if(Math.abs(z-b.z)>b.width/2||dx>b.deckLength/2+b.rampLength)return 0;
     return b.top*Math.max(0,Math.min(1,(b.deckLength/2+b.rampLength-dx)/b.rampLength));
   }
+  const RIO_COMPACT_LAKES=Object.freeze([
+    {id:'lake',name:'Lago 1 · Represa',x:-88,z:54,w:50,d:22},
+    {id:'lakeNorth',name:'Lago 3 · Ponte Estaiada',x:-104,z:71.25,w:24,d:9.5},
+    {id:'lakeEast',name:'Lago 2 · Parque da Represa',x:-77,z:73.5,w:16,d:6}
+  ]);
+  const RIO_COMPACT_UPPER_PATH=Object.freeze([[-90.4,78.2],[-67,78.2],[-63,76.5],[-61.4,74],[-61.4,65]]);
+  // Closed route with the historic race's save key and six ordered gates.
+  // The compact city has a smaller scale than the original laboratory.
+  const RIO_COMPACT_DAMHA_COURSE=Object.freeze([[-108,78.2],[-90.4,78.2],...RIO_COMPACT_UPPER_PATH.slice(1),[-61.4,42],[-63,40],[-65,40],[-116.8,40],[-118.7,43],[-118.7,76.5],[-115.7,78.2],[-108,78.2]]);
+  function rioCompactCourseReservations(){
+    const paths=[RIO_COMPACT_LAYOUT.sections,RIO_COMPACT_UPPER_PATH];
+    return paths.flatMap((p,n)=>p.slice(1).map((b,i)=>{const a=p[i];return{id:'rio-compact-track-'+n+'-'+i,x:(a[0]+b[0])/2,z:(a[1]+b[1])/2,w:Math.abs(a[0]-b[0])+3.1,d:Math.abs(a[1]-b[1])+3.1};}));
+  }
   const RIO_COMPACT_PARK_STALLS=Object.freeze([
     {id:'rio-represa-coco',kind:'coconut',name:'Água de coco · Represa',seller:'Vendedor de coco',x:-123.2,z:61.5,yaw:Math.PI/2,color:0x588657},
-    {id:'rio-represa-milho',kind:'corn',name:'Milho verde · Represa',seller:'Vendedor de milho',x:-70,z:73.3,yaw:Math.PI,color:0xc19a46}
+    {id:'rio-represa-milho',kind:'corn',name:'Milho verde · Represa',seller:'Vendedor de milho',x:-65.2,z:73.4,yaw:Math.PI/2,color:0xc19a46}
   ]);
   // The snow resort keeps its cabins, cableway and civilian activities.
   // The legacy decorative urban towers are not part of this region.

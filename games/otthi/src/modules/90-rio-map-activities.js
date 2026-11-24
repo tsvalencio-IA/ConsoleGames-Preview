@@ -196,14 +196,14 @@
     const start=route[0];
     createSignpost(start.x+.3,start.z+.7,'CORRIDA A PÉ • REPRESA',0);
     registerInteractable({id:'rio-orla-largada',type:'race',icon:'🏃',label:'Largar na pista da Represa',x:start.x,z:start.z,radius:2.7,priority:279,
-      available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,action:openRioGeoRun});
+      available:()=>!player.vehicle&&!player.boating&&!activeRace&&!SPORTS_V705.active,action:()=>{if(rioMap.compact&&typeof rioSelectCompactCourse==='function')rioSelectCompactCourse(id);return openRioGeoRun();}});
     rioMap.course={id,name:'Corrida a pé · Represa',start,route,gates};
   }
   function openRioGeoRun(){
     const course=rioMap.course;
     if(!course)return false;
     if(Math.hypot(player.x-course.start.x,player.z-course.start.z)>3.2){
-      setWaypoint('rio-orla-largada');
+      setWaypoint(course.startId||'rio-orla-largada');
       toast('Siga até a largada junto à pista da orla.','info',2200);
       return true;
     }

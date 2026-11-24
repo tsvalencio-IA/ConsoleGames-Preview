@@ -135,7 +135,23 @@
 
   function createWater(x,z,w,d,options={}){const water=stableBox(w,.12,d,materials.water,x,.04,z,worldGroup,1);water.material.depthWrite=false;water.userData={...(water.userData||{}),waterId:options.id||'',reservoir:!!options.reservoir};if(options.shore!==false)for(let px=x-w/2+2;px<x+w/2;px+=4){stableBox(3.2,.18,.7,0x9fadb8,px,.09,z-d/2-.35,worldGroup,2);stableBox(3.2,.18,.7,0x9fadb8,px,.09,z+d/2+.35,worldGroup,2);}world.hazards.push({type:'water',id:options.id||'',reservoir:!!options.reservoir,x,z,w,d});return water;}
   function createReservoirBasin(main,north){
-    if(!main||!north)return null;const root=new THREE.Group();root.name='OTTHI_RESERVOIR_SINGLE_CONNECTED';worldGroup.add(root);const bank=renderMat(0xc9b77f,{roughness:.96}),stone=renderMat(0x73808a,{roughness:.92});
+    if(!main||!north)return null;
+    if(typeof rioCompactWorld==='function'&&rioCompactWorld()){
+      const root=new THREE.Group();root.name='RIO_REPRESA_TRES_LAGOS';worldGroup.add(root);
+      const bank=renderMat(0xb8b39b,{roughness:.96}),waters=[];
+      const lakes=RIO_COMPACT_LAKES.map(l=>({...l}));
+      for(const l of lakes){
+        const water=createWater(l.x,l.z,l.w,l.d,{id:l.id,reservoir:true,shore:false});
+        waters.push(water);
+        for(const side of[-1,1]){
+          stableBox(l.w+.38,.12,.24,bank,l.x,.06,l.z+side*(l.d/2+.13),root,2);
+          stableBox(.24,.12,l.d+.38,bank,l.x+side*(l.w/2+.13),.06,l.z,root,2);
+        }
+      }
+      world.reservoir={id:'otthi-reservoir',group:root,waters,main:lakes[0],north:lakes[1],third:lakes[2]};
+      return world.reservoir;
+    }
+    const root=new THREE.Group();root.name='OTTHI_RESERVOIR_SINGLE_CONNECTED';worldGroup.add(root);const bank=renderMat(0xc9b77f,{roughness:.96}),stone=renderMat(0x73808a,{roughness:.92});
     const mainWater=createWater(main.x,main.z,main.w,main.d,{id:'lake',reservoir:true,shore:false}),northWater=createWater(north.x,north.z,north.w,north.d,{id:'lakeNorth',reservoir:true,shore:false});
     const banks=[
       [main.x,main.z-main.d/2-.55,main.w+1.8,1.15],[main.x+main.w/2+.55,main.z,1.15,main.d+2.1],

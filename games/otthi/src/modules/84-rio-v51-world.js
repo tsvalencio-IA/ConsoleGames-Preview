@@ -760,8 +760,8 @@
   function rioUsesMappedCourse(){return typeof inRioMap==='function'&&inRioMap()||typeof rioCompactWorld==='function'&&rioCompactWorld();}
   function rioStreetRecord(){const course=rioUsesMappedCourse()?rioMap.course:RIO_V51.course;return state.races?.streetRuns?.[course?.id];}
   function openRioStreetRun(){
-    const separateRio=rioUsesMappedCourse();const {name}=separateRio?rioMap.course:RIO_V51.course,record=rioStreetRecord();
-    openModal(name,(separateRio?'<p>Percorra 300 metros na pista de caminhada da Represa e passe pelos seis pontos.</p>':'<p>Passe pelos seis pontos na ordem. Siga a calçada em volta dos lagos e termine no pórtico da Damha.</p>')+
+    const separateRio=rioUsesMappedCourse();const selected=separateRio?rioMap.course:RIO_V51.course;if(!selected)return false;const {name}=selected,record=rioStreetRecord();
+    openModal(name,(separateRio?'<p>Percorra '+Math.round(selected.distance||300)+' metros na pista da Represa e passe pelos seis pontos na ordem.</p>':'<p>Passe pelos seis pontos na ordem. Siga a calçada em volta dos lagos e termine no pórtico da Damha.</p>')+
       (record?'<p>Melhor tempo: '+Number(record.best).toFixed(2)+' s</p>':'')+
       '<button class="btn primary" data-rio-run-start>Largar a pé</button>',root=>{
         root.querySelector('[data-rio-run-start]').onclick=()=>{
