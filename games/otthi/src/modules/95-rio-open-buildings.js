@@ -1007,8 +1007,44 @@
     rioBuildShoppingCinema(site,room);
   }
 
+  const RIO_PREVENTIVE_SERVICES=Object.freeze([
+    {id:'oil',label:'Trocar óleo e filtro',price:12,duration:4200},
+    {id:'tires',label:'Trocar conjunto de pneus',price:48,duration:6200},
+    {id:'alignment',label:'Alinhamento e balanceamento',price:20,duration:4800},
+    {id:'inspection',label:'Inspecionar motor, freios e suspensão',price:8,duration:2800}
+  ]);
+  function rioMaintenanceRecord(vehicle){
+    const record=rioRoadVehicleSave(vehicle.id);
+    const m=record.maintenance??={oil:100,tires:100,alignment:100,metres:0,history:[]};
+    for(const key of ['oil','tires','alignment'])m[key]=clamp(Number.isFinite(m[key])?m[key]:100,0,100);
+    m.metres=Number.isFinite(m.metres)?Math.max(0,m.metres):0;
+    if(!Array.isArray(m.history))m.history=[];
+    return m;
+  }
+  function rioMaintenanceWear(m,metres){
+    if(!Number.isFinite(metres)||metres<=0||metres>40)return;
+    m.metres+=metres;
+    m.oil=Math.max(0,m.oil-metres*.005);
+    m.tires=Math.max(0,m.tires-metres*.003);
+    m.alignment=Math.max(0,m.alignment-metres*.0015);
+  }
+  function rioCompletePreventive(vehicle,service){
+    if(Number(state.profile.coins)<service.price)return false;
+    const m=rioMaintenanceRecord(vehicle),parts=workshopComponentRecord(vehicle);
+    if(!parts)return false;
+    if(service.id==='oil'){
+      m.oil=100;
+      // An oil change is preventive; it must not magically repair a broken engine.
+    }else if(service.id==='tires')m.tires=100;
+    else if(service.id==='alignment')m.alignment=100;
+    else if(service.id!=='inspection')return false;
+    addCoins(-service.price);
+    m.history.push({service:service.id,price:service.price,metres:Math.round(m.metres),at:Date.now()});
+    m.history=m.history.slice(-40);
+    saveState(true);updateHUD();return true;
+  }
   function rioBuildOilShop(site,room){
-    const {w,d,yaw}=site,bay=room.point(0,-.55);
+    const {w,d}=site,bay=room.point(0,-.55);
     room.box(0,.035,0,w,.07,d,0x636c6e);
     for(const side of [-1,1]){
       room.object(side*(w/2-.2),2.1,0,.35,4.2,d,0xc9c6b1);
@@ -1018,20 +1054,41 @@
     room.object(0,2.07,-d/2+.16,w,4.14,.32,0xa8b1a9);
     room.box(0,4.29,0,w+.18,.28,d,0x3d554f);
     room.sign('CACHOEIRA · SUPER TROCA DE ÓLEO',0,3.91,d/2+.1,w-.42,.45,'#315c4c');
-    room.action('oil','Revisar motor e trocar óleo',0,-.55,()=>{
+    // Keep the service bay clear and put supplies and attendant to its side.
+    for(let i=0;i<3;i++){
+      room.part('post',w*.32,1.17+i*.24,-d*.29,.58,.20,.58,0x292e32,0,Math.PI/2);
+      room.box(-w*.32-.35+i*.35,1.18,-d*.29,.22,.23,.21,0xcfaa55);
+    }
+    const mechanic=rioServiceClerk(site,room,'preventive','Mecânico',w*.32,0,0x58787b);
+    room.action('oil','Manutenção · óleo, pneus e revisão',0,-.55,()=>{
       const vehicle=currentVehicleRef();
-      const valid=()=>player.vehicle&&rioOwnedRoadVehicle(vehicle)&&currentVehicleRef()===vehicle&&Math.abs(player.car.speed)<.4&&distance2D(player,bay)<2.3;
+      const valid=()=>player.vehicle&&!player.car.passengerOf&&rioOwnedRoadVehicle(vehicle)&&currentVehicleRef()===vehicle&&Math.abs(player.car.speed)<.4&&distance2D(player,bay)<2.3&&room.root.visible;
       if(!valid()){toast('Pare seu carro dentro da baia demarcada.','info',2100);return false;}
-      const record=workshopComponentRecord(vehicle);
-      if(record.parts.engine>=100){toast('O motor está revisado.','good',1900);return false;}
-      openModal(site.name,'<p>Troca de óleo e revisão do motor por 12 moedas.</p><button class="btn primary" data-rio-oil-confirm>Confirmar revisão</button>',root=>{
-        root.querySelector('[data-rio-oil-confirm]').onclick=event=>{
-          if(event.currentTarget.disabled||!valid()||record.parts.engine>=100||state.profile.coins<12)return;
-          event.currentTarget.disabled=true;record.parts.engine=Math.min(100,record.parts.engine+18);
-          const durability=Math.max(vehicleDurabilityV704(vehicle),workshopPartsOverall(record.parts));
-          setVehicleDurabilityV704(vehicle,durability,'revisao-de-oleo');record.lastDurability=durability;
-          addCoins(-12);rioCountVisit(site);closeModal();toast('Revisão registrada no veículo.','good',2200);
-        };
-      });
+      const m=rioMaintenanceRecord(vehicle),record=workshopComponentRecord(vehicle);
+      openModal(site.name,'<p>Óleo '+Math.round(m.oil)+'% · Pneus '+Math.round(m.tires)+'% · Alinhamento '+Math.round(m.alignment)+'%</p>'+
+        '<p>Motor '+Math.round(record.parts.engine)+'% · Freios '+Math.round(record.parts.brakes)+'% · Suspensão '+Math.round(record.parts.suspension)+'%</p>'+
+        '<div class="choice-grid">'+RIO_PREVENTIVE_SERVICES.map(service=>'<button class="choice" data-rio-preventive="'+service.id+'"><b>'+service.label+'</b><span>'+service.price+' moedas</span></button>').join('')+'</div>'+
+        '<p data-rio-service-status>Escolha um serviço. O pagamento é feito ao concluir.</p><progress data-rio-service-progress value="0" max="1" style="width:100%"></progress>'+
+        '<button class="btn" data-rio-service-cancel>Cancelar / sair</button>',root=>{
+          let busy=false,cancelled=false;
+          const choices=[...root.querySelectorAll('[data-rio-preventive]')],status=root.querySelector('[data-rio-service-status]'),progress=root.querySelector('[data-rio-service-progress]');
+          root.querySelector('[data-rio-service-cancel]').onclick=()=>{cancelled=true;closeModal();};
+          for(const button of choices)button.onclick=()=>{
+            const service=RIO_PREVENTIVE_SERVICES.find(x=>x.id===button.dataset.rioPreventive);
+            if(!service||busy||cancelled||!valid())return;
+            if(Number(state.profile.coins)<service.price){toast('Moedas insuficientes.','warn',2100);return;}
+            busy=true;choices.forEach(x=>x.disabled=true);mechanic.servingUntil=performance.now()+service.duration;
+            const start=performance.now();
+            const tick=now=>{
+              if(cancelled||!button.isConnected||els.modal.hidden)return;
+              if(!valid()||Number(state.profile.coins)<service.price){busy=false;choices.forEach(x=>x.disabled=false);status.textContent='Serviço interrompido, sem cobrança.';return;}
+              const ratio=clamp((now-start)/service.duration,0,1);progress.value=ratio;status.textContent=service.label+' · '+Math.floor(ratio*100)+'%';
+              if(ratio<1){requestAnimationFrame(tick);return;}
+              cancelled=true;if(!rioCompletePreventive(vehicle,service))return;
+              rioCountVisit(site);closeModal();toast(service.label+' · concluído e salvo.','good',2400);
+            };
+            requestAnimationFrame(tick);
+          };
+        });
     },{vehicleOnly:true,icon:'🛠️',radius:2.3});
   }
