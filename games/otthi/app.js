@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.44-rio-preto-casas-entregas';
+  const OTTHI_GAME_WEB_BUILD = '705.28.45-rio-preto-interiores-vivos';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -16427,13 +16427,39 @@ function precompile(T,renderer,scene,camera,timings){
   await civilCreateMission(type,'solo');
   return civilCurrent()?.r.type===type&&civilCurrent()?.r.status==='active';
  }
+ // These objectives are derived from the native save, not a parallel economy.
+ // Existing properties, clothes, deliveries and regional trips count directly.
+ function rioLivingJourney(){
+  if(typeof rioCompactWorld!=='function'||!rioCompactWorld())return [];
+  const save=rioMapSave(),properties=Object.values(save.properties||{}).filter(p=>p?.owned);
+  const visits=save.visits||{},trips=save.regionExperience?.visits||{};
+  const owned=properties.filter(p=>!p.adopted||p.paid>0);
+  return [
+   {id:'market',title:'Abasteça sua casa',text:'Vá ao Mercadão e compre alimentos para cozinhar.',target:'regional-mercado_municipal',done:!!visits['regional-mercado_municipal']},
+   {id:'home',title:'Conquiste seu imóvel',text:'Visite e compre uma casa ou um apartamento com as moedas que ganhou.',target:'regional-casa-damha',done:owned.length>0},
+   {id:'furniture',title:'Deixe a casa do seu jeito',text:'Compre, posicione e salve um móvel na sua propriedade.',target:null,done:properties.some(p=>Object.keys(p.decorLayout||{}).length>0)},
+   {id:'style',title:'Escolha seu estilo',text:'Compre uma peça no shopping e experimente no guarda-roupa.',target:'regional-riopreto_shopping',done:Object.values(save.wardrobePurchases||{}).some(Boolean)},
+   {id:'delivery',title:'Receba sua encomenda',text:'Compre material na loja, escolha sua propriedade e receba a entrega.',target:'regional-planalto_materiais',done:(save.constructionOrders||[]).some(o=>o.status==='delivered')},
+   {id:'renovation',title:'Reforme sua casa',text:'Use o material entregue para mudar a parede ou o piso.',target:null,done:properties.some(p=>Number.isInteger(p.renovation?.walls)||Number.isInteger(p.renovation?.floor))},
+   {id:'travel',title:'Conheça a região',text:'Participe de uma atividade em Ibirá, Olímpia ou Barretos.',target:'regional-termas_ibira',done:Object.values(trips).some(v=>Number(v.count)>0)}
+  ];
+ }
+ function rioLivingJourneyHtml(){
+  const rows=rioLivingJourney();if(!rows.length)return '';
+  const done=rows.filter(row=>row.done).length;
+  return '<section class="player-journey"><h3>Minha vida em Rio Preto · '+done+'/'+rows.length+'</h3>'+
+    '<p>Ganhe experiência com atividades reais do mundo. Escolha livremente o que fazer agora.</p><ol class="player-journey-list">'+rows.map((row,i)=>
+    '<li class="'+(row.done?'is-done':'')+'"><span class="player-journey-number">'+(row.done?'✓':i+1)+'</span><div><b>'+escapeHtml(row.title)+'</b><p>'+escapeHtml(row.text)+'</p>'+
+    (row.target?'<button class="btn compact" data-journey-rio-route="'+escapeHtml(row.target)+'">MARCAR NO GPS</button>':'')+'</div></li>').join('')+'</ol></section>';
+ }
  function openPlayerJourney(){
   if(!running)return false;const snapshot=playerJourneySnapshot();if(!snapshot.ready){toast('As aventuras estão sendo preparadas. Aguarde um instante.','info',2200);return false;}
   const active=snapshot.current&&['active','lobby'].includes(snapshot.current.status),next=snapshot.next,escape=escapeHtml;
   const current=active?`<section class="player-journey-current"><span class="player-journey-kicker">EM ANDAMENTO</span><h3>${escape(snapshot.current.title)}</h3><p>${escape(snapshot.current.status==='lobby'?'Prepare a dupla no painel da missão.':snapshot.current.step||'Conclua sua etapa para continuar.')}${snapshot.current.quota?' · '+snapshot.current.count+'/'+snapshot.current.quota:''}</p><button class="btn primary" data-journey-continue>CONTINUAR MISSÃO E GPS</button></section>`:'';
   const suggestion=!active&&next?`<section class="player-journey-current"><span class="player-journey-kicker">${snapshot.done===snapshot.total?'PRÓXIMO DESAFIO':'PRÓXIMO PASSO SUGERIDO'}</span><h3>${next.icon} ${escape(next.title)}</h3><p>${escape(next.purpose)}</p><p class="player-journey-reward">${escape(snapshot.difficultyLabel)} · ${next.reward} moedas ao concluir</p><button class="btn primary" data-journey-start="${next.type}">${snapshot.done===snapshot.total?'REPETIR':'COMEÇAR'} EM ${escape(snapshot.difficultyLabel.toUpperCase())}</button></section>`:'';
   const progress=snapshot.total?Math.round(snapshot.done/snapshot.total*100):0;
-  openModal('Meu caminho no mundo',`<section class="player-journey"><p>Uma sugestão de percurso para conhecer o mundo. Você pode escolher outra aventura ou continuar explorando quando quiser.</p><div class="player-journey-progress"><b>${snapshot.done}/${snapshot.total} aventuras conhecidas</b><span>${snapshot.done===0?'Comece com uma tarefa curta.':snapshot.done===snapshot.total?'Todas as regiões visitadas em aventuras. Tente os desafios ou uma dupla.':'Seu progresso continua salvo entre as aventuras.'}</span><div class="player-journey-meter" role="progressbar" aria-label="Aventuras conhecidas" aria-valuemin="0" aria-valuemax="${snapshot.total}" aria-valuenow="${snapshot.done}"><i style="width:${progress}%"></i></div></div>${current}${suggestion}<h3>Seu percurso · escolha livre</h3><ol class="player-journey-list">${snapshot.rows.map((row,index)=>`<li class="${row.count?'is-done':''}"><span class="player-journey-number" aria-hidden="true">${row.count?'✓':index+1}</span><div><b>${row.icon} ${escape(row.title)}</b><small>${escape(row.region)}${row.count?' · concluída '+row.count+(row.count===1?' vez':' vezes'):''}</small><p>${escape(row.purpose)}</p><button class="btn compact" data-journey-start="${row.type}" ${active?'disabled':''}>${row.count?'REPETIR':'JOGAR'} · ${escape(snapshot.difficultyLabel.toUpperCase())}</button></div></li>`).join('')}</ol><h3>Prepare seu passeio</h3><div class="player-journey-resources"><button class="choice" data-journey-phone><b>📱 Celular e entregas</b><span>${snapshot.resources.parcelReady?'Encomenda chegou: aproxime-se para receber.':snapshot.resources.parcelPending?snapshot.resources.parcelPending+' encomenda(s) em andamento.':'Chame seu veículo ou compre e receba no mundo.'}</span></button><button class="choice" data-journey-garage><b>🚗 Minha garagem</b><span>${snapshot.resources.owned} veículo(s) próprio(s) · ${snapshot.resources.stored} guardado(s).</span></button><button class="choice" data-journey-family><b>🐾 Família</b><span>${snapshot.resources.familyPark?'Passeio até o parque concluído. Brinque e explore com a família.':'Reúna a família para passear até o parque.'}</span></button></div><div class="player-journey-actions"><button class="btn" data-journey-all>TODAS AS AVENTURAS E DUPLAS</button><button class="btn" data-journey-map>MAPA E GPS</button><button class="btn" data-journey-explore>CONTINUAR EXPLORANDO</button></div></section>`,root=>{
+  openModal('Meu caminho no mundo',`<section class="player-journey"><p>Uma sugestão de percurso para conhecer o mundo. Você pode escolher outra aventura ou continuar explorando quando quiser.</p><div class="player-journey-progress"><b>${snapshot.done}/${snapshot.total} aventuras conhecidas</b><span>${snapshot.done===0?'Comece com uma tarefa curta.':snapshot.done===snapshot.total?'Todas as regiões visitadas em aventuras. Tente os desafios ou uma dupla.':'Seu progresso continua salvo entre as aventuras.'}</span><div class="player-journey-meter" role="progressbar" aria-label="Aventuras conhecidas" aria-valuemin="0" aria-valuemax="${snapshot.total}" aria-valuenow="${snapshot.done}"><i style="width:${progress}%"></i></div></div>${current}${suggestion}<h3>Seu percurso · escolha livre</h3><ol class="player-journey-list">${snapshot.rows.map((row,index)=>`<li class="${row.count?'is-done':''}"><span class="player-journey-number" aria-hidden="true">${row.count?'✓':index+1}</span><div><b>${row.icon} ${escape(row.title)}</b><small>${escape(row.region)}${row.count?' · concluída '+row.count+(row.count===1?' vez':' vezes'):''}</small><p>${escape(row.purpose)}</p><button class="btn compact" data-journey-start="${row.type}" ${active?'disabled':''}>${row.count?'REPETIR':'JOGAR'} · ${escape(snapshot.difficultyLabel.toUpperCase())}</button></div></li>`).join('')}</ol>${rioLivingJourneyHtml()}<h3>Prepare seu passeio</h3><div class="player-journey-resources"><button class="choice" data-journey-phone><b>📱 Celular e entregas</b><span>${snapshot.resources.parcelReady?'Encomenda chegou: aproxime-se para receber.':snapshot.resources.parcelPending?snapshot.resources.parcelPending+' encomenda(s) em andamento.':'Chame seu veículo ou compre e receba no mundo.'}</span></button><button class="choice" data-journey-garage><b>🚗 Minha garagem</b><span>${snapshot.resources.owned} veículo(s) próprio(s) · ${snapshot.resources.stored} guardado(s).</span></button><button class="choice" data-journey-family><b>🐾 Família</b><span>${snapshot.resources.familyPark?'Passeio até o parque concluído. Brinque e explore com a família.':'Reúna a família para passear até o parque.'}</span></button></div><div class="player-journey-actions"><button class="btn" data-journey-all>TODAS AS AVENTURAS E DUPLAS</button><button class="btn" data-journey-map>MAPA E GPS</button><button class="btn" data-journey-explore>CONTINUAR EXPLORANDO</button></div></section>`,root=>{
+   root.querySelectorAll('[data-journey-rio-route]').forEach(button=>button.onclick=()=>{closeModal();setWaypoint(button.dataset.journeyRioRoute);});
    root.querySelectorAll('[data-journey-start]').forEach(button=>button.onclick=()=>playerJourneyStart(button.dataset.journeyStart));
    root.querySelector('[data-journey-continue]')?.addEventListener('click',openCivilMissionDetails);
    root.querySelector('[data-journey-phone]').onclick=openWorldPhone;root.querySelector('[data-journey-garage]').onclick=openPlayerGarage;root.querySelector('[data-journey-family]').onclick=()=>{closeModal();window.OTTHI_FAMILY.open();};
@@ -17743,6 +17769,7 @@ function precompile(T,renderer,scene,camera,timings){
     swift:'theater',service:'reception',commerce:'bakery'
   });
   const rioV51InteriorKind=p=>{
+    if(p.shop==='tools'||p.shop==='materials')return 'construction';
     if(p.shop==='market')return 'market';
     if(p.shop==='fastfood')return 'dining';
     if(p.shop==='cafe')return 'bakery';
@@ -17765,7 +17792,7 @@ function precompile(T,renderer,scene,camera,timings){
       id:repeated?p.id+'-v51':p.id,key:repeated?'v51-'+p.key:p.key,
       name:p.name,kind:rioV51InteriorKind(p),style:'urban',
       x:p.x,z:p.z,w:p.w,d:p.d,yaw:p.face===1?0:Math.PI,
-      entry:[p.visitX,p.visitZ],street:p.address
+      entry:[p.visitX,p.visitZ],street:p.address,shop:p.shop
     };
     // Native OT stores, not a static mall modal. Shelves, clothing, shoes and
     // food are built only when the player approaches this district.
@@ -17793,6 +17820,7 @@ function precompile(T,renderer,scene,camera,timings){
     }
     function leave(){
       if(!record.inside)return false;
+      if(rioMap.order?.site===room.site.id)rioClearDiningOrder(room);
       record.inside=false;room.root.visible=false;outside.visible=true;
       for(const collider of room.colliders)collider.disabled=true;
       for(const collider of outsideColliders)collider.disabled=false;
@@ -17806,7 +17834,7 @@ function precompile(T,renderer,scene,camera,timings){
     }
     if(p.shop==='materials'||p.shop==='tools'){
       room.action('construction-counter','Comprar e solicitar entrega de materiais',0,-site.d*.16,
-        ()=>rioOpenRegionalConstructionStore(p),{inside:true,icon:'🧱',radius:2.8});
+        ()=>{const clerk=room.npcs?.find(n=>n.shopSlot==='construction');if(clerk)clerk.servingUntil=performance.now()+2500;return rioOpenRegionalConstructionStore(p);},{inside:true,icon:'🧱',radius:2.8});
     }
     room.action('exit-regional-mall','Sair do estabelecimento',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:2.9});
     record.enter=enter;record.leave=leave;
@@ -18530,6 +18558,7 @@ function precompile(T,renderer,scene,camera,timings){
     reception:{wall:0xd4d9d2,trim:0x668887,roof:0x7e9190,floor:0xc5cec5,height:4.1},
     station:{wall:0xb0babe,trim:0x435c69,roof:0x627985,floor:0xafb8ba,height:5},
     airport:{wall:0xd1d8dd,trim:0x365e76,roof:0x6e8088,floor:0xa7adb3,height:5.7,sign:'AEROPORTO PROF. ERIBELTO MANOEL REINO'},
+    construction:{wall:0xd7d1bb,trim:0x596f65,roof:0x636f69,floor:0xb0aaa0,height:4.8},
     residence:{wall:0xddc5a5,trim:0x6e6054,roof:0x995540,floor:0xc6ad8e,height:3.2},
   };
   const rioDiningStock=[
@@ -18547,6 +18576,7 @@ function precompile(T,renderer,scene,camera,timings){
     practice:'Entrar no gramado e treinar chutes',square:'Descansar em um banco da praça',
     garden:'Percorrer o caminho e cuidar dos vasos',trail:'Largar para os seis checkpoints da Represa',
     statue:'Aproximar-se da escultura e observar a orla',airport:'Terminal, pátio, pista 07/25 e aviação',
+    construction:'Escolher materiais ou ferramentas no balcão e receber a compra no imóvel',
     residence:'Visitar, comprar e usar os cômodos', 'oil-shop':'Entrar com o carro para revisar o motor'
   };
   const rioPaint={
@@ -18617,7 +18647,8 @@ function precompile(T,renderer,scene,camera,timings){
     box(0,2.91,front+.33,entry+.43,.18,.34,p.trim);
     box(0,.031,d/2+.63,entry+.88,.058,1.85,rioPaint.paving);
     // Address, threshold and doorway are in the same open wall.
-    sign(p.sign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
+    const fixedSign=(site.key==='mercado_municipal'||site.key==='catedral_sao_jose'||site.key==='prefeitura_andalo'||site.key==='complexo_swift'||site.kind==='airport')?p.sign:null;
+    sign(fixedSign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
       site.kind==='market'?'#87352e':site.kind==='dining'?'#62422f':'#294b56');
 
     const roof=new THREE.Group();roof.name='RIO_ROOF_'+site.key;room.root.add(roof);
@@ -18648,6 +18679,73 @@ function precompile(T,renderer,scene,camera,timings){
     }
     cap.commit();
     room.roof=roof;
+  }
+
+  // Architectural finish is batched into the existing room, with a small,
+  // bounded number of instances. No extra lights, texture requests or invisible
+  // colliders on the public aisles. Colors distinguish the building's purpose.
+  function rioFinishInterior(site,room){
+    const {w,d,kind}=site, b=room.box, edgeX=w/2-.51,edgeZ=d/2-.51;
+    const theme={
+      residence:site.style==='damha'||site.style==='rios-ditalia'?[0x6d8b8a,0xe8dfd0]:site.style==='snow-cabin'?[0x896748,0xd4bf97]:[0x9d7659,0xe6d6bb],
+      mall:[0x467579,0xe4ddd0],market:[0xa46a43,0xe8dbbb],dining:[0x9c6249,0xe8c6a4],
+      bakery:[0xaa7950,0xf0dfbe],construction:[0x516b61,0xd2c7a8],church:[0x9a7954,0xe1cfac],
+      station:[0x4d6b7b,0xd7dfe0],airport:[0x486c80,0xd4e0e4],reception:[0x61847c,0xe1e9e3],
+      civic:[0x617680,0xe4dfd1],theater:[0x794a43,0xc2a898],exhibition:[0x637b72,0xe4ded0]
+    }[kind];
+    if(!theme)return;
+    const [accent,pale]=theme;
+    for(const side of[-1,1]){
+      b(side*edgeX,.16,0,.055,.18,d-1.04,accent);
+      b(side*edgeX,2.20,0,.055,.09,d-1.04,pale);
+      // Framed wall panels, not free-floating furniture or false doors.
+      const panels=Math.max(1,Math.min(5,Math.floor((d-1.8)/3.4)));
+      for(let i=0;i<panels;i++){
+        const z=-d*.38+(i+.5)*(d*.76/panels);
+        const span=Math.min(1.4,d*.40/panels);
+        b(side*(edgeX-.01),2.46,z,.06,.40,span,accent);
+        b(side*(edgeX-.05),2.46,z,.06,.27,span*.81,pale);
+      }
+    }
+    b(0,.16,-edgeZ,w-1.04,.18,.055,accent);
+    b(0,2.20,-edgeZ,w-1.04,.09,.055,pale);
+    if(kind!=='residence'){
+      // A clear central route in commercial/public buildings; only floor
+      // markings, so walking and vehicle physics remain unchanged.
+      const aisle=Math.min(2.7,w*.22);
+      b(0,.063,d*.17,aisle,.012,d*.52,pale);
+      for(const side of[-1,1])b(side*(aisle/2-.035),.075,d*.17,.07,.012,d*.51,accent);
+    }
+    room.interiorTheme=kind==='residence'?'home-'+(site.style||'classic'):kind;
+  }
+
+  function rioBuildConstructionStore(site,room){
+    const {w,d}=site,hardware=site.shop==='tools';
+    const shelfX=Math.min(w*.34,w/2-1.02),length=Math.min(5.2,d*.43);
+    for(const side of[-1,1]){
+      const x=side*shelfX;
+      // Stock stands occupy the side bays; the middle aisle stays clear.
+      room.object(x,.84,-d*.06,.82,1.68,length,0x6f7971);
+      for(const y of[.44,.97,1.53])room.box(x,y,-d*.06,.98,.07,length,0xc1b7a1);
+      for(let i=0;i<5;i++){
+        const z=-d*.06-length*.4+i*length*.2;
+        if(hardware){
+          room.box(x-side*.46,.68,z,.29,.36,.45,[0x4e7488,0xb08a46,0x6d8278][i%3]);
+          room.box(x-side*.46,1.20,z,.29,.35,.43,[0x7f5947,0x678c8f,0xd0bc94][i%3]);
+          room.box(x-side*.46,1.72,z,.28,.25,.44,0x4d6063);
+        }else{
+          room.box(x-side*.45,.66,z,.35,.33,.54,i%2?0xc7b18a:0xb08761);
+          room.box(x-side*.45,1.18,z,.35,.30,.50,i%2?0xb36951:0xd5c5a6);
+          room.part('post',x-side*.45,1.75,z,.30,.36,.30,i%2?0x6d9993:0xe2ce9c);
+        }
+      }
+      room.sign(hardware?(side<0?'FERRAMENTAS':'FERRAGENS'):(side<0?'PISOS E CIMENTO':'TINTAS E ACABAMENTOS'),x,2.60,-d*.06,Math.min(3.3,w*.22),.36,'#455e53');
+    }
+    const z=-d*.16-1.02;
+    rioCounter(room,0,z,Math.min(4.2,w*.44),0x586c62);
+    rioServiceClerk(site,room,'construction','Consultor de materiais',0,z-.84,0x597c6d);
+    room.sign(hardware?'PEDIDOS · FERRAMENTAS':'PEDIDOS · ENTREGA NO IMÓVEL',0,2.45,z-.38,Math.min(5.1,w*.48),.43,'#455e53');
+    room.interiorStock=hardware?'tools':'materials';
   }
 
   function rioTable(room,x,z,{seatOffset=.9,side=1,cloth=0xe7d3b7}={}){
@@ -18689,18 +18787,24 @@ function precompile(T,renderer,scene,camera,timings){
       [{id:'burger',name:'Hambúrguer',price:14,hunger:38},{id:'juice',name:'Bebida sem álcool',price:10,hunger:10},{id:'parcel',name:'Lanche para levar',price:18,food:2}];
     const order=rioMap.order;
     if(order?.site===site.id){
-      toast('Seu pedido está na mesa indicada. Você paga ao consumir.','info',2800);
+      openModal('Seu pedido · '+site.name,'<p>'+escapeHtml(order.item.name)+' · mesa 1. Você paga somente ao consumir.</p>'+
+        '<div class="modal-actions"><button class="btn primary" data-rio-resume-meal>Ir à mesa</button><button class="btn" data-rio-cancel-meal>Cancelar pedido</button></div>',root=>{
+          root.querySelector('[data-rio-resume-meal]').onclick=closeModal;
+          root.querySelector('[data-rio-cancel-meal]').onclick=()=>{if(rioMap.order===order)rioClearDiningOrder(room);closeModal();};
+        });
       return;
     }
+    if(order){const previous=rioMap.sites.get(order.site);if(previous)rioClearDiningOrder(previous);else rioMap.order=null;}
     openModal(site.name,'<p>Faça o pedido no balcão. Para consumir aqui, vá até a mesa indicada.</p><div class="choice-grid">'+
       stock.map(item=>'<button class="choice" data-rio-food="'+item.id+'"><b>'+item.name+'</b><span>'+item.price+' moedas</span></button>').join('')+
       '</div>',root=>{
+      let ordered=false;
       for(const button of root.querySelectorAll('[data-rio-food]'))button.onclick=()=>{
-        if(button.disabled||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85||!room.root.visible)return;
+        if(ordered||button.disabled||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85||!room.root.visible)return;
         const item=stock.find(record=>record.id===button.dataset.rioFood);
         if(!item)return;
         if(Number(state.profile.coins)<item.price){toast('Moedas insuficientes.','warn',1800);return;}
-        button.disabled=true;
+        ordered=true;button.disabled=true;
         closeModal();
         if(item.food){
           if(rioPurchaseItems(item)){rioCountVisit(site);toast('Lanche entregue no balcão.','good',2100);}
@@ -18719,6 +18823,17 @@ function precompile(T,renderer,scene,camera,timings){
     });
   }
 
+  function rioClearDiningOrder(room){
+    if(rioMap.order?.site===room.site.id)rioMap.order=null;
+    if(room.servedDish)room.servedDish.visible=false;
+    if(room.server){
+      const server=room.server;
+      server.tray.visible=false;server.serving=false;server.index=0;server.direction=1;
+      const start=server.points[0];
+      server.npc.group.position.x=start.x;server.npc.group.position.z=start.z;
+      poseResident(server.npc,'work',performance.now()/1000);
+    }
+  }
   function rioEatAtTable(site,room,seat){
     const order=rioMap.order;
     if(order?.site!==site.id||order.seat!==seat||!room.root.visible||!room.servedDish.visible||!rioPlayerAt(seat.approach))return false;
@@ -18738,12 +18853,23 @@ function precompile(T,renderer,scene,camera,timings){
   function rioBuildDining(site,room){
     const {w,d}=site, x=Math.min(4.2,w*.25),z=-Math.min(2.0,d*.13);
     room.seats=[rioTable(room,-x,z,{side:1,cloth:0xcf8251}),rioTable(room,x,z,{side:-1,cloth:0xf2e2ca})];
+    for(const side of[-1,1]){
+      room.box(side*x,.075,z,1.64,.018,1.46,site.kind==='bakery'?0xd3b185:0xb37f60);
+      room.box(side*x,.91,z-.25,.20,.075,.21,0xdacbb5);
+      room.part('post',side*x,1.04,z-.25,.105,.22,.105,0x70935e);
+    }
     const marked=room.seats[0], dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
     dish.position.set(marked.table.x,.917,marked.table.z);dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';
     room.root.add(dish);room.servedDish=dish;
     const counterZ=-d/2+1.85;
     const counter=rioCounter(room,0,counterZ,Math.min(4.6,w*.53));
     room.sign('PEDIDOS',0,2.31,counterZ-.37,Math.min(3.4,w*.6),.32);
+    room.box(0,2.90,counterZ-.47,Math.min(4.7,w*.54),.16,.53,0x79523e);
+    const displayZ=counterZ-.36;
+    for(let i=-2;i<=2;i++){
+      if(site.kind==='bakery')room.part('canopy',i*.39,1.18,displayZ,.30,.23,.30,0xcba262);
+      else room.box(i*.39,1.20,displayZ,.23,.33,.22,i%2?0xb56c4c:0xe8d7ac);
+    }
     if(site.kind==='bakery')rioBuildBakeryService(site,room,counterZ,x,z);
     else rioServiceClerk(site,room,'dining','Atendente do restaurante',0,counterZ-.86,0x99735e);
     room.action('counter','Fazer pedido no balcão',0,counterZ+1.02,()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍽️'});
@@ -18777,6 +18903,18 @@ function precompile(T,renderer,scene,camera,timings){
     const counter=rioCounter(room,0,counterZ,Math.min(4.7,w*.54));
     const clerk=rioServiceClerk(site,room,'checkout','Caixa',0,counterZ-.88,0x527e70);
     sign(site.kind==='bakery'?'PÃES':site.kind==='mall'?'MERCADO · CAIXA':'CAIXA',0,2.63,counterZ-.35,3.15,.46);
+    if(w>=10&&d>=8){
+      for(const side of[-1,1]){
+        const sx=side*stallX;
+        box(sx,1.62,0,stallW+.13,.08,stallD,0xb59873);
+        box(sx,1.71,0,stallW+.18,.09,stallD,0x6d8870);
+        for(let i=0;i<5;i++){
+          const pz=-stallD*.39+i*stallD*.19;
+          box(sx,1.44,pz,stallW*.62,.27,.29,[0xd7ba80,0x8b9e76,0xb97358][i%3]);
+        }
+        for(const end of[-1,1])box(sx,.46,end*stallD*.47,stallW+.08,.75,.10,0x9c7453);
+      }
+    }
     room.action('counter',site.kind==='bakery'?'Comprar pães no balcão':'Comprar no caixa',0,counterZ+1.02,()=>{
       if(!rioPlayerAt(counter))return;
       clerk.servingUntil=performance.now()+2500;
@@ -18953,13 +19091,15 @@ function precompile(T,renderer,scene,camera,timings){
           !room.forSite(player.x,player.z,-.45),
         action:()=>site.kind==='residence'?rioResidenceDoor(site,room,inside):rioEnterPlace(inside)});
       room.actions.push(id);
-      if(site.kind==='market')rioBuildMarket(site,room);
+      if(site.kind==='construction')rioBuildConstructionStore(site,room);
+      else if(site.kind==='market')rioBuildMarket(site,room);
       else if(site.kind==='mall')rioBuildShopping(site,room);
       else if(site.kind==='dining'||site.kind==='bakery')rioBuildDining(site,room);
       else if(site.kind==='church')rioBuildChurch(site,room);
       else if(site.kind==='residence')rioBuildResidence(site,room);
       else if(site.kind==='airport')rioBuildAirportTerminal(site,room);
       else rioDeskModel(site,room);
+      rioFinishInterior(site,room);
     }else if(site.kind==='fuel')rioBuildFuel(site,room);
     else if(site.kind==='oil-shop')rioBuildOilShop(site,room);
     else rioBuildOpenSite(site,room);
@@ -20485,6 +20625,11 @@ function precompile(T,renderer,scene,camera,timings){
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
     const rioResidencePropertyId=()=>room.selectedUnitId||site.propertyId;
     const {w,d,yaw}=site,condominium=site.style==='rios-ditalia',modern=site.style==='damha'||condominium,back=-d/2+1.04,front=d/2-.12;
+    const compactHome=d<7.2,linen=modern?0x709490:site.style==='snow-cabin'?0xb17c53:0xb8946f;
+    const cabinet=modern?0xc8c9c1:site.style==='snow-cabin'?0x8b6447:0xa17e5e;
+    const kitchenX=compactHome?-w*.17:-w*.32,kitchenZ=compactHome?Math.min(1.35,d*.27):d*.27;
+    const wardrobeX=compactHome?-w*.43:-w*.37,wardrobeZ=compactHome?1.02:.8;
+    const bathZ=Math.min(1.85,d/2-.88);
     room.collider(0,front,Math.min(3.1,w*.4)-.13,.18,2.5);
     room.gate=room.colliders.at(-1);
     const doorPoint=room.point(0,front);
@@ -20494,12 +20639,42 @@ function precompile(T,renderer,scene,camera,timings){
     room.object(bx,.30,back+.24,1.48,.56,2.03,0x8a6b50);
     room.box(bx,.62,back+.13,1.37,.12,1.90,modern?0x7b979c:0xd3b88e);
     room.box(bx,.73,back-.45,1.20,.14,.48,0xf4e2c8);
-    room.object(-w*.37,.92,.8,.49,1.84,1.26,0x876a51);
+    room.box(bx,.91,back-.69,1.53,.76,.14,cabinet);
+    room.box(bx,.755,back+.41,1.38,.09,1.11,linen);
+    for(const side of[-1,1])room.box(bx+side*.32,.82,back-.40,.52,.14,.36,0xf4e2c8);
+    room.object(wardrobeX,.92,wardrobeZ,.49,1.84,1.26,cabinet);
+    for(const side of[-1,1]){
+      room.box(wardrobeX+.256,1.03,wardrobeZ+side*.31,.035,1.66,.60,modern?0xdfe0d5:0xb09272);
+      room.box(wardrobeX+.292,1.05,wardrobeZ+side*.085,.055,.27,.055,0x65716f);
+    }
     const sx=w*.29;
     room.bench(sx,back-.15);
     room.box(sx,1.32,-.42,1.15,.62,.12,0x29424d);
     room.object(sx,.49,-.45,1.60,.98,.48,0x706459);
-    room.box(0,.059,.05,w*.22,.022,1.35,modern?0x708c8e:0xa87659);
+    room.box(sx,1.32,-.35,1.04,.52,.065,0x63818b);
+    room.box(sx,.16,-.18,1.35,.055,.10,0x8a8070);
+    for(const side of[-1,1]){
+      room.box(sx+side*.50,.55,back-.08,.91,.15,.47,linen);
+      room.box(sx+side*.91,.68,back-.08,.17,.44,.57,linen);
+    }
+    const rugWidth=Math.min(2.65,w*.27),rugDepth=Math.min(2.10,d*.30);
+    room.box(0,.059,.05,rugWidth,.022,rugDepth,modern?0x708c8e:0xa87659);
+    for(const side of[-1,1])room.box(side*(rugWidth/2-.09),.076,.05,.09,.012,rugDepth-.10,0xdfcfb4);
+    if(w>=10&&d>=8){
+      // Low open partition distinguishes the bedroom without obstructing
+      // the central entry, the wardrobe or the existing bed approach.
+      room.object(0,.69,-d*.35,.15,1.38,d*.18,cabinet);
+      room.box(0,1.44,-d*.35,.22,.12,d*.19,0xe7ddc8);
+      room.box(0,1.51,-d*.35,.17,.04,d*.15,0xb9a18a);
+    }
+    const wallZ=-d/2+.48;
+    for(const side of[-1,1]){
+      const wx=side*w*.28;
+      room.box(wx,2.15,wallZ,Math.min(1.6,w*.20),.89,.075,cabinet);
+      room.box(wx,2.15,wallZ+.05,Math.min(1.44,w*.18),.73,.06,0x8aa6ad);
+      room.box(wx,2.15,wallZ+.09,.055,.73,.06,0xe8dfca);
+      room.box(wx,2.15,wallZ+.09,Math.min(1.44,w*.18),.055,.06,0xe8dfca);
+    }
     if(modern){
       room.box(w*.31,.045,d/2+.71,w*.34,.074,1.53,0xb2afa4);
       room.box(w*.34,2.71,d/2+.52,w*.36,.21,1.06,0x657374);
@@ -20637,12 +20812,25 @@ function precompile(T,renderer,scene,camera,timings){
         state.needs.energy=100;setFlag('slept');rioCountVisit(site);return true;
       }
     }),{inside:true,icon:'🛏️'});
-    room.action('wardrobe','Usar o guarda-roupa',-w*.37+.92,.8,openRioWardrobe,{inside:true,icon:'👕'});
+    room.action('wardrobe','Usar o guarda-roupa',wardrobeX+.92,wardrobeZ,openRioWardrobe,{inside:true,icon:'👕'});
 
     // Native inventory/needs/save; each action works on the existing profile.
-    room.box(-w*.32,.59,.25,1.46,.12,.74,0xbaa38b);
-    room.box(-w*.32,.94,.25,.60,.58,.45,0xe0dfd7);
-    room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',-w*.19,.85,()=>{
+    // A usable kitchen: cabinet fronts, stone worktop, sink, tap and stove.
+    const kitchenW=compactHome?1.18:1.72;
+    room.object(kitchenX,.44,kitchenZ,kitchenW,.88,.68,cabinet);
+    room.box(kitchenX,.92,kitchenZ,kitchenW+.10,.08,.78,0xd5cbb6);
+    room.box(kitchenX-kitchenW*.25,.975,kitchenZ,.46,.025,.47,0x7e9194);
+    room.box(kitchenX-kitchenW*.25,1.09,kitchenZ-.19,.07,.23,.07,0xaab7b5);
+    room.box(kitchenX-kitchenW*.25,1.20,kitchenZ-.12,.07,.05,.20,0xaab7b5);
+    room.box(kitchenX+kitchenW*.24,.973,kitchenZ,.53,.025,.47,0x303d43);
+    for(const dx of[-.12,.12])for(const dz of[-.11,.11])room.part('post',kitchenX+kitchenW*.24+dx,1.00,kitchenZ+dz,.16,.035,.16,0x677171);
+    for(const side of[-1,1]){
+      room.box(kitchenX+side*kitchenW*.25,.46,kitchenZ+.35,kitchenW*.46,.75,.035,modern?0xe1ddd2:0xb39470);
+      room.box(kitchenX+side*kitchenW*.25,.70,kitchenZ+.39,.18,.045,.055,0x626e70);
+    }
+    const cookX=compactHome?kitchenX:kitchenX+kitchenW*.12;
+    const cookZ=kitchenZ-1.02;
+    room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',cookX,cookZ,()=>{
       if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return;}
       state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
       if(condominium){
@@ -20651,8 +20839,18 @@ function precompile(T,renderer,scene,camera,timings){
       }
       rioCountVisit(site);saveState(true);toast('Refeição preparada. Fome recuperada.','good',2000);
     },{inside:true,icon:'🍳'});
-    room.box(w*.39,.7,1.85,.73,1.4,1.14,0xb7cfcc);
-    room.action('bathroom','Tomar banho',w*.20,1.85,()=>{
+    // A separate sanitary zone, with an open shower entry and real fixtures.
+    const bathX=w*.39;
+    room.box(bathX,.069,bathZ,.78,.04,1.28,0x8daaa7);
+    room.box(bathX+.31,1.06,bathZ,.055,2.05,1.25,0xb7cfcc);
+    room.box(bathX,1.06,bathZ-.58,.67,2.05,.055,0xc4d4cf);
+    room.box(bathX+.27,1.76,bathZ-.29,.075,.37,.075,0x7f9394);
+    room.box(bathX+.14,1.94,bathZ-.29,.32,.075,.22,0xb5c2c0);
+    if(!compactHome){
+      room.box(bathX-.10,.47,bathZ+1.10,.50,.78,.46,0xdeddd4);
+      room.part('post',bathX-.10,.89,bathZ+1.10,.51,.16,.46,0xe9e8df);
+    }
+    room.action('bathroom','Tomar banho',w*.20,bathZ,()=>{
       state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+42,0,100);
       rioCountVisit(site);saveState(true);toast('Banho concluído. Higiene recuperada.','good',2000);
     },{inside:true,icon:'🚿'});
@@ -21161,6 +21359,27 @@ function precompile(T,renderer,scene,camera,timings){
     return true;
   }
 
+  function rioBuildFoodCourt(site,room){
+    // The existing market remains a grocery store. The new food court has
+    // a real dining counter and table, uses the same order/coins/needs
+    // lifecycle as the restaurants, and never charges until consumption.
+    const {w,d}=site;
+    if(w<20||d<13)return;
+    const x=w*.36,z=-d*.35,tableX=w*.37,tableZ=-d*.12;
+    const counter=rioCounter(room,x,z,Math.min(2.8,w*.15),0x9b7256);
+    rioServiceClerk(site,room,'dining','Atendente da praça de alimentação',x,z-.83,0x9d795a);
+    room.sign('PRAÇA DE ALIMENTAÇÃO',x,2.53,z-.40,Math.min(4.4,w*.20),.42,'#76533d');
+    room.box(x,.07,z+1.5,Math.min(4.1,w*.19),.022,1.22,0xd5b78d);
+    room.seats=[rioTable(room,tableX,tableZ,{side:1,cloth:0xc7aa80})];
+    const seat=room.seats[0],dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
+    dish.position.set(seat.table.x,groundHeightAt(seat.table.x,seat.table.z)+.917,seat.table.z);
+    dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';room.root.add(dish);room.servedDish=dish;
+    room.action('food-court-counter','Pedir lanche na praça de alimentação',x,z+1.02,
+      ()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍔'});
+    room.action('food-court-table','Sentar e consumir na praça de alimentação',tableX+.9,tableZ+1.02,
+      ()=>rioEatAtTable(site,room,seat),{inside:true,icon:'🍽️',available:()=>rioMap.order?.site===site.id&&dish.visible});
+  }
+
   function rioBuildShopping(site,room){
     const x=site.w*.28,z=site.d*.15,w=Math.min(5.5,site.w*.24);
     for(const [index,title,slot] of [[-1,'MODA', 'top'],[1,'CALÇADOS','shoes']]){
@@ -21186,8 +21405,13 @@ function precompile(T,renderer,scene,camera,timings){
       }
       room.box(index*x,2.81,frontZ,edge*2+.12,.17,.17,accent);
       room.box(index*x,.036,frontZ+.05,edge*1.5,.018,.72,index<0?0xb996a0:0x91a9b3);
+      // Lighting rails, display cases and the visual boundary distinguish
+      // a retail store from the public circulation space.
+      room.box(index*x,2.71,z-2.3,w*.93,.075,.15,0xe7dccc);
       for(let n=-1;n<=1;n++){
         room.object(index*x+n*1.49,.68,z-2.3,1.27,1.35,.66,0xb2a496);
+        room.box(index*x+n*1.49,.35,z-1.94,1.16,.12,.06,accent);
+        room.box(index*x+n*1.49,1.36,z-2.3,1.34,.075,.73,0xe0d5c1);
         if(slot==='top'){
           room.box(index*x+n*1.49,1.63,z-2.3,.56,.60,.19,[0x557b78,0xb1879c,0x94724e][n+1]);
         }else for(const dx of [-.17,.17])room.box(index*x+n*1.49+dx,1.42,z-2.3,.25,.16,.43,0x394e67);
@@ -21196,6 +21420,7 @@ function precompile(T,renderer,scene,camera,timings){
         ()=>rioWardrobeShop(site,room,counter,slot),{inside:true,icon:slot==='top'?'👕':'👟'});
     }
     rioBuildMarket(site,room);
+    rioBuildFoodCourt(site,room);
   }
 
   function rioBuildOilShop(site,room){
@@ -21882,8 +22107,7 @@ function precompile(T,renderer,scene,camera,timings){
       }
       if(room.server||room.door||room.npcs?.length)rioUpdatePlaceService(site,room,.08);
       if(rioMap.order?.site===site.id&&distance2D(player,site)>Math.max(site.w,site.d)+8){
-        rioMap.order=null;
-        if(room.servedDish)room.servedDish.visible=false;
+        rioClearDiningOrder(room);
       }
     }
   }
