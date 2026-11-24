@@ -414,13 +414,15 @@
               '<button class="choice" data-rio-deliver-house="'+escapeHtml(home.propertyId)+'"><b>'+
               escapeHtml(home.name)+'</b><span>Entregar '+escapeHtml(item.unit)+' · '+item.price+' moedas</span></button>'
             ).join('')+'</div>',root=>{
+              let committed=false;
               for(const choice of root.querySelectorAll('[data-rio-deliver-house]'))choice.onclick=()=>{
-                if(choice.disabled)return;
+                if(committed||choice.disabled)return;
                 const home=rioDeliveryHomes().find(x=>x.propertyId===choice.dataset.rioDeliverHouse);
                 if(!home||Number(state.profile.coins)<item.price){
                   toast('Escolha uma propriedade própria e tenha moedas suficientes.','warn',2300);return;
                 }
-                choice.disabled=true;
+                committed=true;
+                for(const option of root.querySelectorAll('[data-rio-deliver-house]'))option.disabled=true;
                 const save=rioConstructionSave();
                 const nextId=(Math.max(0,...save.constructionOrders.map(x=>Number(x.id)||0))+1);
                 save.constructionOrders.push({
@@ -464,8 +466,10 @@
         if(busy||!running||player.vehicle||player.boating||otGames.active)return;
         if(Number(state.profile.coins)<experience.ticket){toast('Moedas insuficientes para esta atividade.','warn',1900);return;}
         busy=true;
+        let committed=false;
         const finish=()=>{
-        if(Number(state.profile.coins)<experience.ticket)return false;
+        if(committed||Number(state.profile.coins)<experience.ticket)return false;
+        committed=true;
         addCoins(-experience.ticket);
         const record=save.regionExperience.visits[p.id]||{count:0,spent:0};
         record.count++;record.spent+=experience.ticket;record.lastVisit=Date.now();

@@ -15,7 +15,7 @@ function setup(){
       if(selector==='[data-rio-construction-buy]')return model.buttons=Object.keys(model.stock||{}).map(id=>({
         dataset:{rioConstructionBuy:id},disabled:false,onclick:null
       }));
-      if(selector==='[data-rio-deliver-house]')return model.buttons=[{dataset:{rioDeliverHouse:'regional-casa-damha'},disabled:false,onclick:null}];
+      if(selector==='[data-rio-deliver-house]')return model.buttons=(model.addresses||['regional-casa-damha']).map(id=>({dataset:{rioDeliverHouse:id},disabled:false,onclick:null}));
       return [];
     },
     querySelector(selector){const b={onclick:null};model.single[selector]=b;return b;}
@@ -143,6 +143,7 @@ test('a thermal-pool visit moves the avatar before charging and records only a c
   assert.equal(model.state.profile.coins,500,'must not charge until swimming completes');
   assert.equal(model.save.regionExperience.visits['regional-termas_ibira'],undefined);
   assert.equal(scheduled.commit(),true);
+  assert.equal(scheduled.commit(),false,'repeated completion must never charge twice');
   assert.equal(model.state.profile.coins,445);
   assert.equal(model.save.regionExperience.visits['regional-termas_ibira'].count,1);
 });
@@ -165,4 +166,21 @@ test('construction materials received at one address cannot be spent at another;
  assert(vm.runInContext("rioConsumeConstructionStock('home-a','paint')",ctx));
  assert.equal(model.save.constructionByAddress['home-a'].paint,2);
  assert.equal(model.save.constructionInventory.paint,2);
+});
+
+
+test('one construction checkout cannot charge twice through two different address buttons',()=>{
+  const {ctx,model}=setup();
+  const second='regional-casa-second';
+  model.save.properties[second]={owned:true};
+  model.addresses=['regional-casa-damha',second];
+  ctx.compactRio.sites.push({key:'second',id:second,name:'Casa dois',kind:'residence',propertyId:second,entry:[40,50]});
+  model.stock={cement:true};
+  vm.runInContext("rioOpenRegionalConstructionStore({id:'regional-planalto_materiais',name:'Planalto Materiais',shop:'materials'})",ctx);
+  model.buttons[0].onclick();
+  const [first,other]=model.buttons;
+  first.onclick();other.onclick();first.onclick();
+  assert.equal(model.state.profile.coins,458);
+  assert.equal(model.save.constructionOrders.length,1);
+  assert.equal(model.save.constructionOrders[0].destinationId,'regional-casa-damha');
 });
