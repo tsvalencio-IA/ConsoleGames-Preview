@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.41-rio-preto-homologacao';
+  const OTTHI_GAME_WEB_BUILD = '705.28.42-rio-preto-npc-hud';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -5323,12 +5323,14 @@
     // pedestrians and shop staff in Rio Preto use the new human visual style.
     const otToyHeroes=new Set(['nino','luna','teo','bia','maya','clara','rafa','davi','leo','michelle-ottovias']);
     const rioModernNpc=!otToyHeroes.has(id)&&
-      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-)/.test(String(id));
+      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
     if(rioModernNpc){
       // Rio Preto service staff should be human-looking, not a randomly assigned
       // Lego/Mario/Minecraft character. Keep the old toy renderers untouched for
       // named OT characters, retro worlds and all other existing NPCs.
       npc.visualStyle='rio-human';
+      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
+      npc.visualRole=role;group.userData.visualRole=role;
       const detailLayer=new THREE.Group();detailLayer.name='RIO_NPC_FACE_AND_CLOTHES';group.add(detailLayer);
       const detail=renderMat(shadeColor(color,-42),{roughness:.86});
       const collarMat=renderMat(0xe6e0d6,{roughness:.88});
@@ -5382,16 +5384,30 @@
         box(.19,.22,.026,shirtDark,side*.23,1.33,.354,detailLayer);
         box(.065,.11,.04,metalMat,side*.23,1.39,.375,detailLayer);
       }
-      if(String(id).startsWith('porteiro-')){
+      if(role==='concierge'){
         box(.30,.11,.035,metalMat,.21,1.60,.42,detailLayer);
         box(.22,.065,.033,detail,-.19,1.61,.42,detailLayer);
         const badgePlate=renderMat(0x1f778d,{roughness:.63});
         box(.09,.11,.055,badgePlate,-.37,1.30,.295,detailLayer);
-      }else if(String(id).includes('bakery')||String(id).includes('server')){
+      }else if(role==='service'){
         const apron=renderMat(0xf5efe0,{roughness:.88});
         box(.60,.66,.075,apron,0,1.15,.38,detailLayer);
         box(.13,.57,.045,apron,-.31,1.19,.36,detailLayer);
         box(.13,.57,.045,apron,.31,1.19,.36,detailLayer);
+      }else if(role==='retail'){
+        // Staff wear a distinct collared outfit and name badge. These details
+        // are batched with the rest of the existing articulated model.
+        const lapel=renderMat(0xf3eadb,{roughness:.83});
+        const badge=renderMat(0xd8bd81,{roughness:.62});
+        for(const side of[-1,1]){
+          box(.18,.26,.042,lapel,side*.13,1.66,.355,detailLayer);
+        }
+        box(.26,.095,.032,badge,-.20,1.45,.385,detailLayer);
+        box(.035,.13,.035,detail,.24,1.58,.39,detailLayer);
+      }else if(role==='leisure'){
+        const seam=renderMat(shadeColor(color,26),{roughness:.92});
+        box(.57,.08,.055,seam,0,1.46,.345,detailLayer);
+        box(.51,.045,.055,seam,0,1.26,.365,detailLayer);
       }else if(hash%4===0){
         const jacket=renderMat(shadeColor(color,-19),{roughness:.86});
         for(const side of[-1,1])
@@ -9065,8 +9081,15 @@
   function v705NpcPickWander(npc){const b=v705NpcBrain(npc);for(let attempt=0;attempt<14;attempt++){const a=Math.random()*Math.PI*2,r=.9+Math.random()*Math.max(1.8,npc.pathRadius||4),x=npc.baseX+Math.sin(a)*r,z=npc.baseZ+Math.cos(a)*r;if(v705NpcPositionClear(x,z)){b.target={x,z};b.state='wander';b.wanderUntil=performance.now()+2800+Math.random()*5200*b.traits.patience;return;}}b.target={x:npc.baseX,z:npc.baseZ};b.state='idle';b.wanderUntil=performance.now()+1800;}
   function v705NpcVehicleThreat(npc){if(!player.vehicle||player.car.passengerOf)return null;const speed=Math.abs(Number(player.car.speed||0)),rx=npc.group.position.x-player.x,rz=npc.group.position.z-player.z,d=Math.hypot(rx,rz);if(speed<1.7||d>15)return null;const vx=Math.sin(player.car.heading)*player.car.speed,vz=Math.cos(player.car.heading)*player.car.speed,closing=(vx*rx+vz*rz)/Math.max(.001,d),speed2=Math.max(.01,vx*vx+vz*vz),ttc=(rx*vx+rz*vz)/speed2,closestX=rx-vx*ttc,closestZ=rz-vz*ttc,miss=Math.hypot(closestX,closestZ),horn=performance.now()<Number(player.hornUntil||0),cautious=v705NpcBrain(npc).traits.cautious;if(!horn&&(closing<.7||ttc<0||ttc>2.6+cautious||miss>1.4+cautious*1.5))return null;return{d,speed,vx,vz,id:String(currentVehicleRef?.()?.id||'player-car'),horn,ttc,miss};}
   function v705NpcEvadeTarget(npc,threat){const mag=Math.max(.001,Math.hypot(threat.vx,threat.vz)),nx=-threat.vz/mag,nz=threat.vx/mag;let sign=((npc.group.position.x-player.x)*nx+(npc.group.position.z-player.z)*nz)>=0?1:-1;for(const s of[sign,-sign])for(const dist of[5.2,4.0,3.0,2.2]){const x=npc.group.position.x+nx*s*dist,z=npc.group.position.z+nz*s*dist;if(v705NpcPositionClear(x,z))return{x,z};}return{x:npc.baseX,z:npc.baseZ};}
-  function v705NpcSocialPeer(npc){const b=v705NpcBrain(npc);if(b.traits.social<.43)return null;let best=null,bestD=3.8;for(const other of world.npcs||[]){if(other===npc||other.passengerMode||other.mobility||other.coopRaceMode)continue;const d=Math.hypot(npc.group.position.x-other.group.position.x,npc.group.position.z-other.group.position.z);if(d<bestD){best=other;bestD=d;}}return best;}
-  function v705NpcThink(npc){const b=v705NpcBrain(npc),now=performance.now(),near=distance2D(player,npc.group.position),threat=v705NpcVehicleThreat(npc);if(threat){b.state='evade';b.target=v705NpcEvadeTarget(npc,threat);b.fearUntil=now+2600+1700*b.traits.cautious;b.lastVehicle=threat.id;b.lastVehicleAt=now;v705NpcRemember(npc,'vehicle-threat',{vehicle:threat.id,ttc:+threat.ttc.toFixed(2)});if(now-Number(npc.lastDangerSpeech||0)>7000){npc.lastDangerSpeech=now;npcSpeech(npc,threat.horn?'Ouvi a buzina. Vou sair da frente.':'Cuidado! Vou para um lugar seguro.','warn');}return;}if(now<b.fearUntil){if(!b.target||Math.hypot(npc.group.position.x-b.target.x,npc.group.position.z-b.target.z)<.5)b.target={x:npc.baseX,z:npc.baseZ};b.state='recover';return;}if(npc.following){b.state='follow';return;}if(near<3.2){b.state='social';b.lastPlayerAt=now;return;}if(now<b.socialUntil&&b.peerId){b.state='peer-social';return;}const peer=v705NpcSocialPeer(npc);if(peer&&Math.random()<.16*b.traits.social){b.peerId=peer.id;b.socialUntil=now+1400+Math.random()*2400;b.state='peer-social';v705NpcRemember(npc,'talked-to',{peer:peer.id});return;}if(now<Number(b.idleUntil||0)){b.state='idle-look';return;}if(Math.random()<.12){b.idleUntil=now+800+Math.random()*1800;b.state='idle-look';return;}if(!b.target||now>b.wanderUntil||Math.hypot(npc.group.position.x-b.target.x,npc.group.position.z-b.target.z)<.35)v705NpcPickWander(npc);}
+  function v705NpcSocialPeer(npc){const b=v705NpcBrain(npc);if(b.traits.social<.43)return null;let best=null,bestD=3.8;for(const other of world.npcs||[]){if(other===npc||other.passengerMode||other.mobility||other.coopRaceMode||other.stationary||other.group.visible===false||other.group.parent!==npc.group.parent)continue;const d=Math.hypot(npc.group.position.x-other.group.position.x,npc.group.position.z-other.group.position.z);if(d<bestD){best=other;bestD=d;}}return best;}
+  function v705NpcSafetyMotion(npc,b,now){
+    if(!b.target)return false;
+    const remaining=distance2D(npc.group.position,b.target);
+    if(b.state==='step-aside')return remaining>.35&&now<Number(b.stepAsideUntil||0);
+    if(b.state==='evade')return remaining>.45&&now<Number(b.fearUntil||0);
+    return false;
+  }
+  function v705NpcThink(npc){const b=v705NpcBrain(npc),now=performance.now(),near=distance2D(player,npc.group.position),threat=v705NpcVehicleThreat(npc);if(threat){const keepTarget=b.state==='evade'&&b.target&&distance2D(npc.group.position,b.target)>.45&&now<Number(b.fearUntil||0)&&v705NpcPositionClear(b.target.x,b.target.z);b.state='evade';if(!keepTarget)b.target=v705NpcEvadeTarget(npc,threat);b.fearUntil=now+2600+1700*b.traits.cautious;b.lastVehicle=threat.id;b.lastVehicleAt=now;v705NpcRemember(npc,'vehicle-threat',{vehicle:threat.id,ttc:+threat.ttc.toFixed(2)});if(now-Number(npc.lastDangerSpeech||0)>7000){npc.lastDangerSpeech=now;npcSpeech(npc,threat.horn?'Ouvi a buzina. Vou sair da frente.':'Cuidado! Vou para um lugar seguro.','warn');}return;}if(v705NpcSafetyMotion(npc,b,now))return;if(now<b.fearUntil){if(!b.target||Math.hypot(npc.group.position.x-b.target.x,npc.group.position.z-b.target.z)<.5)b.target={x:npc.baseX,z:npc.baseZ};b.state='recover';return;}if(npc.following){b.state='follow';return;}if(near<3.2&&!player.vehicle&&!player.boating&&!player.transit?.mode){b.state='social';b.lastPlayerAt=now;return;}if(now<b.socialUntil&&b.peerId){b.state='peer-social';return;}const peer=v705NpcSocialPeer(npc);if(peer&&Math.random()<.16*b.traits.social){b.peerId=peer.id;b.socialUntil=now+1400+Math.random()*2400;b.state='peer-social';v705NpcRemember(npc,'talked-to',{peer:peer.id});return;}if(now<Number(b.idleUntil||0)){b.state='idle-look';return;}if(Math.random()<.12){b.idleUntil=now+800+Math.random()*1800;b.state='idle-look';return;}if(!b.target||now>b.wanderUntil||Math.hypot(npc.group.position.x-b.target.x,npc.group.position.z-b.target.z)<.35)v705NpcPickWander(npc);}
   const pedestrianNavigation={nextPlanAt:0,actorCells:new Map(),actorSampleAt:-Infinity,plans:0,detours:0,waits:0};
 
   function nearbyPedestrians(position,now){
@@ -9075,7 +9098,7 @@
     if(now-nav.actorSampleAt>=100||nav.actorCount!==world.npcs.length){
       nav.actorCells.clear();nav.actorSampleAt=now;nav.actorCount=world.npcs.length;
       for(const npc of world.npcs){
-        if(npc.passengerMode||npc.lifeAction==='swim'||npc.group.parent!==worldGroup)continue;
+        if(npc.passengerMode||npc.mobility||npc.lifeAction==='swim'||npc.group.visible===false||npc.group.parent!==worldGroup)continue;
         const {x,z}=npc.group.position,key=cell(x,z);
         let actors=nav.actorCells.get(key);
         if(!actors)nav.actorCells.set(key,actors=[]);
@@ -9184,6 +9207,7 @@
     const result=navigator.search.next();
     if(!result.done){navigator.retryAt=now+32;return 0;}
     navigator.path=result.value;navigator.search=null;
+    if(!navigator.path.length)navigator.blocked=Math.max(navigator.blocked,.28);
     navigator.retryAt=now+(navigator.path.length?420:1200)+(v705NpcSeed(npc.id)%280);
     if(navigator.path.length)pedestrianNavigation.detours++;
     else pedestrianNavigation.waits++;
@@ -9206,9 +9230,10 @@
         if(now>Number(b.nextThink||0)){b.nextThink=now+260+Math.random()*260;v705NpcThink(npc);}
         if(escort?.paused){b.state='follow-wait';}
         else if(npc.following){const leader=escort||player,backX=leader.x-Math.sin(leader.facing)*2.1,backZ=leader.z-Math.cos(leader.facing)*2.1;const moved=v705NpcWalk(npc,dt,{x:backX,z:backZ},2.65,true);if(!moved&&Math.hypot(backX-npc.group.position.x,backZ-npc.group.position.z)<.45)npc.group.rotation.y=lerpAngle(npc.group.rotation.y,leader.facing,Math.min(1,dt*6));}
-        else if(b.state==='social'||near){const look=Math.atan2(player.x-npc.group.position.x,player.z-npc.group.position.z);npc.group.rotation.y=lerpAngle(npc.group.rotation.y,look,Math.min(1,dt*5.8));if(Math.hypot(player.vx,player.vz)>4.2&&distance2D(player,npc.group.position)<1.6){const side=Math.sin(player.facing+(npc.id.length%2?Math.PI/2:-Math.PI/2)),sideZ=Math.cos(player.facing+(npc.id.length%2?Math.PI/2:-Math.PI/2)),target={x:npc.group.position.x+side*1.8,z:npc.group.position.z+sideZ*1.8};if(v705NpcPositionClear(target.x,target.z)){b.target=target;b.state='step-aside';}}}
-        else if(b.state==='peer-social'){const peer=(world.npcs||[]).find(item=>item.id===b.peerId);if(peer&&peer.group){const look=Math.atan2(peer.group.position.x-npc.group.position.x,peer.group.position.z-npc.group.position.z);npc.group.rotation.y=lerpAngle(npc.group.rotation.y,look,Math.min(1,dt*4.5));if(Math.hypot(npc.group.position.x-peer.group.position.x,npc.group.position.z-peer.group.position.z)>2.3)v705NpcWalk(npc,dt,{x:peer.group.position.x,z:peer.group.position.z},.75);}else{b.peerId='';b.socialUntil=0;}}
-        else if(b.state==='idle-look'){npc.group.rotation.y+=Math.sin(animTime*.7+npc.phase)*dt*.08;}
+        else if(v705NpcSafetyMotion(npc,b,now)){v705NpcWalk(npc,dt,b.target,b.state==='evade'?4.5:2.5);}
+        else if(b.state==='social'||(near&&!player.vehicle&&!player.boating&&!player.transit?.mode&&b.state!=='recover')){const look=Math.atan2(player.x-npc.group.position.x,player.z-npc.group.position.z);npc.group.rotation.y=lerpAngle(npc.group.rotation.y,look,Math.min(1,dt*5.8));if(Math.hypot(player.vx,player.vz)>4.2&&distance2D(player,npc.group.position)<1.6){const side=Math.sin(player.facing+(npc.id.length%2?Math.PI/2:-Math.PI/2)),sideZ=Math.cos(player.facing+(npc.id.length%2?Math.PI/2:-Math.PI/2)),target={x:npc.group.position.x+side*1.8,z:npc.group.position.z+sideZ*1.8};if(v705NpcPositionClear(target.x,target.z)){b.target=target;b.state='step-aside';b.stepAsideUntil=now+2300;b.nextThink=Math.max(b.nextThink,now+300);}}}
+        else if(b.state==='peer-social'){const peer=(world.npcs||[]).find(item=>item.id===b.peerId);if(peer&&peer.group){const look=Math.atan2(peer.group.position.x-npc.group.position.x,peer.group.position.z-npc.group.position.z);npc.group.rotation.y=lerpAngle(npc.group.rotation.y,look,Math.min(1,dt*4.5));if(Math.hypot(npc.group.position.x-peer.group.position.x,npc.group.position.z-peer.group.position.z)>2.3){const d=distance2D(npc.group.position,peer.group.position);v705NpcWalk(npc,dt,{x:peer.group.position.x+(npc.group.position.x-peer.group.position.x)*1.8/d,z:peer.group.position.z+(npc.group.position.z-peer.group.position.z)*1.8/d},.75);}}else{b.peerId='';b.socialUntil=0;}}
+        else if(b.state==='idle-look'){/* idle holds the last meaningful heading; no endless spin */}
         else if(b.state==='evade'||b.state==='recover'||b.state==='step-aside'){v705NpcWalk(npc,dt,b.target,b.state==='evade'?4.5:b.state==='recover'?1.7:2.5);}
         else if(b.state==='wander'){v705NpcWalk(npc,dt,b.target,1.2+(npc.id.length%4)*.08);}
         else if(b.target)v705NpcWalk(npc,dt,b.target,1.1);
@@ -16374,6 +16399,7 @@ function precompile(T,renderer,scene,camera,timings){
   };
   bar.insertBefore(shortcut('worldHomeBtn','🏠','Minha casa',returnHome),els.avatarGameBtn);
   const phone=bar.querySelector('#worldPhoneBtn');if(phone)bar.insertBefore(phone,els.avatarGameBtn);
+  bar.append(shortcut('worldChooseAvatarBtn','👤','Personagens',openAvatarStudio));
   bar.append(shortcut('worldJourneyBtn','🧭','Meu caminho',()=>openObjectivesPanel()));
   bar.append(shortcut('worldClimateBtn','🌦️','Clima',()=>openRioClimate()));
   bar.append(shortcut('worldLobbyBtn','↩️','Menu inicial',stopGame));

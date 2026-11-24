@@ -2271,6 +2271,21 @@ body.otthi-v705-world.ui-portrait:not(.world-hud-clean) #game #miniNav{
   box-sizing:border-box!important;
 }
 
+
+/* 705.28.42: every tile participates in the same bounded grid. */
+body.otthi-v705-world #game #quickBar:not([hidden]){min-width:0!important;grid-auto-flow:row!important;grid-auto-columns:minmax(0,1fr)!important;contain:layout!important;scrollbar-gutter:stable}
+body.otthi-v705-world #game #quickBar>:is(button,a):not([hidden]){min-width:0!important;max-width:100%!important;grid-column:auto!important;grid-row:auto!important;overflow-wrap:anywhere!important;white-space:normal!important}
+body.otthi-v705-world #game #quickBar>a{position:static!important;display:flex!important;align-items:center!important;justify-content:center!important;height:auto!important;min-height:64px!important;padding:6px 4px!important;box-sizing:border-box!important}
+body.otthi-v705-world #game #quickBar>button:not([hidden]) span{min-width:0!important;overflow-wrap:break-word!important;word-break:normal!important}
+body.otthi-v705-world #game #quickBar #worldChooseAvatarBtn{background:#254e67!important;border-color:#83b5cb!important}
+body.otthi-v705-world #game #quickBar>:is(button,a)[hidden]{display:none!important}
+@media(max-width:360px){
+ body.otthi-v705-world #game #quickBar:not([hidden]){grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;padding:10px!important}
+}
+@media(max-height:420px) and (orientation:landscape){
+ body.otthi-v705-world #game #quickBar:not([hidden]){max-height:calc(var(--otthi-height,100dvh) - 16px - var(--safe-top,0px) - var(--safe-bottom,0px))!important}
+}
+
 /* ===== MODULE: 30-rio-wardrobe.css ===== */
 /* Wardrobe stays inside the native modal's scroll area. */
 .rio-wardrobe { min-width:0; color:#e6f4ef; }

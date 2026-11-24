@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.41-rio-preto-homologacao",
+  "build": "705.28.42-rio-preto-npc-hud",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "1421d693530d6323349207ec01341b72dd699bc8b70c24ec571b5e2a272b25f9"
+      "sha256Body": "fa776ca099fec4a6f5bf48e5da40e1aa94021547e1772e0df218aac6d2d443f0"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -143,7 +143,7 @@
       "startLine": 2743,
       "endLine": 2991,
       "description": "Casas, interiores, NPCs, inimigos, cristais, veículos e academia",
-      "sha256Body": "1dbbeb097e2b390756596a4645730877038c2e8bf24bc6d8c556947d114a641e"
+      "sha256Body": "94dc58f9ec42576e7cb7fa8bc8e65460233214c5f9d095da449f75ccd12eec8d"
     },
     {
       "file": "src/modules/13a-sports-kart-v705.js",
@@ -262,7 +262,7 @@
       "startLine": 4767,
       "endLine": 4928,
       "description": "Sociedade NPC, inimigos, combate, câmera, contexto, ação e necessidades",
-      "sha256Body": "8f0014d19bc35a44446c90facd93337b3b9b7b1cba25f7ce6519df64ca61e161"
+      "sha256Body": "c3cfc2c6c65bef9b40a09eae0a876109c1c785000a488e74bf61c2a8dc8fa742"
     },
     {
       "file": "src/modules/28b-multiplayer-core-v2.js",
@@ -653,7 +653,7 @@
     {
       "file": "src/modules/77-exploration-hud.js",
       "description": "Recolhe atalhos de exploração mantendo ações contextuais e tela completa opcional",
-      "sha256Body": "603b7a6fb2a7737972d2af5418ca7833f3c817347efdde8111e43d7e451eb85e"
+      "sha256Body": "49250d414909ba5d2934c96f2815af2f6d4c820d6678ec2a33eb98df35f59684"
     },
     {
       "file": "src/modules/79-rio-preto-districts.js",
@@ -950,7 +950,7 @@
     {
       "file": "src/styles/29-exploration-hud.css",
       "description": "Menu de exploração e HUD compacto sem remoção de funções",
-      "sha256Body": "8356dd5f9017de0c0771b73ada9b71cc11bab81f9444d1758e53a53c80a2fab1"
+      "sha256Body": "95897e906db58b4b55d0eb541d646c3d3c359786142e626c3f25140b9ce3af7d"
     },
     {
       "file": "src/styles/30-rio-wardrobe.css",
