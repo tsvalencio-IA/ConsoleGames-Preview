@@ -18749,6 +18749,8 @@ function precompile(T,renderer,scene,camera,timings){
   };
   const rioDiningStock=[
     {id:'meal',name:'Prato da casa',price:24,hunger:42},
+    {id:'pizza',name:'Pizza da casa',price:32,hunger:48},
+    {id:'portion',name:'Porção para compartilhar',price:22,hunger:34},
     {id:'juice',name:'Suco gelado',price:10,hunger:10},
     {id:'parcel',name:'Lanche para levar',price:18,food:2}
   ];
@@ -18962,11 +18964,14 @@ function precompile(T,renderer,scene,camera,timings){
   }
 
   function rioTable(room,x,z,{seatOffset=.9,side=1,cloth=0xe7d3b7}={}){
-    const {box,object,point}=room;
+    const {box,object}=room;
     object(x,.79,z,1.18,.12,1.06,rioPaint.wood);
     box(x,.871,z,1.03,.021,.95,cloth);
     for(const dx of [-.47,.47])for(const dz of[-.36,.36])box(x+dx,.37,z+dz,.085,.74,.085,rioPaint.wood);
-    const sx=x+side*seatOffset;
+    return rioDiningChair(room,x,z,side,seatOffset);
+  }
+  function rioDiningChair(room,x,z,side,seatOffset=.9){
+    const {box,point}=room,sx=x+side*seatOffset;
     box(sx,.465,z,.52,.09,.53,rioPaint.seat);
     box(sx+side*.22,.735,z,.075,.51,.52,rioPaint.wood);
     for(const dz of[-.20,.20])box(sx,.22,z+dz,.37,.44,.077,rioPaint.wood);
@@ -19090,7 +19095,45 @@ function precompile(T,renderer,scene,camera,timings){
     room.action('table','Mesa 1 · sentar e consumir',c*dx-s*dz,s*dx+c*dz,
       ()=>rioEatAtTable(site,room,marked),{inside:true,icon:'🍽️',available:()=>rioMap.order?.site===site.id&&room.servedDish.visible});
     room.sign('1',-x,1.05,z+.04,.18,.21,'#6b3f31');
+    // Keep the original player table, approach, order and payment untouched.
+    if(site.key==='canecao_represa'&&w>=15&&d>=8)rioCanecaoGuests(site,room,x,z);
   }
+
+  function rioCanecaoGuests(site,room,x,z){
+    const back=Math.min(1.55,site.d*.19),colors=[0x6285a0,0xb97e65,0x66846e,0x9e7295];
+    const seats=[room.seats[1],rioDiningChair(room,x,z,1)];
+    // Two additional tables outside the central entry aisle; keep the first free.
+    seats.push(rioTable(room,x,back,{side:-1,cloth:0xcf8251}),rioDiningChair(room,x,back,1));
+    rioTable(room,-x,back,{side:1,cloth:0xf2e2ca});rioDiningChair(room,-x,back,-1);
+    rioDiningChair(room,-x,z,-1);
+    for(const row of [{x,z},{x,z:back}]){
+      room.box(row.x,.928,row.z,.57,.055,.56,0xf5e9d1);
+      room.box(row.x,.971,row.z,.44,.044,.43,0xd29b51);
+      for(const dx of[-.12,.12])for(const dz of[-.12,.12])room.box(row.x+dx,1.005,row.z+dz,.08,.018,.08,0xa84b38);
+      for(const side of[-1,1])room.box(row.x+side*.33,.997,row.z-.29,.12,.20,.12,0xbd813f);
+    }
+    room.diningGuests=seats.map((seat,index)=>{
+      const npc=createNPC('rio-diner-'+site.key+'-'+index,'Cliente',seat.chair.x,seat.chair.z,colors[index],0);
+      npc.stationary=true;npc.cityLifeManaged=true;npc.rioFloorY=room.floorY;
+      npc.group.rotation.y=seat.yaw;room.root.add(npc.group);
+      (room.npcs??=[]).push(npc);
+      world.interactables=world.interactables.filter(action=>action.id!=='npc-'+npc.id);
+      poseResident(npc,'talk',0,seat.seatTop);
+      return {npc,seat,index};
+    });
+  }
+  // The established interior service scheduler already runs near visible rooms.
+  const rioDiningServiceBefore=rioUpdatePlaceService;
+  rioUpdatePlaceService=function(site,room,dt){
+    rioDiningServiceBefore(site,room,dt);
+    if(!room.root.visible||!room.diningGuests?.length)return;
+    const time=performance.now()/1000;
+    for(const {npc,seat,index} of room.diningGuests){
+      const phase=(time+index*3)%12,action=phase<5?'talk':phase<9?'eat':'sit';
+      poseResident(npc,action,time,seat.seatTop);
+      if(phase>=9&&npc.limbs)npc.limbs.rightArm.rotation.x=-1.35-Math.sin(time*2)*.18;
+    }
+  };
 
   function rioServiceClerk(site,room,role,name,x,z,color){
     const p=room.point(x,z),clerk=createNPC('rio-service-'+site.key+'-'+role,name,p.x,p.z,color,0);

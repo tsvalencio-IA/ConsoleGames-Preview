@@ -683,7 +683,7 @@
     },
     {
       "file": "src/modules/88-rio-places.js",
-      "sha256Body": "5b56bee8c5e248144bb503139af64ed9bf54a75712fa98a5ff64b5225d58b533"
+      "sha256Body": "1da0df31ea7354c2c0a7dfe569367639a6609426ad51eb84b1b2a82c8545196c"
     },
     {
       "file": "src/modules/89-rio-map-world.js",
