@@ -60,6 +60,30 @@
     sections:[[-65,40],[-116.8,40],[-118.7,43],[-118.7,76.5],[-115.7,78.2],[-90.4,78.2],
       [-89.1,74.5],[-89.1,68.7],[-63,68.7],[-61.4,65],[-61.4,42],[-63,40],[-65,40]]
   };
+  // One datum for visible bridge deck, ramps and walking/vehicle physics.
+  const RIO_COMPACT_BRIDGE=Object.freeze({x:-104,z:69,deckLength:36,rampLength:4.5,width:4.8,top:.815});
+  function rioCompactBridgeSurface(x,z){
+    const b=RIO_COMPACT_BRIDGE,dx=Math.abs(x-b.x);
+    if(Math.abs(z-b.z)>b.width/2||dx>b.deckLength/2+b.rampLength)return 0;
+    return b.top*Math.max(0,Math.min(1,(b.deckLength/2+b.rampLength-dx)/b.rampLength));
+  }
+  const RIO_COMPACT_PARK_STALLS=Object.freeze([
+    {id:'rio-represa-coco',kind:'coconut',name:'Água de coco · Represa',seller:'Vendedor de coco',x:-123.2,z:61.5,yaw:Math.PI/2,color:0x588657},
+    {id:'rio-represa-milho',kind:'corn',name:'Milho verde · Represa',seller:'Vendedor de milho',x:-70,z:73.3,yaw:Math.PI,color:0xc19a46}
+  ]);
+  // The snow resort keeps its cabins, cableway and civilian activities.
+  // The legacy decorative urban towers are not part of this region.
+  function rioCompactSnowBackdrop(p){return p.z>=147&&p.z<480&&p.x>-220&&p.x<200;}
+  function rioCompactPoolPlan(site){
+    const {w,d}=site,pw=Math.min(3.8,w*.23),pd=Math.min(2.8,d*.19);
+    return {x:0,z:-d/2-pd/2-1.6,w:pw,d:pd};
+  }
+  function rioCompactPoolReservation(lot){
+    const [key,x,z,w,d,facing]=lot;
+    if(!key.startsWith('rios_')&&!key.startsWith('casa-damha'))return null;
+    const yaw=rioCompactYaw[facing],p=rioCompactPoolPlan({w,d}),s=Math.sin(yaw),c=Math.cos(yaw),side=Math.abs(s)>.5;
+    return {id:'rio-compact-pool-'+key,x:x+s*p.z,z:z+c*p.z,w:(side?p.d:p.w)+1.6,d:(side?p.w:p.d)+1.6,margin:.25};
+  }
   const rioCompactYaw={s:0,n:Math.PI,w:-Math.PI/2,e:Math.PI/2};
   function rioCompactWorld(){return typeof rioMap!=='undefined'&&!!rioMap?.compact;}
   function rioCompactLotRect([key,x,z,w,d,facing]){

@@ -1,7 +1,7 @@
 name: OTThi - validar correcoes NPC e HUD antes de publicar
 on:
   push:
-    branches: [fix/otthi-npc-hud-20261124]
+    branches: [fix/otthi-npc-hud-20261124, fix/otthi-mapa-integridade-20261124]
 permissions:
   contents: write
 concurrency:
@@ -36,6 +36,9 @@ jobs:
           node tests/pages-preview-browser.mjs
       - name: Verify real regional interiors and chalet ownership
         run: node tests/rio-regional-interiors-browser.mjs
+      - name: Verify park bridge, running course and real purchases
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124'
+        run: node tests/rio-park-integrity-browser.mjs
       - name: Store evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -44,6 +47,7 @@ jobs:
           path: |
             test-results/pages-preview/
             test-results/rio-regional-interiors/
+            test-results/rio-park-integrity/
           if-no-files-found: ignore
       - name: Record generated runtime after all checks
         run: |

@@ -60,7 +60,10 @@
     const coinMat=mat(0xffd52e,{emissive:0xb26b00,emissiveIntensity:.32,metalness:.18,roughness:.3});points.forEach(([x,z],i)=>{const c=new THREE.Mesh(new THREE.TorusGeometry(.34,.11,7,14),coinMat);c.position.set(x,1.15+Math.sin(i*.7)*.18,z);c.rotation.y=Math.PI/2;worldGroup.add(c);world.landmarks.push(c);});
   }
   function createCommercialDistrict(){
-    for(const p of WORLD_LAYOUT_V704.skyline)createBackdropBuilding(p.x,p.z,p.w,p.h,p.d,p.color,p.accent);
+    for(const p of WORLD_LAYOUT_V704.skyline){
+      if(typeof rioCompactWorld==='function'&&rioCompactWorld()&&rioCompactSnowBackdrop(p))continue;
+      createBackdropBuilding(p.x,p.z,p.w,p.h,p.d,p.color,p.accent);
+    }
     createFloatingIsland(-188,36,-294,.75);createFloatingIsland(18,48,-315,.9);createFloatingIsland(190,30,-305,.65);
     [[-28,-28],[-38,-28],[38,-28],[48,-28],[-28,44],[-38,44],[22,44],[32,44]].forEach(([x,z])=>{if(!v704ReservedAt(x,z,.8))createStreetTree(x,z,.72);});
     createCoinTrail([[72,-35],[77,-39],[82,-43],[87,-47],[92,-51],[97,-55]]);

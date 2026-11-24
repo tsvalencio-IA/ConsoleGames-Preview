@@ -4,7 +4,7 @@ const CACHE_PREFIXES = ['otthi-','otthi-game-web-','otthos-life-world-main-'];
 const CACHE_SCOPE = new URL(self.registration.scope);
 const CACHE_MOUNT = '@'+encodeURIComponent(CACHE_SCOPE.pathname);
 const ACTIVE_CACHE = CACHE+CACHE_MOUNT;
-const BUILD = '705.28.47-rio-preto-vida-completa';
+const BUILD = '705.28.48-rio-preto-integridade-mapa';
 const VERSION = '705';
 const RELEASE_MANIFEST = './release-manifest.json?v=70674';
 

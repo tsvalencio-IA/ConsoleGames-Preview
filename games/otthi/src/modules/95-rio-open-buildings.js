@@ -185,8 +185,14 @@
       const batch=rioCreateBatch(exterior);
       batch.root=exterior;
       const outdoor=rioLocal(batch,site);
-      const px=w*.245,pz=d*.405;
+      const compactPool=typeof rioCompactWorld==='function'&&rioCompactWorld()?rioCompactPoolPlan(site):null;
+      const px=compactPool?.x??w*.245,pz=compactPool?.z??d*.405;
       const pw=Math.min(3.8,w*.23),pd=Math.min(2.8,d*.19);
+      if(compactPool){
+        outdoor.box(px,.045,pz,pw+1.30,.075,pd+1.50,0xbec5aa);
+        // Both sides of the house remain passable; pool is behind the shell.
+        for(const side of[-1,1])outdoor.box(px+side*(pw/2+.47),.09,pz,.54,.13,pd+1.05,0xd6cbb3);
+      }
       outdoor.box(px,.065,pz,pw+.40,.13,pd+.40,0xe1d9ca);
       outdoor.box(px,.075,pz,pw,.04,pd,0x2787b3);
       outdoor.box(px,.13,pz-pd*.47,pw,.045,.11,0xa8dee1);
@@ -204,11 +210,12 @@
       }
       batch.commit();
       room.poolExterior=exterior;
-      const approach=outdoor.point(px-pw*.45,pz-pd*.46);
+      const approach=compactPool?outdoor.point(px,pz+pd/2+.80):outdoor.point(px-pw*.45,pz-pd*.46);
       const water=outdoor.point(px,pz);
       // A pool shares the address of its house, but not the interior.
       // The former indoor-flag check made the exterior pool impossible to use.
-      room.isOutdoorLeisurePoint=(x,z)=>Math.hypot(x-water.x,z-water.z)<Math.max(pw,pd)*.62+1.55;
+      room.isOutdoorLeisurePoint=(x,z)=>(!compactPool||!room.forSite(x,z,-.05))&&Math.hypot(x-water.x,z-water.z)<Math.max(pw,pd)*.62+1.55;
+      room.poolPlan={...water,w:pw,d:pd,approach};
       registerInteractable({
         id:site.id+'-outdoor-pool',type:'activity',icon:'🏊',
         label:condominium?'Usar piscina da área comum do condomínio':'Nadar na piscina da casa',

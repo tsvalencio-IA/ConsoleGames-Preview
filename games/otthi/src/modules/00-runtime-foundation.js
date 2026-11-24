@@ -15,7 +15,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.47-rio-preto-vida-completa';
+  const OTTHI_GAME_WEB_BUILD = '705.28.48-rio-preto-integridade-mapa';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';

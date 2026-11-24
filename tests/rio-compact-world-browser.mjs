@@ -338,7 +338,7 @@ try{
 
   // Outdoor water cannot be in the apartment: verify the actual 3D pool
   // interactable from the exterior leisure court of Rio Candelaro.
-  await page.evaluate(()=>OTTHOS_TEST_API.teleport(286.8,143.3));
+  await page.evaluate(()=>{OTTHOS_TEST_API.teleport(269.2,147);});
   await page.waitForFunction(()=>OTTHOS_TEST_API.getContext()?.id==='regional-rios-italia-candelaro-outdoor-pool',
     null,{timeout:16000});
   await shot('rio-candelaro-piscina-externa');
