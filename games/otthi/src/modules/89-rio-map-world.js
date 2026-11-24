@@ -294,7 +294,7 @@
       const vehicle=currentVehicleRef();
       if(rioOwnedRoadVehicle(vehicle)){
         const distance=Math.hypot(before.x-player.x,before.z-player.z),fuel=rioFuelLevel(vehicle);
-        if(distance>0&&fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-distance*.002);
+        if(distance>0&&distance<=40){if(fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-distance*.002);if(rioFuelCapacity(vehicle)&&!player.car.passengerOf)rioMaintenanceWear(rioMaintenanceRecord(vehicle),distance);}
       }
     }
     if(player.boating&&world.boat?.kind==='board')stopEngineSound();
