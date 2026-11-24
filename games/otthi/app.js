@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.49-rio-preto-represa-damha';
+  const OTTHI_GAME_WEB_BUILD = '705.28.50-rio-preto-travessia';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -2681,6 +2681,7 @@
   })();
 
   // ===== MODULE: 78a-rio-compact-layout.js =====
+  const RIO_WEST_BRIDGE_ENTRY=[-123.5,69],RIO_EAST_BRIDGE_ENTRY=[-85.8,69];
   const RIO_COMPACT_LAYOUT={
     highways:[
       {id:'rio-compact-godoy',name:'Rua Antônio de Godoy',width:10,shoulder:1,closed:false,
@@ -2712,7 +2713,7 @@
       ['mcdonalds_andalo',18,-87,12,10,'w','Avenida Alberto Andaló'],
       ['complexo_swift',-128,52,12,14,'e','Orla da Represa'],
       ['dona_capi',-99,36,3,3,'s','Orla da Represa'],
-      ['canecao_represa',-77,32,20,11,'s','Orla da Represa'],
+      ['canecao_represa',-78,33,17,9,'s','Orla da Represa'],
       ['posto_brasilia',185,-40,24,17,'e','Avenida Murchid Homsi'],
       ['estadio_anisio_haddad',-208,-81,32,22,'s','Acesso à Coleção'],
       ['riopreto_shopping',225,24,28,16,'w','Avenida Murchid Homsi'],
@@ -2738,8 +2739,8 @@
       ['rios_liri',280,204,22,20,'e','Rios D’Italia · Av. Murchid Homsi'],
       ['rios_tanaro',320,215,22,20,'w','Rios D’Italia · Av. Murchid Homsi']
     ],
-    sections:[[-65,40],[-116.8,40],[-118.7,43],[-118.7,76.5],[-115.7,78.2],[-90.4,78.2],
-      [-89.1,74.5],[-89.1,68.7],[-63,68.7],[-61.4,65],[-61.4,42],[-63,40],[-65,40]]
+    sections:[[-65,40],[-116.8,40],[-118.7,43],[-118.7,62],[-120.1,64],[-123.5,65.8],RIO_WEST_BRIDGE_ENTRY,[-123.5,72],[-118.7,76.5],[-115.7,78.2],[-90.4,78.2],
+      [-87.6,76.8],[-87.1,72.7],[-87.1,70.4],RIO_EAST_BRIDGE_ENTRY,[-63,68.7],[-61.4,65],[-61.4,42],[-63,40],[-65,40]]
   };
   // One datum for visible bridge deck, ramps and walking/vehicle physics.
   const RIO_COMPACT_BRIDGE=Object.freeze({x:-104,z:69,deckLength:26.4,rampLength:4.5,width:4.8,top:.815});
@@ -2754,11 +2755,23 @@
     {id:'lakeEast',name:'Lago 2 · Parque da Represa',x:-77,z:73.5,w:16,d:6}
   ]);
   const RIO_COMPACT_UPPER_PATH=Object.freeze([[-90.4,78.2],[-67,78.2],[-63,76.5],[-61.4,74],[-61.4,65]]);
+  const westJunction=RIO_COMPACT_LAYOUT.sections.indexOf(RIO_WEST_BRIDGE_ENTRY);
+  const eastJunction=RIO_COMPACT_LAYOUT.sections.indexOf(RIO_EAST_BRIDGE_ENTRY);
   // Closed route with the historic race's save key and six ordered gates.
   // The compact city has a smaller scale than the original laboratory.
-  const RIO_COMPACT_DAMHA_COURSE=Object.freeze([[-108,78.2],[-90.4,78.2],...RIO_COMPACT_UPPER_PATH.slice(1),[-61.4,42],[-63,40],[-65,40],[-116.8,40],[-118.7,43],[-118.7,76.5],[-115.7,78.2],[-108,78.2]]);
+  const RIO_COMPACT_DAMHA_COURSE=Object.freeze([
+    [-108,78.2],...RIO_COMPACT_UPPER_PATH,[-61.4,42],[-63,40],
+    ...RIO_COMPACT_LAYOUT.sections.slice(0,westJunction+1),
+    [-123.5,72],[-118.7,76.5],[-115.7,78.2],[-108,78.2]
+  ]);
+  // The shore and the bridge share the two on-land junctions. Both races
+  // retain their original IDs, distance rules and independently saved records.
+  const RIO_COMPACT_BRIDGE_LAP=[
+    ...RIO_COMPACT_LAYOUT.sections.slice(0,westJunction+1),
+    ...RIO_COMPACT_LAYOUT.sections.slice(eastJunction)
+  ];
   function rioCompactCourseReservations(){
-    const paths=[RIO_COMPACT_LAYOUT.sections,RIO_COMPACT_UPPER_PATH];
+    const paths=[RIO_COMPACT_LAYOUT.sections,RIO_COMPACT_UPPER_PATH,[RIO_WEST_BRIDGE_ENTRY,RIO_EAST_BRIDGE_ENTRY]];
     return paths.flatMap((p,n)=>p.slice(1).map((b,i)=>{const a=p[i];return{id:'rio-compact-track-'+n+'-'+i,x:(a[0]+b[0])/2,z:(a[1]+b[1])/2,w:Math.abs(a[0]-b[0])+3.1,d:Math.abs(a[1]-b[1])+3.1};}));
   }
   const RIO_COMPACT_PARK_STALLS=Object.freeze([
@@ -3127,8 +3140,8 @@
       {id:'guide-lake',kind:'guide',text:'Represa • Píer',x:-62,z:40,rotationY:1.5708},
       {id:'guide-sports',kind:'guide',text:'Complexo Esportivo',x:42,z:64.6,rotationY:0},
       {id:'guide-kart',kind:'guide',text:'Autódromo Nova Aurora',x:300,z:-216.6,rotationY:0},
-      {id:'ov-urban-south',kind:'highway',highwayId:'ottovias-urban',segmentIndex:0,t:.52,side:1,offset:3.2,title:'OTTOVIAS',subtitle:'CENTRO • SAÍDA NORTE'},
-      {id:'ov-urban-center',kind:'highway',highwayId:'ottovias-urban',segmentIndex:3,t:.48,side:1,offset:3.2,title:'OTTOVIAS',subtitle:'NEVE • PRAIA • PEDÁGIOS'},
+      {id:'ov-urban-south',kind:'highway',highwayId:'ottovias-urban',segmentIndex:0,t:compactRioLayout ? .18 : .52,side:1,offset:3.2,title:'OTTOVIAS',subtitle:'CENTRO • SAÍDA NORTE'},
+      {id:'ov-urban-center',kind:'highway',highwayId:'ottovias-urban',segmentIndex:3,t:compactRioLayout ? .13 : .48,side:1,offset:3.2,title:'OTTOVIAS',subtitle:'NEVE • PRAIA • PEDÁGIOS'},
       {id:'ov-north',kind:'highway',highwayId:'ottovias-north-connector',segmentIndex:0,t:.56,side:-1,offset:2.5,title:'OTTOVIAS',subtitle:'LIGAÇÃO NORTE • NEVE'},
       {id:'ov-desert',kind:'highway',highwayId:'ottovias',segmentIndex:2,t:.42,side:-1,offset:2.5,title:'DESERTO',subtitle:'PEDÁGIO PRAÇA SUL'},
       {id:'ov-field',kind:'highway',highwayId:'ottovias',segmentIndex:8,t:.55,side:1,offset:2.5,title:'CAMPO',subtitle:'ACESSOS RURAIS'},
@@ -22325,7 +22338,7 @@ function precompile(T,renderer,scene,camera,timings){
       stableBox(b.deckLength,.58,.12,steel,bx,deckY+.55,bz+side*2.35,root);
       for(let i=-6;i<=6;i++)stableBox(.085,.56,.10,steel,bx+i*2,deckY+.38,bz+side*2.35,root);
     }
-    for(const z of[bz-1.45,bz+1.45]){
+    for(const z of[bz-b.width/2+.24,bz+b.width/2-.24]){
       stableBox(.64,13.4,.67,steel,bx,7.25,z,root);
       for(const dx of[-12,-9,-6,-3,3,6,9,12]){
         const start=new THREE.Vector3(bx,13.9,z),end=new THREE.Vector3(bx+dx,deckY+.82,z);
@@ -22407,7 +22420,6 @@ function precompile(T,renderer,scene,camera,timings){
     const walk=new THREE.Group();
     walk.name='RIO_PRETO_PASSEIO_DA_REPRESA';
     worldGroup.add(walk);
-    const track=renderMat(0xae5848,{roughness:.94,metalness:0}),stripe=renderMat(0xf0e8d5,{roughness:.9});
     // Continuous red running surface with two lanes and marked edges.
     // Use the existing six-checkpoint 300m route; no reset of race records.
     const batch=rioCreateBatch(walk);batch.root=walk;
@@ -22420,6 +22432,27 @@ function precompile(T,renderer,scene,camera,timings){
         batch.part('box',x+Math.cos(yaw)*offset,.141,z-Math.sin(yaw)*offset,.065,.016,len+.12,0xf0e8d5,yaw);
       }
     }
+    // Paint a continuous pair of lanes up the ramps and over Lago 3.
+    // Vertices share each ramp break so the paint follows the visible deck.
+    const bridge=RIO_COMPACT_BRIDGE,edge=bridge.deckLength/2,base=edge+bridge.rampLength;
+    const stations=[RIO_WEST_BRIDGE_ENTRY[0],bridge.x-base,bridge.x-edge,bridge.x+edge,bridge.x+base,RIO_EAST_BRIDGE_ENTRY[0]];
+    const colors=[0xae5848,0xf0e8d5],polygons=[[],[]];
+    const bands=[[-1.1,1.1,0],[-1.06,-1.00,1],[-.027,.027,1],[1,1.06,1]];
+    for(let i=1;i<stations.length;i++){
+      const a=stations[i-1],b=stations[i];
+      for(const [left,right,tint] of bands){
+        const depth=tint ? .030 : .022;
+        const ay=rioCompactBridgeSurface(a,bridge.z)+depth,by=rioCompactBridgeSurface(b,bridge.z)+depth;
+        const near=bridge.z+left,far=bridge.z+right;
+        polygons[tint].push(a,ay,near,a,ay,far,b,by,near,b,by,near,a,ay,far,b,by,far);
+      }
+    }
+    for(const [i,vertices] of polygons.entries()){
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.computeVertexNormals();
+      const lane=new THREE.Mesh(geometry,renderMat(colors[i],{roughness:.94}));
+      lane.name=i?'RIO_PONTE_FAIXAS':'RIO_PONTE_PISTA';lane.receiveShadow=true;walk.add(lane);
+    }
     batch.commit();
     const start=shore[0],gate=new THREE.Group();gate.name='RIO_REPRESA_LARGADA';walk.add(gate);
     for(const side of[-1,1])stableBox(.18,2.8,.18,0x526b60,start.x,1.4,start.z+side*1.65,gate);
@@ -22428,7 +22461,7 @@ function precompile(T,renderer,scene,camera,timings){
     buildRioCompactParkStalls();
     buildRioCompactDamha();
     // Two passes around the shore provide six checkpoints at the same 50 m spacing.
-    rioPrepareWaterfrontRun([...RIO_COMPACT_LAYOUT.sections,...RIO_COMPACT_LAYOUT.sections.slice(1)],
+    rioPrepareWaterfrontRun([...RIO_COMPACT_BRIDGE_LAP,...RIO_COMPACT_BRIDGE_LAP.slice(1)],
       'represa_rio_preto_compacta_300m');
     compactRio.courses.set(rioMap.course.id,{course:rioMap.course,markers:rioMap.courseMarkers});
     const route=RIO_COMPACT_DAMHA_COURSE.map(([x,z])=>({x,z})),startDamha=route[0];

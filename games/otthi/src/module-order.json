@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.49-rio-preto-represa-damha",
+  "build": "705.28.50-rio-preto-travessia",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "823aae33c189a1dba1be958cfd344f633b8797de3c71b2eb52d56372bf6f726d"
+      "sha256Body": "5b62d5f421983a89fc283f95bb18ccd46ebc792db11697d5cdc555388d2e9a1d"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -73,14 +73,14 @@
     {
       "file": "src/modules/78a-rio-compact-layout.js",
       "description": "Lotes, ruas e referências de Rio Preto no terreno original",
-      "sha256Body": "4a55c78db73e7696e0dfc1558eb9791f6ece5f1dc41518a7ce6d83504c520c22"
+      "sha256Body": "c31fea669a902fba7a7596fdf60d8497efc7e5252ee90cef71a42f5e08a793cd"
     },
     {
       "file": "src/modules/05a-world-layout-v704.js",
       "startLine": 0,
       "endLine": 0,
       "description": "Fonte central de verdade do layout mundial V704",
-      "sha256Body": "1f125edd6ffed422563cfd22176c9648e69542bbfd6daf5d2b9188c429285477"
+      "sha256Body": "99bfdce767380cf778166202719cba6255c1586ccf0fd57bf6aa38902550579f"
     },
     {
       "file": "src/modules/06-missions-profile-hud-inventory-tools.js",
@@ -734,7 +734,7 @@
     {
       "file": "src/modules/99-rio-compact-world.js",
       "description": "Infraestrutura original e atividades jogáveis da Rio Preto compacta",
-      "sha256Body": "83af114a7d3592cf7b7490076cbd181d56aabe2280af60d699e56cc793ee62dc"
+      "sha256Body": "9574494305b9444e5305a3fb27c04a77a11969179114d74e024eb5e6819c97cc"
     },
     {
       "file": "src/modules/100-rio-weather.js",
@@ -950,7 +950,7 @@
     {
       "file": "src/styles/29-exploration-hud.css",
       "description": "Menu de exploração e HUD compacto sem remoção de funções",
-      "sha256Body": "95897e906db58b4b55d0eb541d646c3d3c359786142e626c3f25140b9ce3af7d"
+      "sha256Body": "8d4c8735630057d3c8b22578411db231d0d676dea5cbcd64c7b5cc4c7f6fbdc6"
     },
     {
       "file": "src/styles/30-rio-wardrobe.css",
