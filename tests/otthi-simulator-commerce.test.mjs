@@ -22,7 +22,7 @@ function setup(){
       if(selector==='[data-rio-deliver-house]')return model.buttons=(model.addresses||['regional-casa-damha']).map(id=>({dataset:{rioDeliverHouse:id},disabled:false,onclick:null}));
       return [];
     },
-    querySelector(selector){const b={onclick:null};model.single[selector]=b;return b;}
+    querySelector(selector){const b={onclick:null,value:selector==='[data-regional-activity]'?model.selectedActivity:undefined};model.single[selector]=b;return b;}
   };
   model.single={};
   const ctx=vm.createContext({
@@ -135,6 +135,8 @@ test('Ibirá, Olímpia and Barretos have independent paid experiences with persi
     assert(fixture.scheduled,'native activity must start');
     assert.equal(model.state.profile.coins,500-spent,'no charge when starting');
     assert.equal(model.save.regionExperience.visits['regional-'+key],undefined);
+    assert.equal(fixture.scheduled.commit(),false,'activity has not finished');
+    ctx.characterActivities.session.elapsed=ctx.CHARACTER_ACTIVITIES[fixture.scheduled.kind][1];
     assert.equal(fixture.scheduled.commit(),true);
     assert.equal(fixture.scheduled.commit(),false);
     spent+=ticket;
@@ -167,6 +169,8 @@ test('a thermal-pool visit moves the avatar before charging and records only a c
   assert(scheduled&&scheduled.kind==='rio-tourism-thermal'&&scheduled.pose.lying,'physical pool visit was not scheduled');
   assert.equal(model.state.profile.coins,500,'must not charge until swimming completes');
   assert.equal(model.save.regionExperience.visits['regional-termas_ibira'],undefined);
+  assert.equal(scheduled.commit(),false,'early completion is forbidden');
+  ctx.characterActivities.session.elapsed=ctx.CHARACTER_ACTIVITIES[scheduled.kind][1];
   assert.equal(scheduled.commit(),true);
   assert.equal(scheduled.commit(),false,'repeated completion must never charge twice');
   assert.equal(model.state.profile.coins,445);
@@ -242,4 +246,24 @@ test('Barretos timing requires player input and scores across frame boundaries',
   assert.equal(vm.runInContext('rioRodeoSample({sampled:0,correct:0,input:0},8)',ctx),0);
   assert.equal(vm.runInContext('rioRodeoSample({sampled:0,correct:0,input:-1},8)',ctx),50);
   assert.equal(vm.runInContext('(()=>{const r={sampled:0,correct:0,input:0};for(let i=0;i<8;i++){r.input=rioRodeoDirection(i);rioRodeoSample(r,i+1);}return rioRodeoSample(r,8);})()',ctx),100);
+});
+
+test('every tourism option schedules its own physical activity and cancels without charging',()=>{
+  for(const [key,ids] of Object.entries({parque_peao_barretos:['rodeo','watch'],thermas_laranjais:['wave','slide','float'],termas_ibira:['thermal','rest']})){
+    for(const id of ids){
+      const {ctx,model}=setup();
+      const fixture=prepareTourismFixture(ctx,key,key);
+      model.selectedActivity=id;
+      vm.runInContext('rioRegionalExperience(testPlace)',ctx);
+      model.single['[data-regional-join]'].onclick();
+      assert.equal(fixture.scheduled.kind,'rio-tourism-'+id);
+      assert.equal(fixture.scheduled.commit(),false);
+      const interrupted=ctx.characterActivities.session;
+      interrupted.elapsed=ctx.CHARACTER_ACTIVITIES[fixture.scheduled.kind][1];
+      ctx.characterActivities.session=null;
+      assert.equal(fixture.scheduled.commit(),false);
+      assert.equal(model.state.profile.coins,500);
+      assert.equal(model.save.regionExperience.visits[fixture.p.id],undefined);
+    }
+  }
 });
