@@ -89,6 +89,11 @@
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
     const rioResidencePropertyId=()=>room.selectedUnitId||site.propertyId;
     const {w,d,yaw}=site,condominium=site.style==='rios-ditalia',modern=site.style==='damha'||condominium,back=-d/2+1.04,front=d/2-.12;
+    const compactHome=d<7.2,linen=modern?0x709490:site.style==='snow-cabin'?0xb17c53:0xb8946f;
+    const cabinet=modern?0xc8c9c1:site.style==='snow-cabin'?0x8b6447:0xa17e5e;
+    const kitchenX=compactHome?-w*.17:-w*.32,kitchenZ=compactHome?Math.min(1.35,d*.27):d*.27;
+    const wardrobeX=compactHome?-w*.43:-w*.37,wardrobeZ=compactHome?1.02:.8;
+    const bathZ=Math.min(1.85,d/2-.88);
     room.collider(0,front,Math.min(3.1,w*.4)-.13,.18,2.5);
     room.gate=room.colliders.at(-1);
     const doorPoint=room.point(0,front);
@@ -98,12 +103,42 @@
     room.object(bx,.30,back+.24,1.48,.56,2.03,0x8a6b50);
     room.box(bx,.62,back+.13,1.37,.12,1.90,modern?0x7b979c:0xd3b88e);
     room.box(bx,.73,back-.45,1.20,.14,.48,0xf4e2c8);
-    room.object(-w*.37,.92,.8,.49,1.84,1.26,0x876a51);
+    room.box(bx,.91,back-.69,1.53,.76,.14,cabinet);
+    room.box(bx,.755,back+.41,1.38,.09,1.11,linen);
+    for(const side of[-1,1])room.box(bx+side*.32,.82,back-.40,.52,.14,.36,0xf4e2c8);
+    room.object(wardrobeX,.92,wardrobeZ,.49,1.84,1.26,cabinet);
+    for(const side of[-1,1]){
+      room.box(wardrobeX+.256,1.03,wardrobeZ+side*.31,.035,1.66,.60,modern?0xdfe0d5:0xb09272);
+      room.box(wardrobeX+.292,1.05,wardrobeZ+side*.085,.055,.27,.055,0x65716f);
+    }
     const sx=w*.29;
     room.bench(sx,back-.15);
     room.box(sx,1.32,-.42,1.15,.62,.12,0x29424d);
     room.object(sx,.49,-.45,1.60,.98,.48,0x706459);
-    room.box(0,.059,.05,w*.22,.022,1.35,modern?0x708c8e:0xa87659);
+    room.box(sx,1.32,-.35,1.04,.52,.065,0x63818b);
+    room.box(sx,.16,-.18,1.35,.055,.10,0x8a8070);
+    for(const side of[-1,1]){
+      room.box(sx+side*.50,.55,back-.08,.91,.15,.47,linen);
+      room.box(sx+side*.91,.68,back-.08,.17,.44,.57,linen);
+    }
+    const rugWidth=Math.min(2.65,w*.27),rugDepth=Math.min(2.10,d*.30);
+    room.box(0,.059,.05,rugWidth,.022,rugDepth,modern?0x708c8e:0xa87659);
+    for(const side of[-1,1])room.box(side*(rugWidth/2-.09),.076,.05,.09,.012,rugDepth-.10,0xdfcfb4);
+    if(w>=10&&d>=8){
+      // Low open partition distinguishes the bedroom without obstructing
+      // the central entry, the wardrobe or the existing bed approach.
+      room.object(0,.69,-d*.35,.15,1.38,d*.18,cabinet);
+      room.box(0,1.44,-d*.35,.22,.12,d*.19,0xe7ddc8);
+      room.box(0,1.51,-d*.35,.17,.04,d*.15,0xb9a18a);
+    }
+    const wallZ=-d/2+.48;
+    for(const side of[-1,1]){
+      const wx=side*w*.28;
+      room.box(wx,2.15,wallZ,Math.min(1.6,w*.20),.89,.075,cabinet);
+      room.box(wx,2.15,wallZ+.05,Math.min(1.44,w*.18),.73,.06,0x8aa6ad);
+      room.box(wx,2.15,wallZ+.09,.055,.73,.06,0xe8dfca);
+      room.box(wx,2.15,wallZ+.09,Math.min(1.44,w*.18),.055,.06,0xe8dfca);
+    }
     if(modern){
       room.box(w*.31,.045,d/2+.71,w*.34,.074,1.53,0xb2afa4);
       room.box(w*.34,2.71,d/2+.52,w*.36,.21,1.06,0x657374);
@@ -241,12 +276,25 @@
         state.needs.energy=100;setFlag('slept');rioCountVisit(site);return true;
       }
     }),{inside:true,icon:'🛏️'});
-    room.action('wardrobe','Usar o guarda-roupa',-w*.37+.92,.8,openRioWardrobe,{inside:true,icon:'👕'});
+    room.action('wardrobe','Usar o guarda-roupa',wardrobeX+.92,wardrobeZ,openRioWardrobe,{inside:true,icon:'👕'});
 
     // Native inventory/needs/save; each action works on the existing profile.
-    room.box(-w*.32,.59,.25,1.46,.12,.74,0xbaa38b);
-    room.box(-w*.32,.94,.25,.60,.58,.45,0xe0dfd7);
-    room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',-w*.19,.85,()=>{
+    // A usable kitchen: cabinet fronts, stone worktop, sink, tap and stove.
+    const kitchenW=compactHome?1.18:1.72;
+    room.object(kitchenX,.44,kitchenZ,kitchenW,.88,.68,cabinet);
+    room.box(kitchenX,.92,kitchenZ,kitchenW+.10,.08,.78,0xd5cbb6);
+    room.box(kitchenX-kitchenW*.25,.975,kitchenZ,.46,.025,.47,0x7e9194);
+    room.box(kitchenX-kitchenW*.25,1.09,kitchenZ-.19,.07,.23,.07,0xaab7b5);
+    room.box(kitchenX-kitchenW*.25,1.20,kitchenZ-.12,.07,.05,.20,0xaab7b5);
+    room.box(kitchenX+kitchenW*.24,.973,kitchenZ,.53,.025,.47,0x303d43);
+    for(const dx of[-.12,.12])for(const dz of[-.11,.11])room.part('post',kitchenX+kitchenW*.24+dx,1.00,kitchenZ+dz,.16,.035,.16,0x677171);
+    for(const side of[-1,1]){
+      room.box(kitchenX+side*kitchenW*.25,.46,kitchenZ+.35,kitchenW*.46,.75,.035,modern?0xe1ddd2:0xb39470);
+      room.box(kitchenX+side*kitchenW*.25,.70,kitchenZ+.39,.18,.045,.055,0x626e70);
+    }
+    const cookX=compactHome?kitchenX:kitchenX+kitchenW*.12;
+    const cookZ=kitchenZ-1.02;
+    room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',cookX,cookZ,()=>{
       if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return;}
       state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
       if(condominium){
@@ -255,8 +303,18 @@
       }
       rioCountVisit(site);saveState(true);toast('Refeição preparada. Fome recuperada.','good',2000);
     },{inside:true,icon:'🍳'});
-    room.box(w*.39,.7,1.85,.73,1.4,1.14,0xb7cfcc);
-    room.action('bathroom','Tomar banho',w*.20,1.85,()=>{
+    // A separate sanitary zone, with an open shower entry and real fixtures.
+    const bathX=w*.39;
+    room.box(bathX,.069,bathZ,.78,.04,1.28,0x8daaa7);
+    room.box(bathX+.31,1.06,bathZ,.055,2.05,1.25,0xb7cfcc);
+    room.box(bathX,1.06,bathZ-.58,.67,2.05,.055,0xc4d4cf);
+    room.box(bathX+.27,1.76,bathZ-.29,.075,.37,.075,0x7f9394);
+    room.box(bathX+.14,1.94,bathZ-.29,.32,.075,.22,0xb5c2c0);
+    if(!compactHome){
+      room.box(bathX-.10,.47,bathZ+1.10,.50,.78,.46,0xdeddd4);
+      room.part('post',bathX-.10,.89,bathZ+1.10,.51,.16,.46,0xe9e8df);
+    }
+    room.action('bathroom','Tomar banho',w*.20,bathZ,()=>{
       state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+42,0,100);
       rioCountVisit(site);saveState(true);toast('Banho concluído. Higiene recuperada.','good',2000);
     },{inside:true,icon:'🚿'});
@@ -765,6 +823,27 @@
     return true;
   }
 
+  function rioBuildFoodCourt(site,room){
+    // The existing market remains a grocery store. The new food court has
+    // a real dining counter and table, uses the same order/coins/needs
+    // lifecycle as the restaurants, and never charges until consumption.
+    const {w,d}=site;
+    if(w<20||d<13)return;
+    const x=w*.36,z=-d*.35,tableX=w*.37,tableZ=-d*.12;
+    const counter=rioCounter(room,x,z,Math.min(2.8,w*.15),0x9b7256);
+    rioServiceClerk(site,room,'dining','Atendente da praça de alimentação',x,z-.83,0x9d795a);
+    room.sign('PRAÇA DE ALIMENTAÇÃO',x,2.53,z-.40,Math.min(4.4,w*.20),.42,'#76533d');
+    room.box(x,.07,z+1.5,Math.min(4.1,w*.19),.022,1.22,0xd5b78d);
+    room.seats=[rioTable(room,tableX,tableZ,{side:1,cloth:0xc7aa80})];
+    const seat=room.seats[0],dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
+    dish.position.set(seat.table.x,groundHeightAt(seat.table.x,seat.table.z)+.917,seat.table.z);
+    dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';room.root.add(dish);room.servedDish=dish;
+    room.action('food-court-counter','Pedir lanche na praça de alimentação',x,z+1.02,
+      ()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍔'});
+    room.action('food-court-table','Sentar e consumir na praça de alimentação',tableX+.9,tableZ+1.02,
+      ()=>rioEatAtTable(site,room,seat),{inside:true,icon:'🍽️',available:()=>rioMap.order?.site===site.id&&dish.visible});
+  }
+
   function rioBuildShopping(site,room){
     const x=site.w*.28,z=site.d*.15,w=Math.min(5.5,site.w*.24);
     for(const [index,title,slot] of [[-1,'MODA', 'top'],[1,'CALÇADOS','shoes']]){
@@ -790,8 +869,13 @@
       }
       room.box(index*x,2.81,frontZ,edge*2+.12,.17,.17,accent);
       room.box(index*x,.036,frontZ+.05,edge*1.5,.018,.72,index<0?0xb996a0:0x91a9b3);
+      // Lighting rails, display cases and the visual boundary distinguish
+      // a retail store from the public circulation space.
+      room.box(index*x,2.71,z-2.3,w*.93,.075,.15,0xe7dccc);
       for(let n=-1;n<=1;n++){
         room.object(index*x+n*1.49,.68,z-2.3,1.27,1.35,.66,0xb2a496);
+        room.box(index*x+n*1.49,.35,z-1.94,1.16,.12,.06,accent);
+        room.box(index*x+n*1.49,1.36,z-2.3,1.34,.075,.73,0xe0d5c1);
         if(slot==='top'){
           room.box(index*x+n*1.49,1.63,z-2.3,.56,.60,.19,[0x557b78,0xb1879c,0x94724e][n+1]);
         }else for(const dx of [-.17,.17])room.box(index*x+n*1.49+dx,1.42,z-2.3,.25,.16,.43,0x394e67);
@@ -800,6 +884,7 @@
         ()=>rioWardrobeShop(site,room,counter,slot),{inside:true,icon:slot==='top'?'👕':'👟'});
     }
     rioBuildMarket(site,room);
+    rioBuildFoodCourt(site,room);
   }
 
   function rioBuildOilShop(site,room){

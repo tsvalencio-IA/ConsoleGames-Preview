@@ -584,6 +584,7 @@
     swift:'theater',service:'reception',commerce:'bakery'
   });
   const rioV51InteriorKind=p=>{
+    if(p.shop==='tools'||p.shop==='materials')return 'construction';
     if(p.shop==='market')return 'market';
     if(p.shop==='fastfood')return 'dining';
     if(p.shop==='cafe')return 'bakery';
@@ -606,7 +607,7 @@
       id:repeated?p.id+'-v51':p.id,key:repeated?'v51-'+p.key:p.key,
       name:p.name,kind:rioV51InteriorKind(p),style:'urban',
       x:p.x,z:p.z,w:p.w,d:p.d,yaw:p.face===1?0:Math.PI,
-      entry:[p.visitX,p.visitZ],street:p.address
+      entry:[p.visitX,p.visitZ],street:p.address,shop:p.shop
     };
     // Native OT stores, not a static mall modal. Shelves, clothing, shoes and
     // food are built only when the player approaches this district.
@@ -634,6 +635,7 @@
     }
     function leave(){
       if(!record.inside)return false;
+      if(rioMap.order?.site===room.site.id)rioClearDiningOrder(room);
       record.inside=false;room.root.visible=false;outside.visible=true;
       for(const collider of room.colliders)collider.disabled=true;
       for(const collider of outsideColliders)collider.disabled=false;
@@ -647,7 +649,7 @@
     }
     if(p.shop==='materials'||p.shop==='tools'){
       room.action('construction-counter','Comprar e solicitar entrega de materiais',0,-site.d*.16,
-        ()=>rioOpenRegionalConstructionStore(p),{inside:true,icon:'🧱',radius:2.8});
+        ()=>{const clerk=room.npcs?.find(n=>n.shopSlot==='construction');if(clerk)clerk.servingUntil=performance.now()+2500;return rioOpenRegionalConstructionStore(p);},{inside:true,icon:'🧱',radius:2.8});
     }
     room.action('exit-regional-mall','Sair do estabelecimento',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:2.9});
     record.enter=enter;record.leave=leave;

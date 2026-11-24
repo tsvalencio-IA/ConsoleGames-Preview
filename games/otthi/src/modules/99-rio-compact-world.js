@@ -167,8 +167,7 @@
       }
       if(room.server||room.door||room.npcs?.length)rioUpdatePlaceService(site,room,.08);
       if(rioMap.order?.site===site.id&&distance2D(player,site)>Math.max(site.w,site.d)+8){
-        rioMap.order=null;
-        if(room.servedDish)room.servedDish.visible=false;
+        rioClearDiningOrder(room);
       }
     }
   }

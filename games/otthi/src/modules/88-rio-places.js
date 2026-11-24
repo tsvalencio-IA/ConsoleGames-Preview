@@ -12,6 +12,7 @@
     reception:{wall:0xd4d9d2,trim:0x668887,roof:0x7e9190,floor:0xc5cec5,height:4.1},
     station:{wall:0xb0babe,trim:0x435c69,roof:0x627985,floor:0xafb8ba,height:5},
     airport:{wall:0xd1d8dd,trim:0x365e76,roof:0x6e8088,floor:0xa7adb3,height:5.7,sign:'AEROPORTO PROF. ERIBELTO MANOEL REINO'},
+    construction:{wall:0xd7d1bb,trim:0x596f65,roof:0x636f69,floor:0xb0aaa0,height:4.8},
     residence:{wall:0xddc5a5,trim:0x6e6054,roof:0x995540,floor:0xc6ad8e,height:3.2},
   };
   const rioDiningStock=[
@@ -29,6 +30,7 @@
     practice:'Entrar no gramado e treinar chutes',square:'Descansar em um banco da praça',
     garden:'Percorrer o caminho e cuidar dos vasos',trail:'Largar para os seis checkpoints da Represa',
     statue:'Aproximar-se da escultura e observar a orla',airport:'Terminal, pátio, pista 07/25 e aviação',
+    construction:'Escolher materiais ou ferramentas no balcão e receber a compra no imóvel',
     residence:'Visitar, comprar e usar os cômodos', 'oil-shop':'Entrar com o carro para revisar o motor'
   };
   const rioPaint={
@@ -99,7 +101,8 @@
     box(0,2.91,front+.33,entry+.43,.18,.34,p.trim);
     box(0,.031,d/2+.63,entry+.88,.058,1.85,rioPaint.paving);
     // Address, threshold and doorway are in the same open wall.
-    sign(p.sign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
+    const fixedSign=(site.key==='mercado_municipal'||site.key==='catedral_sao_jose'||site.key==='prefeitura_andalo'||site.key==='complexo_swift'||site.kind==='airport')?p.sign:null;
+    sign(fixedSign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
       site.kind==='market'?'#87352e':site.kind==='dining'?'#62422f':'#294b56');
 
     const roof=new THREE.Group();roof.name='RIO_ROOF_'+site.key;room.root.add(roof);
@@ -130,6 +133,73 @@
     }
     cap.commit();
     room.roof=roof;
+  }
+
+  // Architectural finish is batched into the existing room, with a small,
+  // bounded number of instances. No extra lights, texture requests or invisible
+  // colliders on the public aisles. Colors distinguish the building's purpose.
+  function rioFinishInterior(site,room){
+    const {w,d,kind}=site, b=room.box, edgeX=w/2-.51,edgeZ=d/2-.51;
+    const theme={
+      residence:site.style==='damha'||site.style==='rios-ditalia'?[0x6d8b8a,0xe8dfd0]:site.style==='snow-cabin'?[0x896748,0xd4bf97]:[0x9d7659,0xe6d6bb],
+      mall:[0x467579,0xe4ddd0],market:[0xa46a43,0xe8dbbb],dining:[0x9c6249,0xe8c6a4],
+      bakery:[0xaa7950,0xf0dfbe],construction:[0x516b61,0xd2c7a8],church:[0x9a7954,0xe1cfac],
+      station:[0x4d6b7b,0xd7dfe0],airport:[0x486c80,0xd4e0e4],reception:[0x61847c,0xe1e9e3],
+      civic:[0x617680,0xe4dfd1],theater:[0x794a43,0xc2a898],exhibition:[0x637b72,0xe4ded0]
+    }[kind];
+    if(!theme)return;
+    const [accent,pale]=theme;
+    for(const side of[-1,1]){
+      b(side*edgeX,.16,0,.055,.18,d-1.04,accent);
+      b(side*edgeX,2.20,0,.055,.09,d-1.04,pale);
+      // Framed wall panels, not free-floating furniture or false doors.
+      const panels=Math.max(1,Math.min(5,Math.floor((d-1.8)/3.4)));
+      for(let i=0;i<panels;i++){
+        const z=-d*.38+(i+.5)*(d*.76/panels);
+        const span=Math.min(1.4,d*.40/panels);
+        b(side*(edgeX-.01),2.46,z,.06,.40,span,accent);
+        b(side*(edgeX-.05),2.46,z,.06,.27,span*.81,pale);
+      }
+    }
+    b(0,.16,-edgeZ,w-1.04,.18,.055,accent);
+    b(0,2.20,-edgeZ,w-1.04,.09,.055,pale);
+    if(kind!=='residence'){
+      // A clear central route in commercial/public buildings; only floor
+      // markings, so walking and vehicle physics remain unchanged.
+      const aisle=Math.min(2.7,w*.22);
+      b(0,.063,d*.17,aisle,.012,d*.52,pale);
+      for(const side of[-1,1])b(side*(aisle/2-.035),.075,d*.17,.07,.012,d*.51,accent);
+    }
+    room.interiorTheme=kind==='residence'?'home-'+(site.style||'classic'):kind;
+  }
+
+  function rioBuildConstructionStore(site,room){
+    const {w,d}=site,hardware=site.shop==='tools';
+    const shelfX=Math.min(w*.34,w/2-1.02),length=Math.min(5.2,d*.43);
+    for(const side of[-1,1]){
+      const x=side*shelfX;
+      // Stock stands occupy the side bays; the middle aisle stays clear.
+      room.object(x,.84,-d*.06,.82,1.68,length,0x6f7971);
+      for(const y of[.44,.97,1.53])room.box(x,y,-d*.06,.98,.07,length,0xc1b7a1);
+      for(let i=0;i<5;i++){
+        const z=-d*.06-length*.4+i*length*.2;
+        if(hardware){
+          room.box(x-side*.46,.68,z,.29,.36,.45,[0x4e7488,0xb08a46,0x6d8278][i%3]);
+          room.box(x-side*.46,1.20,z,.29,.35,.43,[0x7f5947,0x678c8f,0xd0bc94][i%3]);
+          room.box(x-side*.46,1.72,z,.28,.25,.44,0x4d6063);
+        }else{
+          room.box(x-side*.45,.66,z,.35,.33,.54,i%2?0xc7b18a:0xb08761);
+          room.box(x-side*.45,1.18,z,.35,.30,.50,i%2?0xb36951:0xd5c5a6);
+          room.part('post',x-side*.45,1.75,z,.30,.36,.30,i%2?0x6d9993:0xe2ce9c);
+        }
+      }
+      room.sign(hardware?(side<0?'FERRAMENTAS':'FERRAGENS'):(side<0?'PISOS E CIMENTO':'TINTAS E ACABAMENTOS'),x,2.60,-d*.06,Math.min(3.3,w*.22),.36,'#455e53');
+    }
+    const z=-d*.16-1.02;
+    rioCounter(room,0,z,Math.min(4.2,w*.44),0x586c62);
+    rioServiceClerk(site,room,'construction','Consultor de materiais',0,z-.84,0x597c6d);
+    room.sign(hardware?'PEDIDOS · FERRAMENTAS':'PEDIDOS · ENTREGA NO IMÓVEL',0,2.45,z-.38,Math.min(5.1,w*.48),.43,'#455e53');
+    room.interiorStock=hardware?'tools':'materials';
   }
 
   function rioTable(room,x,z,{seatOffset=.9,side=1,cloth=0xe7d3b7}={}){
@@ -171,18 +241,24 @@
       [{id:'burger',name:'Hambúrguer',price:14,hunger:38},{id:'juice',name:'Bebida sem álcool',price:10,hunger:10},{id:'parcel',name:'Lanche para levar',price:18,food:2}];
     const order=rioMap.order;
     if(order?.site===site.id){
-      toast('Seu pedido está na mesa indicada. Você paga ao consumir.','info',2800);
+      openModal('Seu pedido · '+site.name,'<p>'+escapeHtml(order.item.name)+' · mesa 1. Você paga somente ao consumir.</p>'+
+        '<div class="modal-actions"><button class="btn primary" data-rio-resume-meal>Ir à mesa</button><button class="btn" data-rio-cancel-meal>Cancelar pedido</button></div>',root=>{
+          root.querySelector('[data-rio-resume-meal]').onclick=closeModal;
+          root.querySelector('[data-rio-cancel-meal]').onclick=()=>{if(rioMap.order===order)rioClearDiningOrder(room);closeModal();};
+        });
       return;
     }
+    if(order){const previous=rioMap.sites.get(order.site);if(previous)rioClearDiningOrder(previous);else rioMap.order=null;}
     openModal(site.name,'<p>Faça o pedido no balcão. Para consumir aqui, vá até a mesa indicada.</p><div class="choice-grid">'+
       stock.map(item=>'<button class="choice" data-rio-food="'+item.id+'"><b>'+item.name+'</b><span>'+item.price+' moedas</span></button>').join('')+
       '</div>',root=>{
+      let ordered=false;
       for(const button of root.querySelectorAll('[data-rio-food]'))button.onclick=()=>{
-        if(button.disabled||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85||!room.root.visible)return;
+        if(ordered||button.disabled||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85||!room.root.visible)return;
         const item=stock.find(record=>record.id===button.dataset.rioFood);
         if(!item)return;
         if(Number(state.profile.coins)<item.price){toast('Moedas insuficientes.','warn',1800);return;}
-        button.disabled=true;
+        ordered=true;button.disabled=true;
         closeModal();
         if(item.food){
           if(rioPurchaseItems(item)){rioCountVisit(site);toast('Lanche entregue no balcão.','good',2100);}
@@ -201,6 +277,17 @@
     });
   }
 
+  function rioClearDiningOrder(room){
+    if(rioMap.order?.site===room.site.id)rioMap.order=null;
+    if(room.servedDish)room.servedDish.visible=false;
+    if(room.server){
+      const server=room.server;
+      server.tray.visible=false;server.serving=false;server.index=0;server.direction=1;
+      const start=server.points[0];
+      server.npc.group.position.x=start.x;server.npc.group.position.z=start.z;
+      poseResident(server.npc,'work',performance.now()/1000);
+    }
+  }
   function rioEatAtTable(site,room,seat){
     const order=rioMap.order;
     if(order?.site!==site.id||order.seat!==seat||!room.root.visible||!room.servedDish.visible||!rioPlayerAt(seat.approach))return false;
@@ -220,12 +307,23 @@
   function rioBuildDining(site,room){
     const {w,d}=site, x=Math.min(4.2,w*.25),z=-Math.min(2.0,d*.13);
     room.seats=[rioTable(room,-x,z,{side:1,cloth:0xcf8251}),rioTable(room,x,z,{side:-1,cloth:0xf2e2ca})];
+    for(const side of[-1,1]){
+      room.box(side*x,.075,z,1.64,.018,1.46,site.kind==='bakery'?0xd3b185:0xb37f60);
+      room.box(side*x,.91,z-.25,.20,.075,.21,0xdacbb5);
+      room.part('post',side*x,1.04,z-.25,.105,.22,.105,0x70935e);
+    }
     const marked=room.seats[0], dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
     dish.position.set(marked.table.x,.917,marked.table.z);dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';
     room.root.add(dish);room.servedDish=dish;
     const counterZ=-d/2+1.85;
     const counter=rioCounter(room,0,counterZ,Math.min(4.6,w*.53));
     room.sign('PEDIDOS',0,2.31,counterZ-.37,Math.min(3.4,w*.6),.32);
+    room.box(0,2.90,counterZ-.47,Math.min(4.7,w*.54),.16,.53,0x79523e);
+    const displayZ=counterZ-.36;
+    for(let i=-2;i<=2;i++){
+      if(site.kind==='bakery')room.part('canopy',i*.39,1.18,displayZ,.30,.23,.30,0xcba262);
+      else room.box(i*.39,1.20,displayZ,.23,.33,.22,i%2?0xb56c4c:0xe8d7ac);
+    }
     if(site.kind==='bakery')rioBuildBakeryService(site,room,counterZ,x,z);
     else rioServiceClerk(site,room,'dining','Atendente do restaurante',0,counterZ-.86,0x99735e);
     room.action('counter','Fazer pedido no balcão',0,counterZ+1.02,()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍽️'});
@@ -259,6 +357,18 @@
     const counter=rioCounter(room,0,counterZ,Math.min(4.7,w*.54));
     const clerk=rioServiceClerk(site,room,'checkout','Caixa',0,counterZ-.88,0x527e70);
     sign(site.kind==='bakery'?'PÃES':site.kind==='mall'?'MERCADO · CAIXA':'CAIXA',0,2.63,counterZ-.35,3.15,.46);
+    if(w>=10&&d>=8){
+      for(const side of[-1,1]){
+        const sx=side*stallX;
+        box(sx,1.62,0,stallW+.13,.08,stallD,0xb59873);
+        box(sx,1.71,0,stallW+.18,.09,stallD,0x6d8870);
+        for(let i=0;i<5;i++){
+          const pz=-stallD*.39+i*stallD*.19;
+          box(sx,1.44,pz,stallW*.62,.27,.29,[0xd7ba80,0x8b9e76,0xb97358][i%3]);
+        }
+        for(const end of[-1,1])box(sx,.46,end*stallD*.47,stallW+.08,.75,.10,0x9c7453);
+      }
+    }
     room.action('counter',site.kind==='bakery'?'Comprar pães no balcão':'Comprar no caixa',0,counterZ+1.02,()=>{
       if(!rioPlayerAt(counter))return;
       clerk.servingUntil=performance.now()+2500;
@@ -435,13 +545,15 @@
           !room.forSite(player.x,player.z,-.45),
         action:()=>site.kind==='residence'?rioResidenceDoor(site,room,inside):rioEnterPlace(inside)});
       room.actions.push(id);
-      if(site.kind==='market')rioBuildMarket(site,room);
+      if(site.kind==='construction')rioBuildConstructionStore(site,room);
+      else if(site.kind==='market')rioBuildMarket(site,room);
       else if(site.kind==='mall')rioBuildShopping(site,room);
       else if(site.kind==='dining'||site.kind==='bakery')rioBuildDining(site,room);
       else if(site.kind==='church')rioBuildChurch(site,room);
       else if(site.kind==='residence')rioBuildResidence(site,room);
       else if(site.kind==='airport')rioBuildAirportTerminal(site,room);
       else rioDeskModel(site,room);
+      rioFinishInterior(site,room);
     }else if(site.kind==='fuel')rioBuildFuel(site,room);
     else if(site.kind==='oil-shop')rioBuildOilShop(site,room);
     else rioBuildOpenSite(site,room);
