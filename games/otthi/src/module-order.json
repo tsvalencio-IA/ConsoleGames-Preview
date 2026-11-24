@@ -115,7 +115,7 @@
       "startLine": 1808,
       "endLine": 2074,
       "description": "Responsividade, AR, modos, qualidade, LOD e diagnóstico",
-      "sha256Body": "2052e442b631d70bcda759f90c186e6da66a734e3c8bf042785755677896a001"
+      "sha256Body": "caebf912b64a3284b15a0b27801fc2c07c03b196412ec11afb51f3812944400e"
     },
     {
       "file": "src/modules/10-player-skills.js",
@@ -290,7 +290,7 @@
       "startLine": 5124,
       "endLine": 5238,
       "description": "Loop principal, controles, gamepad e início do jogo",
-      "sha256Body": "265f1e758406385d46244f3e411f0f8a1c3945a2792fe5367a9c6621fa9bba00"
+      "sha256Body": "879e240df6fbcc55e55c12f174542790713062fb955473cf910ff8b4add001bd"
     },
     {
       "file": "src/modules/30-pause-tests-public-api-bootstrap.js",
