@@ -110,6 +110,27 @@
     ];
   }
 
+  // Shared furnishings keep their original IDs, but a chair, a television
+  // and a refrigerator must not all use the same seated pose.
+  function rioFurnitureUsePlan(item,placement,seat,point,yaw,floorY){
+    const angle=placement.rotation*Math.PI/2,forward={x:Math.sin(angle),z:Math.cos(angle)};
+    const center=point(placement.x,placement.z),approach=point(placement.x+forward.x*(item.d/2+.52),placement.z+forward.z*(item.d/2+.52));
+    const stand={...approach,y:floorY,yaw:yaw+angle+Math.PI};
+    const sit={...center,y:floorY+.55,yaw:yaw+angle,sitting:true};
+    if(['sofa','armchair','chair','lounger'].includes(item.type))return{kind:'sofa',target:approach,pose:sit};
+    if(item.type==='bed')return{kind:'bed',target:approach,pose:{...center,y:floorY+.74,yaw:yaw+angle,lying:true}};
+    if(item.type==='tv')return{kind:'tv',target:seat.target,pose:{...seat.pose,yaw:Math.atan2(center.x-seat.pose.x,center.z-seat.pose.z)}};
+    if(item.type==='computer'||item.type==='desk'||item.type==='bookshelf')return{kind:'rio-study',target:approach,pose:stand};
+    if(item.type==='fridge')return{kind:'eat',target:seat.target,pose:seat.pose};
+    if(item.type==='table')return{kind:'eat',target:approach,pose:stand};
+    if(item.type==='grill')return{kind:'cook',target:approach,pose:stand};
+    return null;
+  }
+  function rioHomeCareValue(record,delta){
+    if(!record?.owned)return null;
+    record.cleanliness=clamp((Number.isFinite(record.cleanliness)?record.cleanliness:85)+delta,0,100);
+    return record.cleanliness;
+  }
   function rioBuildResidence(site,room){
     const selected=rioMapSave().selectedApartmentBySite?.[site.id];
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
@@ -329,6 +350,31 @@
       room.box(kitchenX+side*kitchenW*.25,.70,kitchenZ+.39,.18,.045,.055,0x626e70);
     }
     const cookX=compactHome?kitchenX:kitchenX+kitchenW*.12;
+    const homeCare=delta=>rioHomeCareValue(rioPropertyTitle(rioResidencePropertyId()),delta);
+    CHARACTER_ACTIVITIES['rio-clean-home']=['Limpando a casa',6];
+    CHARACTER_ACTIVITIES['rio-study']=['Lendo e estudando',5];
+    // Use the existing accessible kitchen approach for the sink, so no new
+    // solid object is placed across the approved walking route.
+    room.action('drink-water','Beber água na pia',cookX-.34,kitchenZ-1.02,()=>{
+      const target=room.point(cookX,kitchenZ-1.02),sink=room.point(kitchenX-kitchenW*.25,kitchenZ);
+      return beginCharacterActivity('sink',{target,pose:{...target,y:room.floorY,yaw:Math.atan2(sink.x-target.x,sink.z-target.z)},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(target,.26))return false;
+        state.needs.hunger=clamp(Number(state.needs.hunger||0)+5,0,100);
+        state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+5,0,100);
+        rioCountVisit(site);saveState(true);updateHUD();return true;
+      }});
+    },{inside:true,icon:'💧',radius:1.2});
+    room.action('clean-home','Limpar minha residência',0,.8,()=>{
+      const id=rioResidencePropertyId(),record=rioPropertyTitle(id);
+      if(!record?.owned)return false;
+      const target=room.point(0,.8);
+      return beginCharacterActivity('rio-clean-home',{target,pose:{...target,y:room.floorY,yaw},commit:()=>{
+        if(!room.root.visible||rioResidencePropertyId()!==id||!rioPlayerAt(target,.26))return false;
+        if(homeCare(35)===null)return false;
+        state.needs.energy=clamp(Number(state.needs.energy||0)-3,0,100);
+        saveState(true);updateHUD();toast('Limpeza atual: '+Math.round(record.cleanliness)+'%.','good',2000);return true;
+      }});
+    },{inside:true,icon:'🧹',available:()=>!!rioPropertyTitle(rioResidencePropertyId())?.owned});
     const cookZ=kitchenZ-1.02;
     room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',cookX,cookZ,()=>{
       if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return false;}
@@ -336,7 +382,7 @@
       return beginCharacterActivity('cook',{target:approach,pose:{...approach,y:room.floorY,yaw:Math.atan2(stove.x-approach.x,stove.z-approach.z)},commit:()=>{
         if(!room.root.visible||!rioPlayerAt(approach,.26)||Number(state.inventory.food||0)<1)return false;
         state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
-        if(condominium){const home=rioPropertyTitle(rioResidencePropertyId());if(home?.owned)home.cleanliness=clamp(Number(home.cleanliness??85)-7,0,100);}
+        homeCare(-7);
         setFlag('ateMeal');state.stats.cooked=(state.stats.cooked||0)+1;trackDaily('cook',1);
         rioCountVisit(site);saveState(true);updateHUD();toast('Refeição preparada. Fome recuperada.','good',2000);return true;
       }});
@@ -736,8 +782,8 @@
     // Usable purchased furniture. Actions track moved items, so changing their
     // coordinates never leaves a phantom interaction at the old location.
     const furnitureAction={sofa:'sofa',armchair:'sofa',chair:'sofa',lounger:'sofa',
-      bed:'bed',tv:'tv',computer:'tv',table:'eat',fridge:'eat',grill:'cook',
-      desk:'sofa',bookshelf:'sofa'};
+      bed:'bed',tv:'tv',computer:'rio-study',table:'eat',fridge:'eat',grill:'cook',
+      desk:'rio-study',bookshelf:'rio-study'};
     for(const item of furnishings){
       const activity=furnitureAction[item.type];
       if(!activity)continue;
@@ -757,12 +803,13 @@
           if((activity==='cook'||activity==='eat')&&Number(state.inventory.food||0)<1){
             toast('Você precisa comprar alimentos antes.','info',2000);return;
           }
-          const p=currentPlacement(),center=room.point(p.x,p.z);
-          const target=room.point(p.x,p.z+Math.min(item.d/2+.45,1.18));
-          const sitting=['sofa','tv','eat'].includes(activity);
-          beginCharacterActivity(activity,{target,pose:{...center,y:activity==='bed'?.74:.55,
-            yaw:yaw+p.rotation*Math.PI/2,sitting,lying:activity==='bed'},
+          const propertyId=rioResidencePropertyId(),p=currentPlacement();
+          const seat={target:room.point(sx,back+.75),pose:{...room.point(sx,back-.15),y:room.floorY+.535,yaw,sitting:true}};
+          const plan=rioFurnitureUsePlan(item,p,seat,room.point,yaw,room.floorY);
+          if(!plan)return false;
+          return beginCharacterActivity(plan.kind,{target:plan.target,pose:plan.pose,
             commit:()=>{
+              if(!room.root.visible||rioResidencePropertyId()!==propertyId||!rioPlayerAt(plan.target,.26)||currentPlacement().stored)return false;
               if((activity==='cook'||activity==='eat')&&Number(state.inventory.food||0)<1)return false;
               if(activity==='bed')state.needs.energy=100;
               if(activity==='sofa'){
@@ -770,9 +817,10 @@
                 state.needs.fun=clamp(Number(state.needs.fun||0)+14,0,100);
               }
               if(activity==='tv')state.needs.fun=clamp(Number(state.needs.fun||0)+28,0,100);
+              if(activity==='rio-study'){state.needs.fun=clamp(Number(state.needs.fun||0)+10,0,100);addXP(8);}
               if(activity==='eat'||activity==='cook'){
                 state.inventory.food--;
-                state.needs.hunger=clamp(Number(state.needs.hunger||0)+(activity==='cook'?55:34),0,100);
+                state.needs.hunger=clamp(Number(state.needs.hunger||0)+(activity==='cook'?55:34),0,100);homeCare(activity==='cook'?-7:-2);
               }
               rioCountVisit(site);saveState(true);updateHUD();return true;
             }});
@@ -781,7 +829,7 @@
     }
     room.action('home-entry','Ver propriedade',0,d*.24,()=>{
       const title=rioPropertyTitle(rioResidencePropertyId());
-      toast(title?.owned?'Esta casa é sua.':'Residência disponível para compra na porta.','info',2100);
+      toast(title?.owned?'Sua propriedade · limpeza '+Math.round(Number(title.cleanliness??85))+'%.':'Residência disponível para compra na porta.','info',2100);
     },{inside:true,icon:'🔑'});
   }
 

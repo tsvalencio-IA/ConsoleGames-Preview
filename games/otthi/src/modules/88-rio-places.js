@@ -365,6 +365,13 @@
     room.sign('1',-x,1.05,z+.04,.18,.21,'#6b3f31');
     // Keep the original player table, approach, order and payment untouched.
     if(site.key==='canecao_represa'&&w>=15&&d>=8)rioCanecaoGuests(site,room,x,z);
+    else if(w>=8&&d>=6.5){
+      const guest=room.seats[1];
+      rioPublicGuest(site,room,'dining-guest','Cliente',x-.9,z,{seat:.51,action:'eat',yaw:guest.yaw,color:0x98775f});
+      room.box(x,.928,z,.36,.05,.35,0xf1e2c6);
+      room.box(x,.974,z,.24,.06,.23,site.kind==='bakery'?0xc39159:0xc57b48);
+      room.box(x+.33,1.0,z-.22,.10,.18,.10,0xd4ac70);
+    }
   }
 
   function rioCanecaoGuests(site,room,x,z){
