@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.49-rio-preto-represa-damha',
+    build: '705.28.50-rio-preto-travessia',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',

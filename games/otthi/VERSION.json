@@ -1,6 +1,6 @@
 {
   "version": 705,
-  "build": "705.28.49-rio-preto-represa-damha",
+  "build": "705.28.50-rio-preto-travessia",
   "name": "OTTHI World",
   "sourceArchitecture": "modular-source-with-generated-runtime-bundle",
   "runtimeBundle": "app.js",

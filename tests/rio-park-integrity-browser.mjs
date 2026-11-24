@@ -28,6 +28,65 @@ try{
      }
      clearMovementInputs();return{x:player.x,y:player.y,z:player.z,minY,swam,trace};
    },
+   finishCourse:()=>{
+     const course=rioMap.course,previous=rioStreetRecord()?.runs||0;
+     let overLake=0,swam=false;
+     cameraYaw=0;
+     for(const goal of course.route.slice(1)){
+       let frames=0;
+       while(activeRace&&distance2D(player,goal)>.18){
+         if(++frames>2400)throw Error('Runner stopped at '+JSON.stringify({x:player.x,z:player.z,goal}));
+         const dx=goal.x-player.x,dz=goal.z-player.z,len=Math.hypot(dx,dz);
+         input.joyId=1;input.joyX=dx/len;input.joyZ=-dz/len;
+         updatePlayer(1/60);updateRioStreetRun(1/60);
+         if(waterAt(player.x,player.z)&&rioCompactBridgeSurface(player.x,player.z)>.24)overLake++;
+         swam||=player.swimming;
+       }
+       if(!activeRace)break;
+     }
+     clearMovementInputs();
+     return {id:course.id,gates:course.gates.length,completed:(rioStreetRecord()?.runs||0)-previous,overLake,swam};
+   },
+   renderedBuildings:()=>{
+     // An InstancedMesh stores its real building parts in per-instance matrices.
+     // Its unit geometry's bounding box alone would miss the overhanging roofs.
+     worldGroup.updateMatrixWorld(true);
+     const buildings=[],one=new THREE.Box3(),local=new THREE.Matrix4(),matrix=new THREE.Matrix4();
+     function record(id,objects){
+       const bounds=new THREE.Box3();
+       for(const root of objects.filter(Boolean))root.traverse(mesh=>{
+         if(!mesh.isMesh)return;
+         const g=mesh.geometry;if(!g.boundingBox)g.computeBoundingBox();
+         if(mesh.isInstancedMesh){
+           for(let i=0;i<mesh.count;i++){
+             mesh.getMatrixAt(i,local);matrix.multiplyMatrices(mesh.matrixWorld,local);
+             bounds.union(one.copy(g.boundingBox).applyMatrix4(matrix));
+           }
+         }else bounds.union(one.copy(g.boundingBox).applyMatrix4(mesh.matrixWorld));
+       });
+       if(!bounds.isEmpty())buildings.push({id,bounds});
+     }
+     for(const h of world.houses)record(h.id,[h.roof,h.front,h.workshopShell]);
+     for(const r of rioMap.sites.values())if(!r.legacyResidence&&r.roof)record(r.site.id,[r.roof]);
+     const overlaps=[];
+     for(const [i,a] of buildings.entries())for(const b of buildings.slice(i+1)){
+       if(a.bounds.intersectsBox(b.bounds))overlaps.push([a.id,b.id]);
+     }
+     const inlet=rioMap.sites.get('regional-mcdonalds_andalo').site.entry;
+     const sign=world.navigationSigns.filter(s=>s.kind==='highway').map(s=>distance2D(s,{x:inlet[0],z:inlet[1]}));
+     return {count:buildings.length,overlaps,nearestRoadSign:Math.min(...sign)};
+   },
+   boardCar:()=>{
+     const v=world.vehicles.find(v=>v.id==='garage-orange');
+     OTTHOS_TEST_API.teleport(v.group.position.x+1.4,v.group.position.z);
+     __CITY_QA.simulate(30);
+     return enterVehicle(v);
+   },
+   showBridge:()=>{
+     OTTHOS_TEST_API.teleport(RIO_COMPACT_BRIDGE.x,RIO_COMPACT_BRIDGE.z);
+     cameraYaw=1.05;cameraPitch=.38;cameraZoom=-2;
+     __CITY_QA.simulate(35);updateCamera(1);__CITY_QA.renderNative();
+   },
    audit:()=>{
      const roof=world.houses.map(h=>({id:h.id,x:h.x,z:h.z,w:h.w+.8,d:h.d+.75}));
      const rooms=[...rioMap.sites.values()].filter(r=>r.floorMesh&&!r.legacyResidence).map(r=>({id:r.site.id,x:r.site.x,z:r.site.z,w:Math.abs(Math.sin(r.site.yaw))>.5?r.site.d:r.site.w,d:Math.abs(Math.sin(r.site.yaw))>.5?r.site.w:r.site.d}));
@@ -62,6 +121,8 @@ try{
  const west=await page.evaluate(()=>__PARK_QA.walk(-1,1800,-125));
  report.checks.push({bridgeWest:west});
  assert(west.x<-122&&!west.swam,JSON.stringify(west));
+ await page.evaluate(()=>__PARK_QA.showBridge());
+ await page.screenshot({path:out+'/ponte-estaiada.png'});
  const audit=await page.evaluate(()=>__PARK_QA.audit());report.audit=audit;
  assert.equal(audit.snow.length,0,JSON.stringify(audit.snow));
  assert(audit.pools.every(p=>!p.inside),JSON.stringify(audit.pools));
@@ -78,6 +139,42 @@ try{
    assert.equal(await page.evaluate(()=>OTTHOS_TEST_API.getState().profile.coins),before-price);
    await page.evaluate(()=>__CITY_QA.simulate(240));
    report.checks.push({vendor:id,purchased:true});
+ }
+ const shells=await page.evaluate(()=>__PARK_QA.renderedBuildings());
+ assert(shells.count>=50&&shells.nearestRoadSign>5,JSON.stringify(shells));assert.deepEqual(shells.overlaps,[]);
+ report.renderedBuildings=shells;
+ for(const [id,bridge] of [['regional-portaria_damha',false],['rio-orla-largada',true]]){
+   const start=await page.evaluate(id=>__PARK_QA.action(id),id);
+   await page.evaluate(p=>OTTHOS_TEST_API.teleport(p.x,p.z),start);
+   await page.waitForFunction(id=>OTTHOS_TEST_API.getContext()?.id===id,id,{timeout:15000});
+   await page.locator('#actionBtn').tap();
+   await page.locator('[data-rio-run-start]').tap();
+   const finish=await page.evaluate(()=>__PARK_QA.finishCourse());
+   assert(finish.completed===1&&finish.gates===6&&!finish.swam,JSON.stringify(finish));
+   if(bridge)assert(finish.overLake>60,JSON.stringify(finish));
+   report.checks.push({race:finish});
+ }
+ assert(await page.evaluate(()=>__PARK_QA.boardCar()));
+ for(const [width,height] of [[393,852],[360,740],[852,393]]){
+   await page.setViewportSize({width,height});
+   await page.waitForFunction(({width,height})=>{
+     const view=window.OTTHI_VIEWPORT?.current(),game=document.querySelector('#game').getBoundingClientRect();
+     return view?.width===width&&view.height===height&&Math.abs(game.width-width)<1&&Math.abs(game.height-height)<1&&
+       document.body.classList.contains(height>width?'ui-portrait':'ui-landscape')&&!document.body.classList.contains('ui-orientation-changing');
+   },{width,height});
+   const boxes=await page.evaluate(()=>{
+     const read=id=>{const b=document.getElementById(id).getBoundingClientRect();return {x:b.x,y:b.y,r:b.right,b:b.bottom,w:b.width,h:b.height};};
+     return Object.fromEntries(['missionCard','miniNav','quickToggleBtn','vehicleBadge','joystick','runBtn','jumpBtn'].map(id=>[id,read(id)]));
+   });
+   const overlaps=(a,b)=>a.w>0&&b.w>0&&a.x<b.r&&a.r>b.x&&a.y<b.b&&a.b>b.y;
+   for(const [a,b] of [['missionCard','miniNav'],['miniNav','quickToggleBtn'],['vehicleBadge','joystick'],['vehicleBadge','runBtn'],['vehicleBadge','jumpBtn']]){
+     assert(!overlaps(boxes[a],boxes[b]),width+' '+a+' / '+b+' '+JSON.stringify(boxes));
+   }
+   for(const [id,box] of Object.entries(boxes)){
+     assert(box.w>0&&box.h>0&&box.x>=0&&box.y>=0&&box.r<=width+1&&box.b<=height+1,id+' outside viewport '+JSON.stringify(box));
+   }
+   assert(boxes.runBtn.w>=44&&boxes.jumpBtn.w>=44,width+' '+JSON.stringify(boxes));
+   report.checks.push({driving:{width,height,boxes}});
  }
  assert.deepEqual(report.errors,[]);
  // Both race entrances, actual geometry and ten profile slots are checked separately.

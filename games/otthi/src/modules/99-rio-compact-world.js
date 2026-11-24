@@ -109,7 +109,7 @@
       stableBox(b.deckLength,.58,.12,steel,bx,deckY+.55,bz+side*2.35,root);
       for(let i=-6;i<=6;i++)stableBox(.085,.56,.10,steel,bx+i*2,deckY+.38,bz+side*2.35,root);
     }
-    for(const z of[bz-1.45,bz+1.45]){
+    for(const z of[bz-b.width/2+.24,bz+b.width/2-.24]){
       stableBox(.64,13.4,.67,steel,bx,7.25,z,root);
       for(const dx of[-12,-9,-6,-3,3,6,9,12]){
         const start=new THREE.Vector3(bx,13.9,z),end=new THREE.Vector3(bx+dx,deckY+.82,z);
@@ -191,7 +191,6 @@
     const walk=new THREE.Group();
     walk.name='RIO_PRETO_PASSEIO_DA_REPRESA';
     worldGroup.add(walk);
-    const track=renderMat(0xae5848,{roughness:.94,metalness:0}),stripe=renderMat(0xf0e8d5,{roughness:.9});
     // Continuous red running surface with two lanes and marked edges.
     // Use the existing six-checkpoint 300m route; no reset of race records.
     const batch=rioCreateBatch(walk);batch.root=walk;
@@ -204,6 +203,27 @@
         batch.part('box',x+Math.cos(yaw)*offset,.141,z-Math.sin(yaw)*offset,.065,.016,len+.12,0xf0e8d5,yaw);
       }
     }
+    // Paint a continuous pair of lanes up the ramps and over Lago 3.
+    // Vertices share each ramp break so the paint follows the visible deck.
+    const bridge=RIO_COMPACT_BRIDGE,edge=bridge.deckLength/2,base=edge+bridge.rampLength;
+    const stations=[RIO_WEST_BRIDGE_ENTRY[0],bridge.x-base,bridge.x-edge,bridge.x+edge,bridge.x+base,RIO_EAST_BRIDGE_ENTRY[0]];
+    const colors=[0xae5848,0xf0e8d5],polygons=[[],[]];
+    const bands=[[-1.1,1.1,0],[-1.06,-1.00,1],[-.027,.027,1],[1,1.06,1]];
+    for(let i=1;i<stations.length;i++){
+      const a=stations[i-1],b=stations[i];
+      for(const [left,right,tint] of bands){
+        const depth=tint ? .030 : .022;
+        const ay=rioCompactBridgeSurface(a,bridge.z)+depth,by=rioCompactBridgeSurface(b,bridge.z)+depth;
+        const near=bridge.z+left,far=bridge.z+right;
+        polygons[tint].push(a,ay,near,a,ay,far,b,by,near,b,by,near,a,ay,far,b,by,far);
+      }
+    }
+    for(const [i,vertices] of polygons.entries()){
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.computeVertexNormals();
+      const lane=new THREE.Mesh(geometry,renderMat(colors[i],{roughness:.94}));
+      lane.name=i?'RIO_PONTE_FAIXAS':'RIO_PONTE_PISTA';lane.receiveShadow=true;walk.add(lane);
+    }
     batch.commit();
     const start=shore[0],gate=new THREE.Group();gate.name='RIO_REPRESA_LARGADA';walk.add(gate);
     for(const side of[-1,1])stableBox(.18,2.8,.18,0x526b60,start.x,1.4,start.z+side*1.65,gate);
@@ -212,7 +232,7 @@
     buildRioCompactParkStalls();
     buildRioCompactDamha();
     // Two passes around the shore provide six checkpoints at the same 50 m spacing.
-    rioPrepareWaterfrontRun([...RIO_COMPACT_LAYOUT.sections,...RIO_COMPACT_LAYOUT.sections.slice(1)],
+    rioPrepareWaterfrontRun([...RIO_COMPACT_BRIDGE_LAP,...RIO_COMPACT_BRIDGE_LAP.slice(1)],
       'represa_rio_preto_compacta_300m');
     compactRio.courses.set(rioMap.course.id,{course:rioMap.course,markers:rioMap.courseMarkers});
     const route=RIO_COMPACT_DAMHA_COURSE.map(([x,z])=>({x,z})),startDamha=route[0];

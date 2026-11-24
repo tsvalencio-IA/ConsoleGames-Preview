@@ -83,3 +83,33 @@ body.otthi-v705-world #game #quickBar>:is(button,a)[hidden]{display:none!importa
 @media(max-height:420px) and (orientation:landscape){
  body.otthi-v705-world #game #quickBar:not([hidden]){max-height:calc(var(--otthi-height,100dvh) - 16px - var(--safe-top,0px) - var(--safe-bottom,0px))!important}
 }
+
+/* Driving leaves one column each for the objective, minimap and menu. */
+body.otthi-v705-world.ui-portrait.world-hud-clean.mode-mobility-driver {
+  --driving-map-width:clamp(96px,33vw,162px);
+}
+body.otthi-v705-world.ui-portrait.world-hud-clean.mode-mobility-driver #game #missionCard {
+  left:calc(8px + var(--safe-left,0px))!important;
+  top:calc(66px + var(--safe-top,0px))!important;
+  width:min(340px,calc(100% - var(--driving-map-width) - 78px - var(--safe-left,0px) - var(--safe-right,0px)))!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+body.otthi-v705-world.ui-portrait.world-hud-clean.mode-mobility-driver #game #miniNav {
+  right:calc(62px + var(--safe-right,0px))!important;
+  top:calc(66px + var(--safe-top,0px))!important;
+  width:var(--driving-map-width)!important;
+  min-width:0!important;
+  max-width:none!important;
+  box-sizing:border-box!important;
+}
+body.otthi-v705-world.ui-portrait.mode-mobility-driver #game #vehicleBadge {
+  bottom:calc(max(var(--joy),2 * var(--action)) + 28px + var(--safe-bottom,0px))!important;
+  max-width:min(90vw,440px)!important;
+  width:max-content;
+  white-space:normal;
+  text-align:center;
+}
+body.otthi-v705-world.ui-landscape.mode-mobility-driver {
+  --land-action:clamp(44px,12vh,50px);
+}
