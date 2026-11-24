@@ -73,8 +73,17 @@
       box(0,.25,0,w*.67,.4,d*.70,shape==='stadium'?0x519353:cream);
       if(shape==='stadium')box(0,.464,0,.12,.035,d*.65,0xf7efd9);
       for(const side of [-1,1]){
-        for(let row=0;row<3;row++)box(0,.48+row*.36,side*(d*.30+row*.55),w*.88,.85+row*.7,1.04,row===2?0x6d8387:cream);
-        collider(0,side*d*.35,w*.88,2.05,1.95);
+        if(p.key==='parque_peao_barretos'&&side===1){
+          const span=(w*.88-4.4)/2;
+          for(const flank of[-1,1]){
+            const cx=flank*(2.2+span/2);
+            for(let row=0;row<3;row++)box(cx,.48+row*.36,side*(d*.30+row*.55),span,.85+row*.7,1.04,row===2?0x6d8387:cream);
+            collider(cx,side*d*.35,span,2.05,1.95);
+          }
+        }else{
+          for(let row=0;row<3;row++)box(0,.48+row*.36,side*(d*.30+row*.55),w*.88,.85+row*.7,1.04,row===2?0x6d8387:cream);
+          collider(0,side*d*.35,w*.88,2.05,1.95);
+        }
         const x=side*w*.37;
         part('post',x,4, -d*.37,.24,8,.24,steel);
         box(x,7.85,-d*.37,1.25,.54,.47,0xf0e0a0);
@@ -89,7 +98,10 @@
         }
         for(const side of[-1,1]){
           box(side*w*.31,1.16,0,.12,1.72,d*.62,0xe8d7a7);
-          box(0,1.16,side*d*.28,w*.62,1.72,.12,0xe8d7a7);
+          if(side===1){
+            const span=(w*.62-4.4)/2;
+            for(const flank of[-1,1])box(flank*(2.2+span/2),1.16,side*d*.28,span,1.72,.12,0xe8d7a7);
+          }else box(0,1.16,side*d*.28,w*.62,1.72,.12,0xe8d7a7);
           box(0,4.95,side*d*.40,w*.77,.46,.70,0x9f633f);
         }
         box(0,2.50,-d*.36,6.1,4.5,.23,0x8a593a);
@@ -499,16 +511,190 @@
     thermas_laranjais:{label:'Dia no parque aquático',ticket:95,needs:{fun:35,hygiene:12,energy:-7},icon:'🏊'},
     parque_peao_barretos:{label:'Participar do festival de Barretos',ticket:80,needs:{fun:28,energy:-10,hunger:-10},icon:'🎡'}
   });
+  // Distinct physical activities use the native activity/avatar and save systems.
+  // The eight-second game adaptation is not a real-world riding tutorial.
+  const rioAttractionScenes=new Map();
+  const RIO_TOURISM_OPTIONS=Object.freeze({
+    parque_peao_barretos:[
+      {id:'rodeo',label:'Montaria de equilíbrio · 8 segundos',duration:8},
+      {id:'watch',label:'Assistir à prova na arquibancada',duration:9}
+    ],
+    thermas_laranjais:[
+      {id:'wave',label:'Brincar na piscina de ondas',duration:7},
+      {id:'slide',label:'Descer o toboágua',duration:5},
+      {id:'float',label:'Passear de boia no rio lento',duration:8}
+    ],
+    termas_ibira:[
+      {id:'thermal',label:'Banho de imersão termal',duration:7},
+      {id:'rest',label:'Relaxar no jardim do balneário',duration:6}
+    ]
+  });
+  function rioRodeoDirection(elapsed){
+    return [-1,1,-1,-1,1,-1,1,1][Math.min(7,Math.max(0,Math.floor(elapsed)))];
+  }
+  function rioRodeoSample(ride,elapsed){
+    const end=Math.min(8,Math.max(ride.sampled,Number(elapsed)||0));
+    for(let t=ride.sampled;t<end;){
+      const next=Math.min(end,Math.floor(t)+1);
+      if(ride.input===rioRodeoDirection(t))ride.correct+=next-t;
+      t=next;
+    }
+    ride.sampled=end;
+    return Math.round(ride.correct/8*100);
+  }
+  function rioAttractionScene(p,root){
+    if(!RIO_TOURISM_OPTIONS[p.key]||rioAttractionScenes.has(p.id))return;
+    const scene={p,root,guests:[],model:null,session:null,controls:null};
+    const y=groundHeightAt(p.x,p.z);
+    function guest(index,x,z,seat,yaw,color,action='talk'){
+      const npc=createNPC('rio-attraction-'+p.key+'-'+index,p.shape==='arena'?'Torcedor':'Visitante',x,z,color,0);
+      npc.stationary=true;npc.cityLifeManaged=true;npc.rioFloorY=y;
+      npc.group.rotation.y=yaw;npc.group.scale.multiplyScalar(.70);root.add(npc.group);
+      world.interactables=world.interactables.filter(a=>a.id!=='npc-'+npc.id);
+      scene.guests.push({npc,seat,yaw,action});
+    }
+    const colors=[0x547e99,0xc28e65,0x7c9667,0x8e688c];
+    if(p.shape==='arena'){
+      const model=new THREE.Group();model.name='RIO_BARRETOS_BULL';
+      const coat=renderMat(0x584337),dark=renderMat(0x302820),horn=renderMat(0xe8d8b9);
+      const box=(parent,mat,x,y,z,w,h,d)=>{
+        const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+        mesh.position.set(x,y,z);parent.add(mesh);return mesh;
+      };
+      box(model,coat,0,.98,0,.88,.90,1.65);
+      box(model,coat,0,1.08,.88,.64,.69,.55);
+      box(model,dark,0,.92,1.19,.54,.29,.27);
+      box(model,dark,0,1.44,-.10,.84,.14,.68);
+      for(const side of[-1,1]){
+        box(model,horn,side*.38,1.48,.90,.32,.12,.14).rotation.z=side*.45;
+        box(model,dark,side*.40,1.20,.85,.10,.17,.22);
+      }
+      scene.legs=[];
+      for(const x of[-.32,.32])for(const z of[-.58,.58]){
+        const joint=new THREE.Group();joint.position.set(x,.70,z);model.add(joint);
+        box(joint,coat,0,-.30,0,.22,.60,.24);box(joint,dark,0,-.62,.04,.24,.16,.28);scene.legs.push(joint);
+      }
+      box(model,dark,0,.96,-.96,.13,.12,.43).rotation.x=.5;
+      scene.y=y+.42;model.position.set(p.x,scene.y,p.z);root.add(model);scene.model=model;
+      for(const side of[-1,1])for(let i=0;i<4;i++){
+        guest((side===1?4:0)+i,p.x+[-8,-5,5,8][i],p.z+side*(p.d*.30+1.1),y+1.72,side===1?Math.PI:0,colors[i]);
+      }
+      const steward=createNPC('rio-rodeo-steward','Monitor da arena',p.x+3.5,p.z+p.d*.19,0xb38b53,0);
+      steward.stationary=true;steward.cityLifeManaged=true;steward.rioFloorY=y+.42;
+      root.add(steward.group);world.interactables=world.interactables.filter(a=>a.id!=='npc-'+steward.id);
+      scene.guests.push({npc:steward,seat:undefined,yaw:Math.PI,action:'work'});
+    }else{
+      for(const side of[-1,1]){
+        guest(side===1?1:0,p.x+side*p.w*.25,p.z+p.d*.36,y+.55,Math.PI,colors[side===1?1:0],'sit');
+        guest(side===1?3:2,p.x+side*p.w*.33,p.z+p.d*.12,undefined,0,colors[side===1?3:2],'talk');
+      }
+    }
+    rioAttractionScenes.set(p.id,scene);
+  }
+  function rioStartAttraction(p,option,finish){
+    const scene=rioAttractionScenes.get(p.id);
+    if(!scene||!scene.root.visible||typeof beginCharacterActivity!=='function')return false;
+    const y=groundHeightAt(p.x,p.z),key='rio-tourism-'+option.id;
+    const near={x:p.visitX,z:p.visitZ};
+    if(Math.hypot(player.x-near.x,player.z-near.z)>4.2)return false;
+    let target={x:near.x,z:near.z},pose={...target,y,yaw:Math.PI};
+    if(option.id==='rodeo'){
+      target={x:p.x,z:p.z+2.2};pose={x:p.x,z:p.z,y:scene.y+1.51,yaw:0,sitting:true};
+    }else if(option.id==='watch'){
+      target={x:p.x,z:p.z+p.d*.48};pose={x:p.x-3.4,z:p.z+p.d*.30+1.1,y:y+1.72,yaw:Math.PI,sitting:true};
+    }else if(option.id==='rest'){
+      target={x:p.x+p.w*.25,z:p.z+p.d*.36+1.05};pose={x:target.x,z:target.z-1.05,y:y+.55,yaw:0,sitting:true};
+    }else{
+      target={x:p.x,z:p.z+p.d*.19};
+      pose={x:p.x,z:p.z-p.d*.16,y:y+.32,yaw:0,lying:true};
+      if(option.id==='slide'){pose={x:p.x+p.w*.20,z:p.z-p.d*.21,y:y+2.60,yaw:Math.PI,lying:true};}
+      if(option.id==='thermal'){pose={x:p.x+p.w*.22,z:p.z-p.d*.18,y:y+.35,yaw:0,lying:true};}
+    }
+    CHARACTER_ACTIVITIES[key]=[option.label,option.duration];
+    const ride=option.id==='rodeo'?{sampled:0,correct:0,input:0}:null;
+    let session;
+    const commit=()=>{
+      if(ride)rioRodeoSample(ride,8);
+      const result=ride?Math.round(ride.correct/8*100):null;
+      if(!finish(option.id,result))return false;
+      if(ride)toast('Montaria concluída · equilíbrio '+result+'%','good',3000);
+      return true;
+    };
+    const started=beginCharacterActivity(key,{target,pose,walkSpeed:2.1,commit});
+    if(!started)return false;
+    session=characterActivities.session;scene.session={session,option,ride,pose:{...pose}};
+    return true;
+  }
+  function rioAttractionUpdate(focus){
+    const now=performance.now()/1000;
+    for(const scene of rioAttractionScenes.values()){
+      const {p,root,model}=scene;
+      const near=root.visible&&Math.hypot(focus.x-p.x,focus.z-p.z)<65;
+      const active=scene.session&&characterActivities.session===scene.session.session;
+      if(!active&&scene.controls){scene.controls.remove();scene.controls=null;}
+      if(!active)scene.session=null;
+      if(!near&&!active)continue;
+      if(now-(scene.lastGuestsAt||0)>.12){
+        scene.lastGuestsAt=now;
+        for(const [i,g] of scene.guests.entries()){
+          const action=g.action==='talk'&&(now+i)%6>3?'sit':g.action;
+          poseResident(g.npc,action,now,g.seat);
+        }
+      }
+      if(model){
+        const t=active&&scene.session.session.phase==='perform'?scene.session.session.elapsed:now*.45;
+        const riding=active&&scene.session.option.id==='rodeo'&&scene.session.session.phase==='perform';
+        const watching=active&&scene.session.option.id==='watch'&&scene.session.session.phase==='perform';
+        const moving=riding||watching;
+        model.position.y=scene.y+(moving?Math.abs(Math.sin(t*7))*.32:0);
+        model.rotation.y=moving?Math.sin(t*2)*.55:0;
+        model.rotation.z=moving?Math.sin(t*7)*.20:0;
+        model.rotation.x=moving?Math.cos(t*5)*.13:0;
+        for(const [i,leg] of scene.legs.entries())leg.rotation.x=moving?Math.sin(t*7+i*Math.PI*.5)*.45:0;
+      }
+      if(!active||scene.session.session.phase!=='perform')continue;
+      const {session,option,ride,pose}=scene.session,t=session.elapsed,f=Math.min(1,t/option.duration);
+      if(ride){
+        rioRodeoSample(ride,t);
+        session.pose.y=model.position.y+1.51;session.pose.yaw=model.rotation.y;
+        if(!scene.controls){
+          const controls=document.createElement('div');controls.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%';
+          const status=document.createElement('b');status.style.flex='1 1 100%';controls.append(status);
+          for(const [direction,label] of [[-1,'← Esquerda'],[1,'Direita →']]){
+            const button=document.createElement('button');button.type='button';button.textContent=label;button.style.cssText='flex:1;min-height:44px;touch-action:manipulation';
+            button.onclick=()=>{rioRodeoSample(ride,session.elapsed);ride.input=direction;};
+            controls.append(button);
+          }
+          characterActivityUI().append(controls);scene.controls=controls;
+        }
+        const status=scene.controls.firstElementChild;
+        status.textContent=(rioRodeoDirection(t)<0?'Equilibre à esquerda':'Equilibre à direita')+' · '+Math.max(0,8-t).toFixed(1)+' s';
+      }else if(option.id==='wave'){
+        session.pose.x=pose.x+Math.sin(t*1.8)*1.4;session.pose.y=pose.y+Math.sin(t*3)*.17;
+        session.pose.z=pose.z+Math.cos(t*.8)*1.1;
+      }else if(option.id==='slide'){
+        session.pose.x=pose.x-p.w*.14*f;session.pose.z=pose.z-p.d*.10*f;
+        session.pose.y=pose.y-(pose.y-groundHeightAt(p.x,p.z)-.32)*f;
+      }else if(option.id==='float'){
+        session.pose.x=pose.x+Math.sin(f*Math.PI*2)*p.w*.19;
+        session.pose.z=pose.z+Math.cos(f*Math.PI*2)*p.d*.16;
+        session.pose.yaw=f*Math.PI*2;
+      }
+    }
+  }
   function rioRegionalExperience(p){
     const experience=RIO_REGIONAL_ACTIVITIES[p.key];
     if(!experience)return false;
     const save=rioMapSave();
     save.regionExperience??={visits:{},paidTotal:0};
     const visits=save.regionExperience.visits[p.id]||{count:0,spent:0};
+    const options=RIO_TOURISM_OPTIONS[p.key]||[];
+    const realVenue=!!p.shape&&Number.isFinite(p.x)&&Number.isFinite(p.z);
+    const choices=realVenue?'<label class="field">Escolha a atividade<select data-regional-activity>'+options.map(o=>'<option value="'+o.id+'">'+escapeHtml(o.label)+'</option>').join('')+'</select></label>':'';
     openModal(p.name,
       '<p>'+experience.label+' · atividade jogável e registrada no seu histórico de viagens.</p>'+
       '<p>Ingresso: <b>'+experience.ticket+' moedas</b> · Seu saldo: <b>'+state.profile.coins+' moedas</b></p>'+
-      '<p>Visitas anteriores: '+visits.count+'.</p>'+
+      '<p>Visitas anteriores: '+visits.count+'.</p>'+choices+
       '<div class="modal-actions"><button class="btn primary" data-regional-join>Comprar ingresso e participar</button>'+
       '<button class="btn" data-regional-cancel>Voltar</button></div>',root=>{
       let busy=false;
@@ -518,12 +704,14 @@
         if(Number(state.profile.coins)<experience.ticket){toast('Moedas insuficientes para esta atividade.','warn',1900);return;}
         busy=true;
         let committed=false;
-        const finish=()=>{
+        const finish=(activity=null,score=null)=>{
         if(committed||Number(state.profile.coins)<experience.ticket)return false;
         committed=true;
         addCoins(-experience.ticket);
         const record=save.regionExperience.visits[p.id]||{count:0,spent:0};
         record.count++;record.spent+=experience.ticket;record.lastVisit=Date.now();
+        if(activity){record.activities??={};const entry=record.activities[activity]??={count:0};entry.count++;entry.lastVisit=record.lastVisit;
+          if(Number.isFinite(score)){entry.lastScore=score;entry.bestScore=Math.max(Number(entry.bestScore)||0,score);}}
         save.regionExperience.visits[p.id]=record;
         save.regionExperience.paidTotal+=experience.ticket;
         for(const [need,delta] of Object.entries(experience.needs)){
@@ -534,6 +722,17 @@
         toast(experience.label+' concluído. Visita registrada em '+p.name+'.','good',2800);
         return true;
         };
+        // Real landmarks cannot be completed by clicking a ticket in a modal.
+        // The old lightweight fixture path below still supports isolated tests.
+        if(realVenue&&rioAttractionScenes.has(p.id)){
+          const option=options.find(o=>o.id===root.querySelector('[data-regional-activity]')?.value)||options[0];
+          closeModal();
+          if(!option||!rioStartAttraction(p,option,finish)){busy=false;toast('Aproxime-se da entrada para iniciar a atividade.','warn',2600);}
+          return;
+        }
+        if(realVenue&&RIO_TOURISM_OPTIONS[p.key]&&typeof THREE!=='undefined'&&!rioAttractionScenes.has(p.id)){
+          busy=false;toast('Aguarde o carregamento da atração e tente novamente.','info',2500);return;
+        }
         // Thermal-water activities require the player's avatar to walk into
         // the physical pool and complete the animation before spending coins.
         if(p.shape==='pool'&&typeof beginCharacterActivity==='function'&&
@@ -616,6 +815,7 @@
       for(const home of rioDeliveryHomes())rioRegisterHomeDelivery(home);
     }
     const focus=otGamesFocus();
+    rioAttractionUpdate(focus);
     let next=null,distance=Infinity;
     for(const sector of Object.values(RIO_V51.sectors)){
       if(!legacyRegionalLayout&&!RIO_RECOVERED_SECTORS.includes(sector.id))continue;
@@ -731,6 +931,7 @@
         rioV51MountPlayableMall(p,root);
       }else rioV51DrawPlace(batch,p);
       if(typeof addRioCityLights==='function')addRioCityLights(p,root);
+      if(RIO_TOURISM_OPTIONS[p.key])rioAttractionScene(p,root);
     }
     if(sector.id==='represa_lagos_damha')rioV51DrawCourse(batch,root);
     batch.commit();
