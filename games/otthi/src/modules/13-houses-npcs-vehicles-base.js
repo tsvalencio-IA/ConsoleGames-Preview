@@ -280,7 +280,7 @@
       // Lego/Mario/Minecraft character. Keep the old toy renderers untouched for
       // named OT characters, retro worlds and all other existing NPCs.
       npc.visualStyle='rio-human';
-      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
+      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-|rio-service-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
       npc.visualRole=role;group.userData.visualRole=role;
       const detailLayer=new THREE.Group();detailLayer.name='RIO_NPC_FACE_AND_CLOTHES';group.add(detailLayer);
       const detail=renderMat(shadeColor(color,-42),{roughness:.86});

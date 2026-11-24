@@ -74,13 +74,90 @@
   groundHeightAt=function(x,z){if(!inRioMap()&&x>=MARINA_DOCK.minX&&x<=MARINA_DOCK.maxX&&z>=499&&z<=549)return .48;return marinaGroundHeight(x,z);};
   const originalFamilyBoatSeat=familyBoatSeatOffset;
   familyBoatSeatOffset=function(i=-1){return world.boat?.seaGoing?world.boat.group.userData.seats[Math.max(0,Math.min(3,i+1))]:originalFamilyBoatSeat(i);};
+  // Keep the original snow scenery and give every existing chalet its own
+  // property, furnishing state and physical interior. Load the room on entry.
+  const snowCabinRecords=new Map();
+  function snowCabinSites(){
+    return [[-52,184,'Pinheiros'],[46,184,'Araucárias'],[85,181,'Mirante']].map(([x,z,name],i)=>{
+      const id='regional-campos-chale-'+(i+1);
+      return {id,key:id,propertyId:id,name:'Chalé '+name+' · Campos do Jordão',
+        kind:'residence',style:'snow-cabin',x,z,w:7,d:5,yaw:0,price:780+i*160,
+        street:'Campos do Jordão · Serra',entry:[x,z+3.7]};
+    });
+  }
+  function registerSnowCabin(site,facade,wall){
+    const entrance={x:site.entry[0],z:site.entry[1]};
+    const record={site,facade,wall,room:null,inside:false};
+    snowCabinRecords.set(site.id,record);
+    const available=()=>facade.visible&&!record.inside&&!rioMap.indoorRoom&&rioPlayerAt(entrance,3.3);
+    function ensureRoom(){
+      if(record.room)return record.room;
+      const room=rioMountPlace(site,worldGroup);
+      record.room=room;room.legacyResidence=true;room.legacyRecord=record;
+      room.root.visible=false;
+      for(const c of room.colliders)c.disabled=true;
+      room.action('chalet-exit','Sair do chalé',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:1.4,priority:260});
+      return room;
+    }
+    function move(p){
+      player.x=p.x;player.z=p.z;player.y=groundHeightAt(p.x,p.z);
+      player.vx=player.vy=player.vz=0;player.grounded=true;
+      playerGroup.position.set(player.x,player.y,player.z);
+      rememberSafePlayerPosition(true);saveState(true);updateContext(true);
+    }
+    function enter(){
+      if(record.inside||rioMap.indoorRoom||player.vehicle||player.boating)return false;
+      const room=ensureRoom();
+      record.inside=true;facade.visible=false;wall.disabled=true;
+      room.root.visible=true;room.selectedUnitId=site.propertyId;
+      for(const c of room.colliders)c.disabled=false;
+      if(room.roof)room.roof.visible=false;
+      if(room.gate)room.gate.disabled=true;
+      if(room.door)room.door.visible=false;
+      room.refreshDecor?.();
+      rioMap.indoors=true;rioMap.indoorRoom=room;
+      rioMapSave().activeSnowCabin=site.id;
+      cameraMode='interior';cameraYaw=site.yaw;cameraPitch=.24;cameraZoom=2.6;
+      player.facing=site.yaw;move(room.point(0,site.d*.22));return true;
+    }
+    function leave(){
+      if(!record.inside)return false;
+      record.inside=false;record.room.root.visible=false;facade.visible=true;wall.disabled=false;
+      for(const c of record.room.colliders)c.disabled=true;
+      rioMap.indoors=false;rioMap.indoorRoom=null;
+      delete rioMapSave().activeSnowCabin;
+      cameraMode='openworld';move({x:entrance.x,z:entrance.z+.65});return true;
+    }
+    record.enter=enter;record.leave=leave;
+    registerInteractable({id:site.id+'-door',type:'door',icon:'🏠',
+      label:'Visitar ou comprar · '+site.name,...entrance,radius:3.2,priority:258,
+      available:()=>available()&&!player.swimming&&!characterActivities.session,
+      action:()=>rioPropertyDoor({id:site.propertyId,name:site.name,price:site.price,available,
+        enter,decorate:()=>{if(enter())record.room.manageFurniture?.();}})});
+    return record;
+  }
   function createSnowDestination(){
     const root=new THREE.Group();root.name='SNOW_VISITOR_AREA';worldGroup.add(root);
     const wood=campaignMaterial(0x876749),snow=campaignMaterial(0xecf3f0),stone=campaignMaterial(0x778c8f),glass=campaignMaterial(0x547d90,.3);
-    for(const[x,z]of[[-52,184],[46,184],[85,181]]){campaignBox(root,wood,x,1.55,z,7,3.1,5);world.colliders.push({x,z,w:7,d:5,height:3.8,snowCabin:true});const roof=new THREE.Mesh(new THREE.ConeGeometry(5,2.3,4),snow);roof.rotation.y=Math.PI/4;roof.position.set(x,4.15,z);root.add(roof);for(const side of[-1,1])campaignBox(root,glass,x+side*2,1.75,z-2.53,1.3,.95,.07);campaignBox(root,stone,x+1.6,4.1,z+1,.6,2.1,.6);}
+    for(const site of snowCabinSites()){
+      const {x,z}=site,facade=new THREE.Group();facade.name='SNOW_CABIN_'+site.key;root.add(facade);
+      campaignBox(facade,wood,x,1.55,z,7,3.1,5);
+      const wall={x,z,w:7,d:5,height:3.8,snowCabin:true};world.colliders.push(wall);
+      const roof=new THREE.Mesh(new THREE.ConeGeometry(5,2.3,4),snow);roof.rotation.y=Math.PI/4;roof.position.set(x,4.15,z);facade.add(roof);
+      for(const side of[-1,1]){
+        campaignBox(facade,glass,x+side*2,1.75,z-2.53,1.3,.95,.07);
+        campaignBox(facade,glass,x+side*2,1.75,z+2.53,1.3,.95,.07);
+        campaignBox(facade,stone,x+side*.85,.10,z+2.9,.14,.20,.76);
+      }
+      campaignBox(facade,stone,x+1.6,4.1,z+1,.6,2.1,.6);
+      campaignBox(facade,wood,x,1.12,z+2.53,1.45,2.2,.14);
+      campaignBox(facade,snow,x,.10,z+3.05,2.2,.2,1.2);
+      mergeTrafficStatic(facade);
+      if(typeof rioCompactWorld==='function'&&rioCompactWorld())registerSnowCabin(site,facade,wall);
+    }
     citySign(root,'CAMPOS DO JORDÃO · NEVE',20,3,183,8,-1,'#315968',.8);
     const snowman=new THREE.Group();snowman.position.set(16,.06,181);root.add(snowman);for(const[y,r]of[[.55,.55],[1.28,.40],[1.85,.29]]){const ball=new THREE.Mesh(new THREE.SphereGeometry(r,14,10),snow);ball.position.y=y;snowman.add(ball);}campaignBox(snowman,wood,0,2.14,0,.45,.15,.43);
-    mergeTrafficStatic(root);worldDestinations.snowRoot=root;
+    worldDestinations.snowRoot=root;
     const positions=new Float32Array(180*3);for(let i=0;i<180;i++){positions[i*3]=(Math.sin(i*93.17)*.5+.5)*36-18;positions[i*3+1]=(i*.173%1)*14;positions[i*3+2]=(Math.cos(i*67.21)*.5+.5)*36-18;}
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
     const canvas=document.createElement('canvas');canvas.width=canvas.height=32;const ctx=canvas.getContext('2d'),g=ctx.createRadialGradient(16,16,0,16,16,16);g.addColorStop(0,'#ffffffff');g.addColorStop(.35,'#ffffffe0');g.addColorStop(1,'#ffffff00');ctx.fillStyle=g;ctx.fillRect(0,0,32,32);
@@ -90,6 +167,7 @@
   function worldExploreLocations(){return[
     {id:'marina-costa',name:'Guarujá · marina e embarcações',label:'Guarujá · marina e embarcações',icon:'🚤',group:'Guarujá · praia e barcos',x:-220,z:502,navX:-220,navZ:502,description:'Caminhe pelo píer e escolha uma embarcação. Volte à vaga de embarque para desembarcar.',actions:['Seguir até a marina','Embarcar pelo botão AÇÃO','Pilotar, retornar e estacionar']},
     {id:'snow-lookout',name:'Campos do Jordão · mirante e chalés',label:'Campos do Jordão · mirante e chalés',icon:'❄️',group:'Natureza',x:20,z:180,navX:20,navZ:180,description:'Trecho de neve da OTTOVIAS, com acesso pela Ligação Norte. Neve no solo, pinheiros, chalés e precipitação local.',actions:['Seguir o GPS pela Ligação Norte','Chegar ao mirante']},
+    ...(typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites().map(site=>({id:site.id,name:site.name,icon:'🏡',group:'Campos do Jordão',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:'Chalé visitável e comprável, com móveis e decoração próprios.'})):[]),
     ...Array.from(world.boats?.values()||[]).filter(b=>b.seaGoing||b.rioBerth).map(b=>{
       const step=b.rioBerth?.step,position=b.group.position;
       return {id:'marina-'+b.id,name:b.label,label:b.label,icon:b.kind==='board'?'🏄':b.kind==='ship'?'🛳️':'🚤',
@@ -116,6 +194,11 @@
   function updateWorldDestinations(){
     if(!worldDestinations.ready){if(!cityCoast.ready||!world.boats)return;createMarina();createSnowDestination();worldDestinations.ready=true;}
     const focus=otGamesFocus(),now=performance.now(),dt=Math.min(.15,(now-worldDestinations.lastAt)/1000);worldDestinations.lastAt=now;
+    if(typeof rioCompactWorld==='function'&&rioCompactWorld()&&rioMapSave().activeSnowCabin&&!rioMap.indoorRoom){
+      const cabin=snowCabinRecords.get(rioMapSave().activeSnowCabin);
+      if(cabin&&!cabin.inside&&Math.hypot(player.x-cabin.site.x,player.z-cabin.site.z)<4)cabin.enter();
+      else if(cabin&&!cabin.inside&&Math.hypot(player.x-cabin.site.x,player.z-cabin.site.z)>8)delete rioMapSave().activeSnowCabin;
+    }
     const snow=focus.z>147&&focus.z<480&&focus.x>-220&&focus.x<200;worldDestinations.flakes.visible=snow;
     if(snow){const a=worldDestinations.flakes.geometry.attributes.position;worldDestinations.flakes.position.set(focus.x,Math.max(0,groundHeightAt(focus.x,focus.z)),focus.z);for(let i=0;i<a.count;i++){let y=a.getY(i)-dt*(.7+i%5*.11);if(y<0)y+=14;a.setY(i,y);}a.needsUpdate=true;}
     for(const boat of world.boats.values())if(boat.seaGoing){const remote=[...remotePresence.values()].some(p=>p.boating&&p.boatId===boat.id&&p.boatRole!=='passenger'),local=player.boating&&state.boats.activeBoatId===boat.id;boat.group.visible=!remote&&Math.hypot(focus.x-boat.group.position.x,focus.z-boat.group.position.z)<260;if(!local&&!remote){boat.group.position.y=.10+Math.sin(now*.0014+boat.group.position.x)*.025;boat.group.rotation.z=Math.sin(now*.0012+boat.group.position.z)*.008;}else if(local){boat.group.rotation.z=player.boat.steerVisual*clamp(Math.abs(player.boat.speed)/22,0,1)*.11;boat.group.userData.seaPropeller.rotation.z+=dt*player.boat.speed*8;}}

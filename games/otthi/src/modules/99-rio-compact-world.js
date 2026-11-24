@@ -153,6 +153,7 @@
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
+          if(room.server||room.npcs?.length)rioUpdatePlaceService(site,room,.08);
         }
         continue;
       }

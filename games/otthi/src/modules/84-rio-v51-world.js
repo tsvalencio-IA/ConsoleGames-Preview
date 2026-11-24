@@ -299,7 +299,8 @@
     const historic=typeof rioCompactWorld==='function'&&rioCompactWorld()&&typeof RIO_PRETO_LAYOUT!=='undefined'&&typeof rioHistoricHomeSite==='function'
       ?RIO_PRETO_LAYOUT.lots.filter(lot=>lot.style.startsWith('house-')).map(rioHistoricHomeSite):[];
     const available=[];
-    for(const site of [...compact,...historic]){
+    const cabins=typeof snowCabinSites==='function'&&typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites():[];
+    for(const site of [...compact,...historic,...cabins]){
       if(site.kind!=='residence'||!site.propertyId)continue;
       if(site.style==='rios-ditalia'){
         for(let floor=1;floor<=5;floor++)for(let door=1;door<=4;door++){

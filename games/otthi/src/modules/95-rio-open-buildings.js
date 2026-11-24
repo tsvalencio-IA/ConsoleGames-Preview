@@ -18,7 +18,7 @@
     const purchase=property?.owned?'':'<button class="btn good" data-rio-property-buy>Comprar por '+price+' moedas</button>';
     const lock=property?.owned?'<button class="btn" data-rio-property-lock>'+(property.locked?'Destrancar':'Trancar')+'</button>':'';
     const decoration=property?.owned&&decorate?'<button class="btn" data-rio-property-decor>Decorar minha casa</button>':'';
-    openModal(name,'<p>'+(property?.owned?'Sua residência em Rio Preto.':'Visite a casa ou compre com moedas do jogo.')+
+    openModal(name,'<p>'+(property?.owned?'Sua residência.':'Visite a casa ou compre com moedas do jogo.')+
       '</p><div class="modal-actions"><button class="btn primary" data-rio-property-enter>'+(property?.owned?'Entrar e morar':'Visitar')+'</button>'+purchase+lock+decoration+'</div>',root=>{
       root.querySelector('[data-rio-property-enter]').onclick=()=>{if(available()){closeModal();enter();}};
       root.querySelector('[data-rio-property-buy]')?.addEventListener('click',event=>{
@@ -244,7 +244,7 @@
     // Native inventory/needs/save; each action works on the existing profile.
     room.box(-w*.32,.59,.25,1.46,.12,.74,0xbaa38b);
     room.box(-w*.32,.94,.25,.60,.58,.45,0xe0dfd7);
-    room.action('kitchen','Cozinhar no apartamento',-w*.19,.85,()=>{
+    room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',-w*.19,.85,()=>{
       if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return;}
       state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
       if(condominium){
@@ -702,7 +702,7 @@
   function rioBuildBakeryService(site,room,counterZ,x,z){
     const side=-site.w*.39;
     const points=[room.point(side,counterZ-.85),room.point(side,counterZ+1.04),room.point(side,z-.95),room.point(-x-.58,z-.95)];
-    const npc=createNPC('rio-bakery-server','Garçonete',points[0].x,points[0].z,0xe6d6c6,0);
+    const npc=createNPC(site.key==='panificacao-zappas-centro'?'rio-bakery-server':'rio-bakery-server-'+site.key,'Garçonete',points[0].x,points[0].z,0xe6d6c6,0);
     npc.stationary=true;npc.cityLifeManaged=true;npc.group.name='RIO_BAKERY_SERVER';room.root.add(npc.group);
     world.interactables=world.interactables.filter(action=>action.id!=='npc-'+npc.id);
     room.npcs=[npc];
@@ -780,6 +780,14 @@
       room.npcs??=[];room.npcs.push(clerk);
       world.interactables=world.interactables.filter(action=>action.id!=='npc-'+clerk.id);
       room.sign(title,index*x,2.52,z-.38,w,.45,index<0?'#69445d':'#395569');
+      // Distinct store frontage with a clear, walkable entrance; retain the original counter coordinates.
+      const edge=Math.min(w*.52,site.w*.10),frontZ=z+1.85,accent=index<0?0x76516a:0x4d677f;
+      for(const side of [-1,1]){
+        room.box(index*x+side*edge,1.40,frontZ,.12,2.8,.16,accent);
+        room.box(index*x+side*edge*.85,.82,frontZ,.34,1.64,.11,0x92b6bc);
+      }
+      room.box(index*x,2.81,frontZ,edge*2+.12,.17,.17,accent);
+      room.box(index*x,.036,frontZ+.05,edge*1.5,.018,.72,index<0?0xb996a0:0x91a9b3);
       for(let n=-1;n<=1;n++){
         room.object(index*x+n*1.49,.68,z-2.3,1.27,1.35,.66,0xb2a496);
         if(slot==='top'){

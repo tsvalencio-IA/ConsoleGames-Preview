@@ -78,7 +78,7 @@
   }
 
   function rioBuildShell(site,room){
-    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:base;
+    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:base;
     const {w,d}=site,{box,object,sign}=room;
     const h=p.height,edge=.27,entry=site.kind==='market'?4.8:Math.min(3.1,w*.4);
     const front=d/2-edge,length=(w-entry)/2,center=(w+entry)/4;
@@ -165,6 +165,7 @@
   }
   function rioOpenDining(site,room,counter){
     if(!rioPlayerAt(counter))return;
+    const clerk=room.npcs?.find(n=>n.shopSlot==='dining');if(clerk)clerk.servingUntil=performance.now()+2500;
     const stock=site.kind==='bakery'?[{id:'bread-coffee',name:'Pão na chapa e café',price:12,hunger:22},
       {id:'juice',name:'Suco de laranja',price:10,hunger:10},{id:'bread-pack',name:'Pães para levar',price:16,food:3}]:site.key==='canecao_represa'?rioDiningStock:
       [{id:'burger',name:'Hambúrguer',price:14,hunger:38},{id:'juice',name:'Bebida sem álcool',price:10,hunger:10},{id:'parcel',name:'Lanche para levar',price:18,food:2}];
@@ -226,6 +227,7 @@
     const counter=rioCounter(room,0,counterZ,Math.min(4.6,w*.53));
     room.sign('PEDIDOS',0,2.31,counterZ-.37,Math.min(3.4,w*.6),.32);
     if(site.kind==='bakery')rioBuildBakeryService(site,room,counterZ,x,z);
+    else rioServiceClerk(site,room,'dining','Atendente do restaurante',0,counterZ-.86,0x99735e);
     room.action('counter','Fazer pedido no balcão',0,counterZ+1.02,()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍽️'});
     const p=marked.approach,dx=p.x-site.x,dz=p.z-site.z,c=Math.cos(site.yaw),s=Math.sin(site.yaw);
     room.action('table','Mesa 1 · sentar e consumir',c*dx-s*dz,s*dx+c*dz,
@@ -233,6 +235,14 @@
     room.sign('1',-x,1.05,z+.04,.18,.21,'#6b3f31');
   }
 
+  function rioServiceClerk(site,room,role,name,x,z,color){
+    const p=room.point(x,z),clerk=createNPC('rio-service-'+site.key+'-'+role,name,p.x,p.z,color,0);
+    clerk.stationary=true;clerk.cityLifeManaged=true;clerk.shopSlot=role;
+    clerk.group.rotation.y=site.yaw;room.root.add(clerk.group);
+    room.npcs??=[];room.npcs.push(clerk);
+    world.interactables=world.interactables.filter(a=>a.id!=='npc-'+clerk.id);
+    return clerk;
+  }
   function rioBuildMarket(site,room){
     const {w,d}=site,{box,object,sign}=room, counterZ=-d/2+2.45;
     const items=site.kind==='bakery'?CITY_SHOP_STOCK.cafe:CITY_SHOP_STOCK.market;
@@ -247,9 +257,11 @@
       }
     }
     const counter=rioCounter(room,0,counterZ,Math.min(4.7,w*.54));
-    sign(site.kind==='bakery'?'PÃES':'CAIXA',0,2.63,counterZ-.35,3.15,.46);
+    const clerk=rioServiceClerk(site,room,'checkout','Caixa',0,counterZ-.88,0x527e70);
+    sign(site.kind==='bakery'?'PÃES':site.kind==='mall'?'MERCADO · CAIXA':'CAIXA',0,2.63,counterZ-.35,3.15,.46);
     room.action('counter',site.kind==='bakery'?'Comprar pães no balcão':'Comprar no caixa',0,counterZ+1.02,()=>{
       if(!rioPlayerAt(counter))return;
+      clerk.servingUntil=performance.now()+2500;
       openModal(site.name,'<p>Produtos do jogo disponíveis no balcão.</p><div class="choice-grid">'+items.map(item=>
         '<button class="choice" data-rio-checkout="'+item.id+'"><b>'+item.name+'</b><span>'+item.price+' moedas</span></button>').join('')+'</div>',root=>{
         let sold=false;
@@ -275,6 +287,7 @@
     const [sign,title,next,success]=configs[kind], z=-d*.19,x=Math.min(w*.26,4.2),stationX=Math.min(w*.25,3.8),stationZ=-d/2+1.2;
     const counter=rioCounter(room,-x,z,Math.min(w*.33,3.3));
     room.sign(sign,-x,2.23,z-.28,Math.min(w*.4,3.6),.46);
+    rioServiceClerk(site,room,'reception','Recepcionista',-x,z-.80,0x607f91);
     const badge=rioCounter(room,stationX,stationZ,Math.min(2.3,w*.25),0x738889);
     const light=new THREE.Mesh(new THREE.SphereGeometry(.15,8,6),new THREE.MeshBasicMaterial({color:0xf8bb5b}));
     light.position.set(badge.x,1.12,badge.z-1.02);light.visible=false;room.root.add(light);room.lights.push(light);
