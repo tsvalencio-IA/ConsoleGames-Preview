@@ -47,9 +47,23 @@ Na referência gravada no SHA, a ambulância chegou e a central cobriu as outras
 
 Após corrigir a seleção de equipes, a rodada de 150 s da revisão `643ca8d62bbc1aab` registrou bombeiros a 1,54 m da vaga e ambulância a 1,68 m. A polícia usou contingência. O jogador fez o pedido pela interface, recebeu dois itens e o motorista retornou aos 147,1 s do ensaio. Essa rodada observou intervalos de quadros superiores a dois segundos no renderizador por software. A substituição de uma equipe parada por uma viatura livre foi acrescentada após esse ensaio e ganhou um teste de regressão específico.
 
+A troca aplicada às três equipes piorou o resultado no ensaio seguinte. A revisão final limita a troca à viatura policial parada e considera o deslocamento real por um desvio ao calcular o prazo do socorro. No ensaio final de 210 s, a polícia chegou em 14,6 s, os bombeiros em 16,6 s e a ambulância em 50,0 s após o início da ocorrência. A via foi liberada com as três chegadas físicas e nenhuma contingência. O pedido de 15 moedas entregou dois itens com débito único e o motorista retornou. O resultado cobre uma ocorrência, com trânsito, entrega e rotação da câmera no mesmo percurso.
+
+| Ensaio nativo de 210 s | Bundle de origem `59acbe7929b0215a` | Candidata `74a7c3280002c390` |
+| --- | ---: | ---: |
+| Resposta física registrada | Ambulância | Polícia, bombeiros e ambulância |
+| Ocorrências encerradas por contingência | 1 | 0 |
+| Tempo mediano de quadro na primeira janela | 352,5 ms | 353,4 ms |
+| Maior intervalo entre quadros | 2,71 s | 2,26 s |
+| Movimento observado após toque com o personagem parado | 315 ms | 260 ms |
+| Heap após coleta de lixo, do início ao fim | 77,92 → 79,93 MB | 79,64 → 81,84 MB |
+| NPCs e modelos de tráfego ao fim | 145 e 44 | 153 e 44 |
+
+As duas execuções usaram Chromium com SwiftShader, a mesma viewport, qualidade baixa e o mesmo roteiro. A renderização de software ficou aquém da meta de 30 FPS e houve uma pausa acima de dois segundos na candidata. A amostra de memória durou 210 s.
+
 O pacote local `cb1502e3c72c1aa6` abriu os oito jogos e retornou ao console, incluindo Mundo Aberto → Pingue-Pongue incorporado → Mundo Aberto → Console. O Chromium também verificou o bloqueio de conexão com Firebase, a separação de armazenamento e service workers na mesma origem e a criação e recarga do perfil de teste.
 
-A suíte de código passou em **618 de 618 testes** na revisão de origem `b7a699b1c81b5987`. Os quatro casos históricos de corrida, calibração de mãos, rota de socorro e estacionamento foram executados na referência e na candidata.
+A suíte de código passou em **618 de 618 testes** na revisão de origem `b7a699b1c81b5987`. Os **21 testes direcionados** de socorro e trânsito passaram após a última correção. Os quatro casos históricos de corrida, calibração de mãos, rota de socorro e estacionamento foram executados na referência e na candidata.
 
 O teste cooperativo com dois clientes Chromium e um retransmissor local concluiu as etapas compartilhadas da missão, usou duas vagas de oficina ao mesmo tempo e ocupou oito assentos do teleférico. Também trocou a autoridade da sessão e verificou a liberação dos assentos após desconexão. A homologação de multiplayer entre aparelhos exige um backend de teste separado.
 
