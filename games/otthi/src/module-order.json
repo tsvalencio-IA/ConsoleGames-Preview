@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.43-rio-preto-vida-regional",
+  "build": "705.28.44-rio-preto-casas-entregas",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "b41a6c2f211a26a79077b79d449d70caf64eca06173c73051cc2aa7c01ba2864"
+      "sha256Body": "336c9ce58d68ecb518928414935748e544a4f284c4acd26d5dc95400ea37ef3c"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -534,7 +534,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Destinos acessíveis, marina com lanchas pilotáveis e neve visível",
-      "sha256Body": "8602a728a7ba36ddd1f8496d7a724d53abb29c12d8751935f1da5d5528952c0a"
+      "sha256Body": "a6c61360d2e94711b90ae1a3a4ff4def9de458ee63341237559cdbc957671674"
     },
     {
       "file": "src/modules/58-character-activities.js",
@@ -667,7 +667,7 @@
     },
     {
       "file": "src/modules/84-rio-v51-world.js",
-      "sha256Body": "3224c298681b524569454d7cac8eb8f36ff87274a0fef1a4f774936ca1579b32"
+      "sha256Body": "d39b72a7d53c64ff27d2f9a05b1b2eaccc23a517db17171f79eb151ddd1875f3"
     },
     {
       "file": "src/modules/85-rio-city-activities.js",
@@ -714,7 +714,7 @@
     {
       "file": "src/modules/95-rio-open-buildings.js",
       "description": "Playable residences, shops, bakery and oil service",
-      "sha256Body": "7a27b68cdb4a39fc33070f73899246010fafed28abf2b58fcaf2a1550b5bd360"
+      "sha256Body": "0cfb2e32e85552b0ad6fa6fb0006c8c954e00d0ae3bbd7e36c6bfc8dcb5b6626"
     },
     {
       "file": "src/modules/96-rio-airport.js",

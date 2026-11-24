@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.43-rio-preto-vida-regional';
+  const OTTHI_GAME_WEB_BUILD = '705.28.44-rio-preto-casas-entregas';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -14653,7 +14653,7 @@ function precompile(T,renderer,scene,camera,timings){
   }
   const previousDestinationExpansion=updateWorldExpansion;updateWorldExpansion=function(){previousDestinationExpansion();updateWorldDestinations();};
   const previousDestinationLocations=expansionMapLocations;expansionMapLocations=function(){return[...previousDestinationLocations(),...worldExploreLocations()];};
-  window.OTTHI_DESTINATIONS={open:campaignOpen,diagnostics:()=>({ready:worldDestinations.ready,locations:worldExploreLocations(),aircraft:window.OTTHI_CAMPAIGN.parked(),marina:{...MARINA_DOCK},snow:{groundVisible:OTTOVIAS_RUNTIME.biomeGroups.find(b=>b.id==='snow')?.group.children.some(m=>m.userData.ottoviasBiome&&m.position.y>.025)||false,falling:!!worldDestinations.flakes?.visible},boats:[...world.boats?.values()||[]].map(b=>({id:b.id,label:b.label||'Barco de pesca',seaGoing:!!b.seaGoing,x:b.group.position.x,z:b.group.position.z,heading:b.heading,maxSpeed:b.maxSpeed||8.8,visible:b.group.visible})),activeBoat:player.boating?state.boats.activeBoatId:null})};
+  window.OTTHI_DESTINATIONS={open:campaignOpen,diagnostics:()=>({ready:worldDestinations.ready,locations:worldExploreLocations(),aircraft:window.OTTHI_CAMPAIGN.parked(),marina:{...MARINA_DOCK},cabins:[...snowCabinRecords.values()].map(c=>({id:c.site.id,inside:c.inside,visible:!!c.room?.root.visible,entry:{x:c.site.entry[0],z:c.site.entry[1]},exit:c.room?.point(0,c.site.d*.31)})),snow:{groundVisible:OTTOVIAS_RUNTIME.biomeGroups.find(b=>b.id==='snow')?.group.children.some(m=>m.userData.ottoviasBiome&&m.position.y>.025)||false,falling:!!worldDestinations.flakes?.visible},boats:[...world.boats?.values()||[]].map(b=>({id:b.id,label:b.label||'Barco de pesca',seaGoing:!!b.seaGoing,x:b.group.position.x,z:b.group.position.z,heading:b.heading,maxSpeed:b.maxSpeed||8.8,visible:b.group.visible})),activeBoat:player.boating?state.boats.activeBoatId:null})};
 
   // ===== MODULE: 58-character-activities.js =====
  const characterActivities={session:null,visual:null,completed:0,lastAction:''};
@@ -17451,7 +17451,33 @@ function precompile(T,renderer,scene,camera,timings){
     const save=rioMapSave();
     save.constructionOrders??=[];
     save.constructionInventory??={};
+    // Existing saves only know a global inventory. Keep that stock as legacy
+    // unassigned stock; newly received orders are tied to their real address.
+    if(!save.constructionByAddress){
+      save.constructionByAddress={};
+      save.constructionLegacyStock={...save.constructionInventory};
+    }
+    save.constructionLegacyStock??={};
     return save;
+  }
+  function rioConstructionAtAddress(id){
+    const save=rioConstructionSave(),local=save.constructionByAddress[id]||{},result={...save.constructionLegacyStock};
+    for(const [sku,qty] of Object.entries(local))result[sku]=(Number(result[sku])||0)+(Number(qty)||0);
+    return result;
+  }
+  function rioReceiveConstructionStock(save,order){
+    const local=save.constructionByAddress[order.destinationId]??={};
+    local[order.productId]=(Number(local[order.productId])||0)+order.quantity;
+    save.constructionInventory[order.productId]=(Number(save.constructionInventory[order.productId])||0)+order.quantity;
+  }
+  function rioConsumeConstructionStock(id,sku){
+    const save=rioConstructionSave(),local=save.constructionByAddress[id]||{},legacy=save.constructionLegacyStock;
+    if(!(Number(save.constructionInventory[sku])>0))return false;
+    if(Number(local[sku])>0)local[sku]--;
+    else if(Number(legacy[sku])>0)legacy[sku]--;
+    else return false;
+    save.constructionInventory[sku]--;
+    return true;
   }
   function rioDeliveryHomes(){
     const compact=typeof compactRio!=='undefined'?(compactRio.sites||[]):[];
@@ -17496,7 +17522,7 @@ function precompile(T,renderer,scene,camera,timings){
             const now=Date.now();
             for(const order of pending){
               if(order.status!=='en-route'||now<order.readyAt)continue;
-              saved.constructionInventory[order.productId]=(saved.constructionInventory[order.productId]||0)+order.quantity;
+              rioReceiveConstructionStock(saved,order);
               order.status='delivered';order.deliveredAt=now;
             }
             saveState(true);closeModal();toast('Materiais recebidos e registrados no estoque.','good',2600);
@@ -17508,7 +17534,7 @@ function precompile(T,renderer,scene,camera,timings){
     const orders=rioConstructionSave().constructionOrders;
     const homes=rioDeliveryHomes();
     openModal('Minhas entregas e materiais',
-      '<p>Pedidos vinculados à sua propriedade; os materiais recebidos ficam no estoque para a futura etapa de reformas.</p>'+
+      '<p>Pedidos vinculados à sua propriedade; os novos materiais recebidos ficam no endereço escolhido e podem ser usados em reformas.</p>'+
       '<div class="choice-grid">'+orders.slice(-12).reverse().map(o=>{
         const site=homes.find(h=>h.propertyId===o.destinationId);
         const ready=o.status==='en-route'&&Date.now()>=o.readyAt;
@@ -17516,7 +17542,7 @@ function precompile(T,renderer,scene,camera,timings){
           escapeHtml(site?.name||o.destinationName)+' · '+o.quantity+' '+escapeHtml(o.unit)+' · '+
           (o.status==='delivered'?'Recebido':ready?'Aguardando recebimento no imóvel':'Em transporte')+'</span></div>';
       }).join('')+'</div>'+
-      '<p><b>Estoque recebido:</b> '+(Object.entries(rioConstructionSave().constructionInventory)
+      '<p><b>Estoque total recebido:</b> '+(Object.entries(rioConstructionSave().constructionInventory)
         .map(([id,n])=>escapeHtml(id)+': '+n).join(' · ')||'Nenhum item')+'</p>'+
       '<div class="modal-actions"><button class="btn" data-rio-delivery-close>Fechar</button></div>',
       root=>{root.querySelector('[data-rio-delivery-close]').onclick=closeModal;});
@@ -17548,6 +17574,7 @@ function precompile(T,renderer,scene,camera,timings){
               escapeHtml(home.name)+'</b><span>Entregar '+escapeHtml(item.unit)+' · '+item.price+' moedas</span></button>'
             ).join('')+'</div>',root=>{
               for(const choice of root.querySelectorAll('[data-rio-deliver-house]'))choice.onclick=()=>{
+                if(choice.disabled)return;
                 const home=rioDeliveryHomes().find(x=>x.propertyId===choice.dataset.rioDeliverHouse);
                 if(!home||Number(state.profile.coins)<item.price){
                   toast('Escolha uma propriedade própria e tenha moedas suficientes.','warn',2300);return;
@@ -20412,7 +20439,7 @@ function precompile(T,renderer,scene,camera,timings){
     const enterUnit=(onArrival)=>{
       room.gate.disabled=true;room.door.visible=false;
       room.refreshDecor?.();
-      if(!rioEnterPlace(target,()=>{if(site.propertyId==='home')setFlag('enteredHome');onArrival?.();})){
+      if(!rioEnterPlace(target,()=>{if(site.propertyId==='home')setFlag('enteredHome');if(site.style==='rios-ditalia'){(rioMapSave().selectedApartmentBySite??={})[site.id]=room.selectedUnitId;saveState(true);}onArrival?.();})){
         room.gate.disabled=false;room.door.visible=true;
       }
     };
@@ -20450,6 +20477,8 @@ function precompile(T,renderer,scene,camera,timings){
   }
 
   function rioBuildResidence(site,room){
+    const selected=rioMapSave().selectedApartmentBySite?.[site.id];
+    if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
     const rioResidencePropertyId=()=>room.selectedUnitId||site.propertyId;
     const {w,d,yaw}=site,condominium=site.style==='rios-ditalia',modern=site.style==='damha'||condominium,back=-d/2+1.04,front=d/2-.12;
     room.collider(0,front,Math.min(3.1,w*.4)-.13,.18,2.5);
@@ -20733,7 +20762,7 @@ function precompile(T,renderer,scene,camera,timings){
       }
     };
     updateDecor();
-    room.refreshDecor=()=>{endDecor();updateDecor();};
+    room.refreshDecor=()=>{endDecor();updateDecor();renovationFinish('walls');renovationFinish('floor');};
     const openDecorCatalog=()=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       if(!owner?.owned){toast('Primeiro compre esta residência.','info',2300);return;}
@@ -20958,7 +20987,7 @@ function precompile(T,renderer,scene,camera,timings){
     const renovationFinish=(kind)=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       const finish=owner?.renovation?.[kind];
-      if(!Number.isInteger(finish))return;
+      if(!Number.isInteger(finish)){if(renovateMeshes[kind])renovateMeshes[kind].visible=false;return;}
       const palette=renovationColors[kind];
       const value=palette[((finish%palette.length)+palette.length)%palette.length];
       if(!renovateMeshes[kind]){
@@ -20976,15 +21005,17 @@ function precompile(T,renderer,scene,camera,timings){
         group.name='CASA_REFORMA_'+site.key+'_'+kind;
         room.root.add(group);renovateMeshes[kind]=group;
       }
+      renovateMeshes[kind].visible=true;
       for(const mesh of renovateMeshes[kind].children)mesh.material.color.setHex(value);
     };
     renovationFinish('walls');renovationFinish('floor');
     const openRenovation=()=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       if(!owner?.owned){toast('Só o proprietário pode reformar esta casa.','warn',2200);return;}
-      const inventory=rioConstructionSave().constructionInventory;
+      const propertyId=rioResidencePropertyId();
+      const inventory=rioConstructionAtAddress(propertyId);
       openModal('Reformar imóvel · '+site.name,
-        '<p>Os materiais precisam ser comprados nas lojas de Rio Preto e recebidos neste endereço.</p>'+
+        '<p>Os novos materiais precisam ser recebidos neste endereço. Estoque antigo sem endereço continua disponível.</p>'+
         '<p>Estoque: <b>'+Number(inventory.paint||0)+' lata(s) de tinta</b> · <b>'+
         Number(inventory.tile||0)+' caixa(s) de piso</b></p>'+
         '<div class="choice-grid">'+
@@ -20992,10 +21023,8 @@ function precompile(T,renderer,scene,camera,timings){
         renovationColors.floor.map((color,index)=>'<button class="choice" data-rio-home-floor="'+index+'"><b>Piso '+(index+1)+'</b><span>1 caixa de piso</span></button>').join('')+
         '</div>',root=>{
           const apply=(kind,index)=>{
-            const current=rioPropertyTitle(rioResidencePropertyId()),saved=rioConstructionSave().constructionInventory;
-            const item=kind==='walls'?'paint':'tile';
-            if(!current?.owned||!(saved[item]>0)){toast('Receba primeiro o material de construção.','warn',2400);return;}
-            saved[item]--;
+            const current=rioPropertyTitle(propertyId),item=kind==='walls'?'paint':'tile';
+            if(propertyId!==rioResidencePropertyId()||!Number.isInteger(index)||index<0||index>=renovationColors[kind].length||!current?.owned||!rioConsumeConstructionStock(propertyId,item)){toast('Receba primeiro o material de construção neste imóvel.','warn',2400);return;}
             (current.renovation??={})[kind]=index;
             renovationFinish(kind);saveState(true);
             toast('Reforma aplicada e salva nesta propriedade.','good',2000);
