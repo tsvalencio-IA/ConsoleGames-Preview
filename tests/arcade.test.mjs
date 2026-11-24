@@ -87,8 +87,22 @@ test("Android: botão de instalação referencia o APK íntegro com a versão pu
  assert.equal(createHash('sha256').update(apk).digest('hex'),release.sha256);
  const gradle=read('android/app/build.gradle');
  assert(gradle.includes("applicationId '"+release.package+"'"));
- assert(gradle.includes("versionName '"+release.version+"'"));
- assert(gradle.includes('versionCode '+release.versionCode));
+ // The shipped binary is immutable. The next native build can have a
+ // newer version, but it must not be offered as if it were the old APK.
+ const nextVersionCode=Number(gradle.match(/defaultConfig\s*\{[\s\S]*?versionCode\s+(\d+)/)?.[1]);
+ const nextVersion=gradle.match(/defaultConfig\s*\{[\s\S]*?versionName\s+'([^']+)'/)?.[1];
+ assert(Number.isSafeInteger(nextVersionCode)&&nextVersionCode>=release.versionCode);
+ assert(nextVersion);
+ if(nextVersionCode===release.versionCode)assert.equal(nextVersion,release.version);
+ else assert.notEqual(nextVersion,release.version);
+ assert(gradle.includes("productionConsole = 'https://tsvalencio-ia.github.io/ConsoleGames-Preview/arcade/'"));
+ const previous=JSON.parse(read('arcade/downloads/release-ot.json'));
+ assert(nextVersionCode>previous.versionCode,'native migration must increase versionCode');
+ assert.equal(release.consoleUrl,'https://tsvalencio-ia.github.io/ConsoleGames/arcade/?android=1');
+ assert.equal(previous.consoleUrl,'https://otthi-world-campanha-teste.vercel.app/arcade/?android=1');
+ const install=read('arcade/instalar/install.js');
+ assert(install.includes('if (entry.href !== consoleUrl.href) continue;'),'reject foreign server packages');
+ assert(install.includes("download.removeAttribute('href')"),'do not offer an incompatible download');
  assert(read('arcade/downloads/SHA256SUMS.txt').includes(release.sha256+'  '+release.file));
 });
 
