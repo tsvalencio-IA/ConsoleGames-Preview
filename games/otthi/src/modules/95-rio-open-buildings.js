@@ -953,7 +953,7 @@
       let paid=false;
       const started=beginCharacterActivity('rio-cinema',{target:approach,pose:{...seat,y:room.floorY+.535,yaw:site.yaw,sitting:true},
         commit:()=>{
-          if(paid||!room.root.visible||!rioPlayerAt(approach,.30)||Number(state.profile.coins)<price)return false;
+          if(paid||!cinema.session||characterActivities.session!==cinema.session||cinema.session.phase!=='perform'||cinema.session.elapsed+1e-6<8||!room.root.visible||!rioPlayerAt(approach,.30)||Number(state.profile.coins)<price)return false;
           paid=true;addCoins(-price);state.needs.fun=clamp(Number(state.needs.fun||0)+22,0,100);
           const visits=rioMapSave().cinemaVisits??={};visits[site.id]=(Number(visits[site.id])||0)+1;
           rioCountVisit(site);updateHUD();return true;
