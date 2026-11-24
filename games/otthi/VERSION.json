@@ -1,6 +1,6 @@
 {
   "version": 705,
-  "build": "705.28.46-rio-preto-ambientes-3d",
+  "build": "705.28.47-rio-preto-vida-completa",
   "name": "OTTHI World",
   "sourceArchitecture": "modular-source-with-generated-runtime-bundle",
   "runtimeBundle": "app.js",
@@ -42,6 +42,7 @@
     }
   },
   "changes": [
+    "R28.47: loja de móveis integrada ao catálogo e entrega por imóvel, interiores regionais carregados somente na entrada, identidade de serviços públicos, verificação de pisos e compras no cenário real.",
     "R28.46: fundações e pisos físicos elevados, recorte de paredes por câmera sem clipping global, acabamento e decoração na altura correta, atividades domésticas animadas, NPCs urbanos com silhueta e roupas articuladas, testes reais de piso e praça de alimentação.",
     "R28.45: acabamento de ambientes por finalidade, cozinha e banheiro modelados, praça de alimentação no shopping com pedido e consumo, ferragens e materiais com estoque visual e atendimento próprios, objetivos de vida ligados ao progresso existente.",
     "R28.44: materiais por endereço com preservação de estoque antigo, seleção de apartamento persistente, acabamento individual e teste de entrada/compra/saída dos chalés.",

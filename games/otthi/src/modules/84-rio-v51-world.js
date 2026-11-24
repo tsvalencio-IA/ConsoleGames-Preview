@@ -320,6 +320,57 @@
     save.constructionInventory[sku]--;
     return true;
   }
+  function rioPropertyFurniturePending(propertyId,sku){
+    return rioConstructionSave().constructionOrders.some(o=>o.kind==='furniture'&&o.destinationId===propertyId&&o.productId===sku&&o.status==='en-route');
+  }
+  function rioReceivePropertyOrder(save,order){
+    if(order.kind!=='furniture'){rioReceiveConstructionStock(save,order);return true;}
+    const title=rioPropertyTitle(order.destinationId);
+    if(!title?.owned||!rioFurnitureCatalog({w:10,d:8}).some(item=>item.id===order.productId))return false;
+    const furniture=title.furniture??=[];
+    if(!furniture.includes(order.productId))furniture.push(order.productId);
+    const layout=title.decorLayout??={};
+    // A delivered object starts stored, ready for placement in the existing
+    // live furniture editor, not unexpectedly blocking the entrance.
+    layout[order.productId]??={stored:true};
+    return true;
+  }
+  function rioOpenFurnitureStore(site){
+    const stock=rioFurnitureCatalog({w:10,d:8});
+    const homes=rioDeliveryHomes();
+    openModal('Móveis · '+site.name,
+      '<p>Escolha um móvel do mesmo catálogo usado para decorar as residências. A encomenda será recebida no endereço selecionado e poderá ser posicionada pelo editor da casa.</p>'+
+      (homes.length?'':'<p>Primeiro adquira uma propriedade para receber a compra.</p>')+
+      '<div class="choice-grid">'+stock.map(item=>'<button class="choice" data-rio-furniture-buy="'+item.id+'" '+(!homes.length?'disabled':'')+'><b>'+escapeHtml(item.name)+'</b><span>'+item.price+' moedas</span></button>').join('')+
+      '</div><div class="modal-actions"><button class="btn" data-rio-furniture-orders>Minhas encomendas</button></div>',root=>{
+        root.querySelector('[data-rio-furniture-orders]').onclick=rioConstructionDeliveryReport;
+        for(const button of root.querySelectorAll('[data-rio-furniture-buy]'))button.onclick=()=>{
+          const item=stock.find(i=>i.id===button.dataset.rioFurnitureBuy);if(!item)return;
+          const destinations=rioDeliveryHomes().filter(home=>!(rioPropertyTitle(home.propertyId)?.furniture||[]).includes(item.id)&&!rioPropertyFurniturePending(home.propertyId,item.id));
+          openModal('Entregar · '+item.name,
+            '<p>Escolha a residência. A compra será descontada uma única vez.</p>'+
+            (destinations.length?'':'<p>Este móvel já pertence aos seus imóveis ou está a caminho.</p>')+
+            '<div class="choice-grid">'+destinations.map(home=>'<button class="choice" data-rio-furniture-address="'+escapeHtml(home.propertyId)+'"><b>'+escapeHtml(home.name)+'</b><span>'+item.price+' moedas · entrega agendada</span></button>').join('')+'</div>',addressRoot=>{
+            let committed=false;
+            for(const choice of addressRoot.querySelectorAll('[data-rio-furniture-address]'))choice.onclick=()=>{
+              if(committed||choice.disabled)return;
+              const id=choice.dataset.rioFurnitureAddress,home=rioDeliveryHomes().find(h=>h.propertyId===id),title=rioPropertyTitle(id);
+              if(!home||!title?.owned||title.furniture?.includes(item.id)||rioPropertyFurniturePending(id,item.id)||Number(state.profile.coins)<item.price){
+                toast('Compra indisponível. Confira o saldo e o endereço.','warn',2300);return;
+              }
+              committed=true;for(const c of addressRoot.querySelectorAll('[data-rio-furniture-address]'))c.disabled=true;
+              const save=rioConstructionSave(),nextId=Math.max(0,...save.constructionOrders.map(o=>Number(o.id)||0))+1;
+              const now=Date.now();
+              save.constructionOrders.push({id:nextId,kind:'furniture',productId:item.id,label:item.name,quantity:1,unit:'peça',
+                shopId:site.id,destinationId:id,destinationName:home.name,paid:item.price,status:'en-route',purchasedAt:now,readyAt:now+45000});
+              addCoins(-item.price);rioRegisterHomeDelivery(home);saveState(true);rioConstructionDeliveryReport();
+              toast('Móvel encomendado. Receba no imóvel escolhido.','good',2500);
+            };
+          });
+        };
+      });
+    return true;
+  }
   function rioDeliveryHomes(){
     const compact=typeof compactRio!=='undefined'?(compactRio.sites||[]):[];
     const historic=typeof rioCompactWorld==='function'&&rioCompactWorld()&&typeof RIO_PRETO_LAYOUT!=='undefined'&&typeof rioHistoricHomeSite==='function'
@@ -346,7 +397,7 @@
     const pos=rioDeliveryAddress(site);
     registerInteractable({
       id:actionId,
-      type:'delivery',icon:'📦',label:'Receber materiais de construção',...pos,radius:3.5,priority:262,
+      type:'delivery',icon:'📦',label:'Receber materiais e móveis',...pos,radius:3.5,priority:262,
       available:()=>running&&!paused&&!player.vehicle&&!player.boating&&
         rioPropertyTitle(site.propertyId)?.owned&&
         rioConstructionSave().constructionOrders.some(o=>o.destinationId===site.propertyId&&
@@ -363,10 +414,10 @@
             const now=Date.now();
             for(const order of pending){
               if(order.status!=='en-route'||now<order.readyAt)continue;
-              rioReceiveConstructionStock(saved,order);
+              if(!rioReceivePropertyOrder(saved,order))continue;
               order.status='delivered';order.deliveredAt=now;
             }
-            saveState(true);closeModal();toast('Materiais recebidos e registrados no estoque.','good',2600);
+            saveState(true);closeModal();toast('Encomendas recebidas e registradas no imóvel.','good',2600);
           };});
       }
     });
@@ -375,7 +426,7 @@
     const orders=rioConstructionSave().constructionOrders;
     const homes=rioDeliveryHomes();
     openModal('Minhas entregas e materiais',
-      '<p>Pedidos vinculados à sua propriedade; os novos materiais recebidos ficam no endereço escolhido e podem ser usados em reformas.</p>'+
+      '<p>Pedidos vinculados à sua propriedade. Use materiais nas reformas e posicione os móveis recebidos pelo editor da sua casa.</p>'+
       '<div class="choice-grid">'+orders.slice(-12).reverse().map(o=>{
         const site=homes.find(h=>h.propertyId===o.destinationId);
         const ready=o.status==='en-route'&&Date.now()>=o.readyAt;
@@ -609,17 +660,29 @@
       x:p.x,z:p.z,w:p.w,d:p.d,yaw:p.face===1?0:Math.PI,
       entry:[p.visitX,p.visitZ],street:p.address,shop:p.shop
     };
-    // Native OT stores, not a static mall modal. Shelves, clothing, shoes and
-    // food are built only when the player approaches this district.
-    const room=rioMountPlace(site,sectorRoot);
-    if(!room)return null;
-    const record={site,room,outside,outsideColliders,inside:false,venueId:p.id};
-    room.legacyResidence=true;room.legacyRecord=record;
-    room.root.visible=false;
-    for(const collider of room.colliders)collider.disabled=true;
+    // Stream the visible facade with its district. Allocate full interiors,
+    // staff and merchandise only at the player's first actual entrance.
+    const record={site,room:null,outside,outsideColliders,inside:false,venueId:p.id};
     const doorway={x:p.visitX,z:p.visitZ};
+    function ensureRoom(){
+      if(record.room)return record.room;
+      const room=rioMountPlace(site,sectorRoot);
+      if(!room)return null;
+      record.room=room;room.legacyResidence=true;room.legacyRecord=record;
+      room.root.visible=false;
+      for(const collider of room.colliders)collider.disabled=true;
+      if(p.shop==='materials'||p.shop==='tools'){
+        room.action('construction-counter','Comprar e solicitar entrega de materiais',0,-site.d*.16,
+          ()=>{const clerk=room.npcs?.find(n=>n.shopSlot==='construction');if(clerk)clerk.servingUntil=performance.now()+2500;return rioOpenRegionalConstructionStore(p);},{inside:true,icon:'🧱',radius:2.8});
+      }
+      room.action('exit-regional-mall','Sair do estabelecimento',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:2.9});
+      world.navCache?.clear?.();
+      return room;
+    }
     function enter(){
-      if(record.inside||player.vehicle||player.boating||currentHouse)return false;
+      if(record.inside||player.vehicle||player.boating||currentHouse||rioMap.indoorRoom&&rioMap.indoorRoom!==record.room)return false;
+      const room=ensureRoom();if(!room)return false;
+      sectorRoot.visible=true;
       record.inside=true;outside.visible=false;room.root.visible=true;
       rioMap.indoors=true;rioMap.indoorRoom=room;
       if(room.roof)room.roof.visible=false;
@@ -636,7 +699,8 @@
       return true;
     }
     function leave(){
-      if(!record.inside)return false;
+      if(!record.inside||!record.room)return false;
+      const room=record.room;
       if(rioMap.order?.site===room.site.id)rioClearDiningOrder(room);
       record.inside=false;room.root.visible=false;outside.visible=true;
       if(rioMap.indoorRoom===room){rioMap.indoorRoom=null;rioMap.indoors=false;}
@@ -650,11 +714,6 @@
       rememberSafePlayerPosition(true);saveState(true);updateContext(true);
       return true;
     }
-    if(p.shop==='materials'||p.shop==='tools'){
-      room.action('construction-counter','Comprar e solicitar entrega de materiais',0,-site.d*.16,
-        ()=>{const clerk=room.npcs?.find(n=>n.shopSlot==='construction');if(clerk)clerk.servingUntil=performance.now()+2500;return rioOpenRegionalConstructionStore(p);},{inside:true,icon:'🧱',radius:2.8});
-    }
-    room.action('exit-regional-mall','Sair do estabelecimento',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:2.9});
     record.enter=enter;record.leave=leave;
     rioV51IndoorMalls.set(p.id,record);
     if(rioMapSave().activeRegionalMall===site.id)enter();
@@ -796,8 +855,8 @@
           previous:lastActionSource,current:currentContext?.id,available:!!target&&isInteractionAvailable(target),
           targetExists:!!target,near:!!target&&Math.hypot(player.x-target.x,player.z-target.z)};
       })(),
-      malls:[...rioV51IndoorMalls.values()].map(m=>({id:m.venueId,roomId:m.site.id,inside:m.inside,visible:m.room.root.visible,facade:m.outside.visible,staff:(m.room.npcs||[]).filter(n=>n.id.startsWith('rio-mall-staff-')).map(n=>({id:n.id,name:n.name,visible:n.group.visible!==false})),
-        sectorVisible:!!rioV51World.roots.get(RIO_V51.places.find(p=>p.id===m.site.id)?.sector)?.visible,
+      malls:[...rioV51IndoorMalls.values()].map(m=>({id:m.venueId,roomId:m.site.id,inside:m.inside,loaded:!!m.room,visible:!!m.room?.root.visible,facade:m.outside.visible,staff:(m.room?.npcs||[]).filter(n=>n.id.startsWith('rio-mall-staff-')).map(n=>({id:n.id,name:n.name,visible:n.group.visible!==false})),
+        sectorVisible:!!rioV51World.roots.get(RIO_V51.places.find(p=>p.id===m.venueId)?.sector)?.visible,
         entry:m.site.entry,exit:(()=>{const item=world.interactables.find(i=>i.id===m.site.id+'-exit-regional-mall');return item?{x:item.x,z:item.z}:null;})(),
         position:{x:player.x,z:player.z}}))}),
     locations:()=>RIO_V51.places.map(rioV51Location)

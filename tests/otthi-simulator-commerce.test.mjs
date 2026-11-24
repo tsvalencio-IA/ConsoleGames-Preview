@@ -4,6 +4,8 @@ import {test} from 'node:test';
 import vm from 'node:vm';
 
 const source=readFileSync('games/otthi/src/modules/84-rio-v51-world.js','utf8');
+const furnitureSource=readFileSync('games/otthi/src/modules/95-rio-open-buildings.js','utf8');
+const furnitureCatalogSource=furnitureSource.slice(furnitureSource.indexOf('  function rioFurnitureCatalog('),furnitureSource.indexOf('  function rioBuildResidence('));
 function setup(){
   const save={properties:{'regional-casa-damha':{owned:true}},constructionOrders:[],constructionInventory:{}};
   const state={profile:{coins:500},needs:{fun:35,hygiene:40,energy:60,hunger:70}};
@@ -15,6 +17,8 @@ function setup(){
       if(selector==='[data-rio-construction-buy]')return model.buttons=Object.keys(model.stock||{}).map(id=>({
         dataset:{rioConstructionBuy:id},disabled:false,onclick:null
       }));
+      if(selector==='[data-rio-furniture-buy]')return model.buttons=Object.keys(model.stock||{}).map(id=>({dataset:{rioFurnitureBuy:id},disabled:false,onclick:null}));
+      if(selector==='[data-rio-furniture-address]')return model.buttons=(model.addresses||['regional-casa-damha']).map(id=>({dataset:{rioFurnitureAddress:id},disabled:false,onclick:null}));
       if(selector==='[data-rio-deliver-house]')return model.buttons=(model.addresses||['regional-casa-damha']).map(id=>({dataset:{rioDeliverHouse:id},disabled:false,onclick:null}));
       return [];
     },
@@ -35,7 +39,7 @@ function setup(){
     closeModal:()=>{},toast:()=>{},saveState:()=>{},addCoins:n=>{state.profile.coins+=n;},
     escapeHtml:v=>String(v).replaceAll('&','&amp;').replaceAll('<','&lt;')
   });
-  vm.runInContext(source,ctx);
+  vm.runInContext(furnitureCatalogSource+'\n'+source,ctx);
   return {ctx,model,registered};
 }
 
@@ -183,4 +187,24 @@ test('one construction checkout cannot charge twice through two different addres
   assert.equal(model.state.profile.coins,458);
   assert.equal(model.save.constructionOrders.length,1);
   assert.equal(model.save.constructionOrders[0].destinationId,'regional-casa-damha');
+});
+
+
+test('furniture store delivers the same native catalog object to exactly one owned address',()=>{
+ const {ctx,model,registered}=setup();const id='regional-casa-damha';
+ const catalog=JSON.parse(vm.runInContext('JSON.stringify(rioFurnitureCatalog({w:10,d:8}))',ctx));
+ assert.equal(catalog.length,20);assert.equal(new Set(catalog.map(i=>i.id)).size,20);
+ model.stock={'sofa-modular':true};
+ vm.runInContext("rioOpenFurnitureStore({id:'mall',name:'Shopping'})",ctx);
+ model.buttons[0].onclick();const address=model.buttons[0];address.onclick();address.onclick();
+ assert.equal(model.state.profile.coins,320);assert.equal(model.save.constructionOrders.length,1);
+ const order=model.save.constructionOrders[0];assert.equal(order.kind,'furniture');assert.equal(order.destinationId,id);
+ assert.equal(vm.runInContext("rioPropertyFurniturePending('regional-casa-damha','sofa-modular')",ctx),true);
+ assert.equal(model.save.properties[id].furniture,undefined);
+ order.readyAt=Date.now()-1;const action=registered.find(a=>a.id==='rio-construction-receive-'+id);
+ assert(action.available());action.action();model.single['[data-rio-construction-receive]'].onclick();
+ assert.equal(order.status,'delivered');assert.deepEqual(Array.from(model.save.properties[id].furniture),['sofa-modular']);
+ assert.equal(model.save.properties[id].decorLayout['sofa-modular'].stored,true);
+ assert.equal(model.save.constructionInventory['sofa-modular'],undefined);
+ assert.equal(action.available(),false);assert.equal(model.state.profile.coins,320);
 });

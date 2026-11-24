@@ -19,7 +19,9 @@ try{
   const source=readFileSync('games/otthi/app.js','utf8'),closing=source.lastIndexOf('})();');
   assert(closing>0);
   const hook=String.raw`
+  let rioQaWallClockOffset=0;const rioQaDateNow=Date.now.bind(Date);Date.now=()=>rioQaDateNow()+rioQaWallClockOffset;
   window.__RIO_INTERIOR_TEST={
+    advanceClock:ms=>{rioQaWallClockOffset+=ms;},
     action:id=>{const a=world.interactables.find(x=>x.id===id);return a?{x:a.x,z:a.z}:null;},
     floor:id=>{
       const room=rioMap.sites.get(id);if(!room?.floorMesh)return null;
@@ -27,11 +29,17 @@ try{
       const visible=o=>{for(let p=o;p;p=p.parent)if(!p.visible)return false;return true;};
       const owns=o=>{for(let p=o;p;p=p.parent)if(p===room.root)return true;return false;};
       const points=[room.point(0,room.site.d*.10),room.point(0,room.site.d*.22)];
-      const ray=new THREE.Raycaster();
+      const ray=new THREE.Raycaster();ray.camera=camera;
+      const meshes=[];
+      worldGroup.traverseVisible(o=>{
+        if(!o.isMesh||o.material?.visible===false||o===contactShadow)return;
+        for(let p=o;p;p=p.parent)if(p===playerGroup)return;
+        meshes.push(o);
+      });
       const probes=points.map(p=>{
         ray.set(new THREE.Vector3(p.x,room.floorY+.11,p.z),new THREE.Vector3(0,-1,0));
         const floor=ray.intersectObject(room.floorMesh,false)[0];
-        const first=ray.intersectObject(worldGroup,true).find(hit=>hit.object.isMesh&&visible(hit.object));
+        const first=ray.intersectObjects(meshes,false).find(hit=>visible(hit.object));
         return {slab:!!floor,slabY:floor?.point.y,first:first?.object.name,owned:!!first&&owns(first.object)};
       });
       return {floorY:room.floorY,theme:room.interiorTheme,probes,wallGroups:Object.keys(room.wallGroups||{}),playerY:player.y};
@@ -124,6 +132,25 @@ try{
   await page.locator('#actionBtn').click();
   await page.waitForFunction(id=>!OTTHI_DESTINATIONS.diagnostics().cabins.find(c=>c.id===id)?.inside,cabinId,{timeout:12000});
   report.cases.push({id:cabinId,entered:true,purchased:true,exited:true,floor:cabinFloor});
+  await approach('regional-shopping_cidade_norte');
+  await page.waitForFunction(()=>OTTHI_RIO_V51.diagnostics().malls.some(m=>m.id==='regional-shopping_cidade_norte'&&m.inside),null,{timeout:20000});
+  await approach('regional-shopping_cidade_norte-furniture-counter');
+  await page.locator('[data-rio-furniture-buy="sofa-modular"]').click();
+  await page.locator('[data-rio-furniture-address="'+cabinId+'"]').click();
+  const order=await page.evaluate(id=>OTTHOS_TEST_API.getState().cityServices.rioMap.constructionOrders.find(o=>o.kind==='furniture'&&o.destinationId===id),cabinId);
+  assert(order&&order.status==='en-route'&&order.paid===180);
+  await page.locator('#modalClose').click();
+  await approach('regional-shopping_cidade_norte-exit-regional-mall');
+  await page.waitForFunction(()=>!OTTHI_RIO_V51.diagnostics().malls.find(m=>m.id==='regional-shopping_cidade_norte').inside);
+  await page.evaluate(()=>__RIO_INTERIOR_TEST.advanceClock(46000));
+  await approach('rio-construction-receive-'+cabinId);
+  await page.locator('[data-rio-construction-receive]').click();
+  const receipt=await page.evaluate(id=>{
+    const save=OTTHOS_TEST_API.getState().cityServices.rioMap;
+    return {owned:save.properties[id].furniture,layout:save.properties[id].decorLayout['sofa-modular'],order:save.constructionOrders.find(o=>o.kind==='furniture'&&o.destinationId===id)};
+  },cabinId);
+  assert(receipt.owned.includes('sofa-modular')&&receipt.layout.stored&&receipt.order.status==='delivered');
+  report.cases.push({id:'furniture-address-delivery',received:true,destination:cabinId});
   assert.deepEqual(report.errors,[]);
   report.passed=true;
 }finally{

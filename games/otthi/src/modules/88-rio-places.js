@@ -429,9 +429,17 @@
     const light=new THREE.Mesh(new THREE.SphereGeometry(.15,8,6),new THREE.MeshBasicMaterial({color:0xf8bb5b}));
     light.position.set(badge.x,room.floorY+1.12,badge.z-1.02);light.visible=false;room.root.add(light);room.lights.push(light);
     const seatsZ=Math.min(d*.28,3.6);
-    if(kind!=='theater')room.bench(x,seatsZ);
+    if(kind!=='theater'){
+      room.bench(x,seatsZ);
+      room.action('waiting-seat','Sentar enquanto aguarda atendimento',x,seatsZ+.81,
+        ()=>rioSitOnBench(site,room,x,seatsZ),{inside:true,icon:'🪑'});
+    }
     if(kind==='theater'){
       room.box(0,.16,-d*.40,Math.min(9.5,w*.43),.31,Math.min(3,d*.15),0x735041);
+      const stageW=Math.min(9.5,w*.43);
+      room.box(0,3.15,-d*.46,stageW+.50,.23,.24,0x7a483c);
+      for(const side of[-1,1])for(let i=0;i<4;i++)room.box(side*(stageW*.47-i*.14),1.66,-d*.46,.18,2.84,.21,i%2?0x9a5050:0x793c42);
+      room.box(0,.325,-d*.40,stageW-.22,.035,Math.min(2.65,d*.14),0xb79b75);
       for(let i=0;i<5;i++){
         const p=room.point((i-2)*Math.min(w*.105,1.45),-d*.42);
         const strip=new THREE.Mesh(new THREE.BoxGeometry(.47,.27,.31),new THREE.MeshBasicMaterial({color:0xffcf82}));
@@ -441,6 +449,23 @@
     }else if(kind==='exhibition'){
       room.object(0,.5,-d*.29,1.25,1,1.25,rioPaint.stone);
       room.part('canopy',0,1.55,-d*.29,.82,.9,.74,0xab7344);
+    }else if(kind==='reception'&&w>=9&&d>=8){
+      const examX=-w*.35,examZ=d*.19;
+      room.object(examX,.35,examZ,.97,.67,1.92,0x8ca7a2);
+      room.box(examX,.73,examZ,.87,.10,1.81,0xd9e3d9);
+      room.box(examX,.82,examZ-.63,.76,.14,.44,0xf0eee1);
+      room.box(examX-.51,1.14,examZ,.075,.91,1.70,0x9fb4ad);
+      room.box(examX,1.84,examZ-.98,1.52,.13,.08,0x8ca79e);
+      room.sign('SALA DE REPOUSO',examX,2.22,examZ-.97,Math.min(2.9,w*.30),.32,'#57796d');
+      const approach=room.point(examX+.91,examZ),bed=room.point(examX,examZ);
+      room.action('recovery','Descansar após o atendimento',examX+.91,examZ,()=>{
+        if(!room.serviceComplete)return false;
+        return beginCharacterActivity('rio-rest',{target:approach,pose:{...bed,y:room.floorY+.86,yaw:site.yaw,lying:true},commit:()=>{
+          if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+          state.needs.energy=clamp(Number(state.needs.energy||0)+8,0,100);
+          saveState(true);updateHUD();return true;
+        }});
+      },{inside:true,available:()=>!!room.serviceComplete,icon:'🛏️'});
     }else if(kind==='station'){
       room.sign('PLATAFORMA',stationX,2,stationZ-.35,Math.min(w*.5,6),.5);
       for(let i=-3;i<=3;i++)room.box(i*.5,.035,stationZ+2.2,.36,.036,.15,0xceb35a);
@@ -452,7 +477,7 @@
     },{inside:true,icon:'📋'});
     room.action('service',next,stationX,stationZ+1.02,()=>{
       if(!room.ticket||!rioPlayerAt(badge))return;
-      room.ticket=false;room.lights.forEach(item=>{item.visible=true;});
+      room.ticket=false;room.serviceComplete=true;room.lights.forEach(item=>{item.visible=true;});
       rioCountVisit(site);toast(success,'good',2600);
     },{inside:true,available:()=>room.ticket});
   }

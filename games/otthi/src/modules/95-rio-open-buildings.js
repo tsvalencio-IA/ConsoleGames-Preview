@@ -84,6 +84,32 @@
     return true;
   }
 
+  function rioFurnitureCatalog(site){
+    const {w,d}=site;
+    return [
+      {id:'tapete',name:'Tapete decorativo',price:35,type:'rug',color:0x73928c,x:-w*.06,z:-.68,w:1.56,d:1.24},
+      {id:'luminaria',name:'Luminária de piso',price:65,type:'lamp',color:0xd9bb8e,x:w*.36,z:-d*.27,w:.35,d:.35},
+      {id:'quadro',name:'Quadro moderno',price:48,type:'picture',color:0xb17c64,x:w*.25,z:-d*.38,w:1.45,d:.16},
+      {id:'aparador',name:'Aparador de madeira',price:75,type:'cabinet',color:0x865b45,x:-w*.35,z:-d*.1,w:1.18,d:.40},
+      {id:'estante',name:'Estante de livros',price:110,type:'bookshelf',color:0xbda27c,x:-w*.43,z:-d*.26,w:.52,d:1.35},
+      {id:'planta',name:'Vaso decorativo',price:25,type:'plant',color:0x658c5f,x:w*.37,z:-d*.36,w:.44,d:.44},
+      {id:'sofa-modular',name:'Sofá modular',price:180,type:'sofa',color:0x758d8c,x:-w*.1,z:-d*.1,w:2.3,d:1.04},
+      {id:'poltrona',name:'Poltrona estofada',price:85,type:'armchair',color:0xb67b65,x:w*.2,z:-d*.15,w:.94,d:.91},
+      {id:'mesa-jantar',name:'Mesa de jantar',price:155,type:'table',color:0x9d7952,x:-w*.08,z:d*.04,w:1.75,d:1.16},
+      {id:'cadeira-madeira',name:'Cadeira para sala',price:45,type:'chair',color:0x9b7152,x:w*.12,z:d*.05,w:.58,d:.59},
+      {id:'cama-casal',name:'Cama de casal',price:210,type:'bed',color:0x8d7a6c,x:-w*.12,z:-d*.22,w:2.1,d:2.03},
+      {id:'guarda-roupa',name:'Guarda-roupa de casal',price:190,type:'wardrobe',color:0xac9477,x:-w*.34,z:-d*.24,w:1.7,d:.66},
+      {id:'mesa-escritorio',name:'Mesa de escritório',price:110,type:'desk',color:0x97745b,x:w*.17,z:-d*.22,w:1.45,d:.68},
+      {id:'computador',name:'Computador',price:220,type:'computer',color:0x3e5867,x:w*.22,z:-d*.30,w:.68,d:.40},
+      {id:'tv-premium',name:'Televisão grande',price:260,type:'tv',color:0x324b5a,x:w*.21,z:-d*.39,w:1.7,d:.15},
+      {id:'geladeira',name:'Geladeira inox',price:155,type:'fridge',color:0xc2cbd0,x:-w*.34,z:d*.12,w:.75,d:.72},
+      {id:'bancada',name:'Bancada de cozinha',price:135,type:'counter',color:0xc4b3a0,x:-w*.28,z:d*.23,w:1.68,d:.66},
+      {id:'churrasqueira',name:'Churrasqueira compacta',price:145,type:'grill',color:0x6b7276,x:w*.32,z:d*.31,w:1.06,d:.76},
+      {id:'espreguicadeira',name:'Espreguiçadeira da piscina',price:90,type:'lounger',color:0xe2cfa5,x:w*.16,z:d*.24,w:.64,d:1.42},
+      {id:'vaso-flores',name:'Flores para decoração',price:30,type:'flowers',color:0xd88b90,x:w*.32,z:-d*.22,w:.35,d:.35}
+    ];
+  }
+
   function rioBuildResidence(site,room){
     const selected=rioMapSave().selectedApartmentBySite?.[site.id];
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
@@ -340,28 +366,7 @@
     // OT Home Life: ownership, owned item library, positions, rotation and storage
     // are part of the existing unit or residence property record.
     // Keep the original six IDs and saved furniture arrays compatible.
-    const furnishings=[
-      {id:'tapete',name:'Tapete decorativo',price:35,type:'rug',color:0x73928c,x:-w*.06,z:-.68,w:1.56,d:1.24},
-      {id:'luminaria',name:'Luminária de piso',price:65,type:'lamp',color:0xd9bb8e,x:w*.36,z:-d*.27,w:.35,d:.35},
-      {id:'quadro',name:'Quadro moderno',price:48,type:'picture',color:0xb17c64,x:w*.25,z:-d*.38,w:1.45,d:.16},
-      {id:'aparador',name:'Aparador de madeira',price:75,type:'cabinet',color:0x865b45,x:-w*.35,z:-d*.1,w:1.18,d:.40},
-      {id:'estante',name:'Estante de livros',price:110,type:'bookshelf',color:0xbda27c,x:-w*.43,z:-d*.26,w:.52,d:1.35},
-      {id:'planta',name:'Vaso decorativo',price:25,type:'plant',color:0x658c5f,x:w*.37,z:-d*.36,w:.44,d:.44},
-      {id:'sofa-modular',name:'Sofá modular',price:180,type:'sofa',color:0x758d8c,x:-w*.1,z:-d*.1,w:2.3,d:1.04},
-      {id:'poltrona',name:'Poltrona estofada',price:85,type:'armchair',color:0xb67b65,x:w*.2,z:-d*.15,w:.94,d:.91},
-      {id:'mesa-jantar',name:'Mesa de jantar',price:155,type:'table',color:0x9d7952,x:-w*.08,z:d*.04,w:1.75,d:1.16},
-      {id:'cadeira-madeira',name:'Cadeira para sala',price:45,type:'chair',color:0x9b7152,x:w*.12,z:d*.05,w:.58,d:.59},
-      {id:'cama-casal',name:'Cama de casal',price:210,type:'bed',color:0x8d7a6c,x:-w*.12,z:-d*.22,w:2.1,d:2.03},
-      {id:'guarda-roupa',name:'Guarda-roupa de casal',price:190,type:'wardrobe',color:0xac9477,x:-w*.34,z:-d*.24,w:1.7,d:.66},
-      {id:'mesa-escritorio',name:'Mesa de escritório',price:110,type:'desk',color:0x97745b,x:w*.17,z:-d*.22,w:1.45,d:.68},
-      {id:'computador',name:'Computador',price:220,type:'computer',color:0x3e5867,x:w*.22,z:-d*.30,w:.68,d:.40},
-      {id:'tv-premium',name:'Televisão grande',price:260,type:'tv',color:0x324b5a,x:w*.21,z:-d*.39,w:1.7,d:.15},
-      {id:'geladeira',name:'Geladeira inox',price:155,type:'fridge',color:0xc2cbd0,x:-w*.34,z:d*.12,w:.75,d:.72},
-      {id:'bancada',name:'Bancada de cozinha',price:135,type:'counter',color:0xc4b3a0,x:-w*.28,z:d*.23,w:1.68,d:.66},
-      {id:'churrasqueira',name:'Churrasqueira compacta',price:145,type:'grill',color:0x6b7276,x:w*.32,z:d*.31,w:1.06,d:.76},
-      {id:'espreguicadeira',name:'Espreguiçadeira da piscina',price:90,type:'lounger',color:0xe2cfa5,x:w*.16,z:d*.24,w:.64,d:1.42},
-      {id:'vaso-flores',name:'Flores para decoração',price:30,type:'flowers',color:0xd88b90,x:w*.32,z:-d*.22,w:.35,d:.35}
-    ];
+    const furnishings=rioFurnitureCatalog(site);
     const byId=new Map(furnishings.map(item=>[item.id,item])),decorMeshes=new Map();
     const addDecorModel=item=>{
       const group=new THREE.Group();
@@ -445,18 +450,19 @@
     const openDecorCatalog=()=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       if(!owner?.owned){toast('Primeiro compre esta residência.','info',2300);return;}
-      const owned=new Set(owner.furniture||[]);
+      const owned=new Set(owner.furniture||[]),propertyId=rioResidencePropertyId();
       openModal('Minha casa · móveis e decoração',
         '<p>Compre móveis com moedas do jogo, escolha a posição, gire e guarde peças. Suas escolhas ficam salvas nesta residência.</p>'+
         '<p><b>'+owned.size+' de '+furnishings.length+' itens adquiridos</b></p><div class="choice-grid">'+
         furnishings.map(item=>'<button class="choice" data-rio-decor-item="'+item.id+'"><b>'+item.name+'</b><span>'+
-          (owned.has(item.id)?'Editar posição e rotação':item.price+' moedas')+'</span></button>').join('')+'</div>',root=>{
+          (owned.has(item.id)?'Editar posição e rotação':rioPropertyFurniturePending(propertyId,item.id)?'Aguardando entrega':item.price+' moedas')+'</span></button>').join('')+'</div>',root=>{
         for(const button of root.querySelectorAll('[data-rio-decor-item]'))button.onclick=()=>{
           const item=byId.get(button.dataset.rioDecorItem);
           if(!item)return;
           const current=rioPropertyTitle(rioResidencePropertyId());
           if(!current?.owned)return;
           if(!(current.furniture||[]).includes(item.id)){
+            if(rioPropertyFurniturePending(rioResidencePropertyId(),item.id)){toast('Este móvel já está a caminho deste imóvel.','info',2300);return;}
             if(Number(state.profile.coins)<item.price){toast('Moedas insuficientes.','warn',1800);return;}
             button.disabled=true;(current.furniture??=[]).push(item.id);
             addCoins(-item.price);saveState(true);updateDecor();
@@ -836,6 +842,33 @@
     return true;
   }
 
+  function rioBuildFurnitureShowroom(site,room){
+    const {w,d}=site;
+    if(w<20||d<13)return;
+    const x=-w*.36,z=-d*.35,sampleX=-w*.37,sampleZ=-d*.12;
+    const counter=rioCounter(room,x,z,Math.min(2.8,w*.15),0x746957);
+    const clerk=rioServiceClerk(site,room,'furniture','Consultor de móveis',x,z-.84,0x807769);
+    room.sign('MÓVEIS E DECORAÇÃO',x,2.53,z-.40,Math.min(4.4,w*.20),.42,'#605a4a');
+    // A model home display: seating, solid legs, cushions and a real table.
+    // The fixtures are physically placed at the edge, outside the main aisle.
+    room.box(sampleX,.026,sampleZ,Math.min(3.2,w*.15),.025,2.16,0xc2a78a);
+    room.object(sampleX,.39,sampleZ-.37,2.05,.78,.77,0x789b94);
+    room.box(sampleX,.85,sampleZ-.68,2.05,.50,.20,0x557b76);
+    for(const side of[-1,1]){
+      room.box(sampleX+side*.89,.68,sampleZ-.37,.20,.50,.77,0x557b76);
+      room.box(sampleX+side*.39,.86,sampleZ-.40,.71,.16,.52,side<0?0xd6c1a2:0xb4c4b5);
+    }
+    room.box(sampleX,.43,sampleZ+.70,.98,.12,.47,0xa27b56);
+    for(const dx of[-.39,.39])for(const dz of[-.16,.16])room.box(sampleX+dx,.22,sampleZ+.70+dz,.075,.40,.075,0x685143);
+    room.part('post',sampleX-1.13,.72,sampleZ-.46,.12,1.39,.12,0x6a7f72);
+    room.part('post',sampleX-1.13,1.45,sampleZ-.46,.45,.32,.45,0xd8c198);
+    room.action('furniture-counter','Comprar móveis para minha propriedade',x,z+1.02,()=>{
+      if(!rioPlayerAt(counter))return false;
+      clerk.servingUntil=performance.now()+2500;
+      return rioOpenFurnitureStore(site);
+    },{inside:true,icon:'🛋️'});
+  }
+
   function rioBuildFoodCourt(site,room){
     // The existing market remains a grocery store. The new food court has
     // a real dining counter and table, uses the same order/coins/needs
@@ -898,6 +931,7 @@
     }
     rioBuildMarket(site,room);
     rioBuildFoodCourt(site,room);
+    rioBuildFurnitureShowroom(site,room);
   }
 
   function rioBuildOilShop(site,room){

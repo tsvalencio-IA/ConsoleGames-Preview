@@ -38,7 +38,7 @@
   return [
    {id:'market',title:'Abasteça sua casa',text:'Vá ao Mercadão e compre alimentos para cozinhar.',target:'regional-mercado_municipal',done:!!visits['regional-mercado_municipal']},
    {id:'home',title:'Conquiste seu imóvel',text:'Visite e compre uma casa ou um apartamento com as moedas que ganhou.',target:'regional-casa-damha',done:owned.length>0},
-   {id:'furniture',title:'Deixe a casa do seu jeito',text:'Compre, posicione e salve um móvel na sua propriedade.',target:null,done:properties.some(p=>Object.keys(p.decorLayout||{}).length>0)},
+   {id:'furniture',title:'Deixe a casa do seu jeito',text:'Escolha móveis no shopping ou no catálogo, receba no imóvel e salve a decoração.',target:'regional-shopping_cidade_norte',done:properties.some(p=>Object.values(p.decorLayout||{}).some(layout=>layout&&!layout.stored))},
    {id:'style',title:'Escolha seu estilo',text:'Compre uma peça no shopping e experimente no guarda-roupa.',target:'regional-riopreto_shopping',done:Object.values(save.wardrobePurchases||{}).some(Boolean)},
    {id:'delivery',title:'Receba sua encomenda',text:'Compre material na loja, escolha sua propriedade e receba a entrega.',target:'regional-planalto_materiais',done:(save.constructionOrders||[]).some(o=>o.status==='delivered')},
    {id:'renovation',title:'Reforme sua casa',text:'Use o material entregue para mudar a parede ou o piso.',target:null,done:properties.some(p=>Number.isInteger(p.renovation?.walls)||Number.isInteger(p.renovation?.floor))},
