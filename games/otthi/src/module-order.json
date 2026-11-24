@@ -19,7 +19,7 @@
     {
       "file": "src/modules/81-rio-wardrobe.js",
       "description": "Guarda-roupa intercambiável e prévia dos personagens",
-      "sha256Body": "f9f59ec130f8a2454c732492bfdb1807692ecc22fc6aa11296b35562f97c1f76"
+      "sha256Body": "775515ebed179bf9c5f0ca0bcf97dcfc2cf41151c885e10f3fe79423088cfc54"
     },
     {
       "file": "src/modules/01-build-persistence.js",
@@ -192,7 +192,7 @@
       "startLine": 3559,
       "endLine": 3717,
       "description": "Água, câmera e animação da pesca, barco e física náutica",
-      "sha256Body": "2bc6dd7639413a1ae3310800d486c4ec924dcad97ecbf01a123e5a0c6eb9f9bc"
+      "sha256Body": "8391c7e07c475a2b6755f6797c116cb2a5c688a6ab58a0006f8d6c9a5ef0e2bb"
     },
     {
       "file": "src/modules/19-campfire-hunting-house-extensions.js",
@@ -504,7 +504,7 @@
     {
       "file": "src/modules/53-neighborhood-dealerships.js",
       "description": "Concessionárias físicas, exposição e compras nativas",
-      "sha256Body": "9b992b49d448c280faa67c17196211a5d9c8ed23f3f9ffd0c80c489754333d6c",
+      "sha256Body": "a782719dc05980afc1b2d178a4a1c6a27444b3e14958bbd99b473eed25494b8c",
       "startLine": 0,
       "endLine": 0
     },
@@ -541,7 +541,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Ações visíveis e interrompíveis dos personagens",
-      "sha256Body": "1afaaa0e8b725865d5a95cf176132d6cdd1c894ab45870de41ed4e5b5aa6e3fe"
+      "sha256Body": "12cde735f38d82683b6f0b8c895f16a1b9f3598a1ead6e77af88a060d341a3b2"
     },
     {
       "file": "src/modules/59-world-residents.js",
@@ -569,7 +569,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Garagem física particular e retirada na concessionária",
-      "sha256Body": "b77031994e8b40b02bb294735d0f662c2970001bbf03a7e8741244ac4b52edb7"
+      "sha256Body": "47302a70731af7d5b832383d042277143ac94458604c53e9fe098a26ce1401e8"
     },
     {
       "file": "src/modules/63-cordillera-forest.js",
@@ -667,7 +667,7 @@
     },
     {
       "file": "src/modules/84-rio-v51-world.js",
-      "sha256Body": "928ead679bbc130f17651978cc4f310a4c8830e88408177be8bf0b5bbfab9918"
+      "sha256Body": "568e5d9afe26d6f8c467951cd3269707388ca59b2e629faccfdf57874ed23189"
     },
     {
       "file": "src/modules/85-rio-city-activities.js",
@@ -683,15 +683,15 @@
     },
     {
       "file": "src/modules/88-rio-places.js",
-      "sha256Body": "1da0df31ea7354c2c0a7dfe569367639a6609426ad51eb84b1b2a82c8545196c"
+      "sha256Body": "6225e29d93c2f124219f0b601ea347681b8f24a4b98001f0a9bd26a6976d5cf3"
     },
     {
       "file": "src/modules/89-rio-map-world.js",
-      "sha256Body": "d68025ee6123cc83025e485029c9be275fa3adf6e8ce558960d7c28c1bc6950a"
+      "sha256Body": "a12433ffb5b3095e51e3a0fd1ea90a92b7e9cc2c8c0754659d874174873e24e2"
     },
     {
       "file": "src/modules/90-rio-map-activities.js",
-      "sha256Body": "40ff592559dc19456839038d5e4732423ec922c07dfbd2d0957f1ca65d5fa840"
+      "sha256Body": "eb8e73bb1ef18d495503f89e618526f3220a0924066dc2bf0bd33f20e879dd35"
     },
     {
       "file": "src/modules/91-rio-map-entry-and-ui.js",
@@ -714,7 +714,7 @@
     {
       "file": "src/modules/95-rio-open-buildings.js",
       "description": "Playable residences, shops, bakery and oil service",
-      "sha256Body": "cc05d70c57e41c5d844a2b9374d232b1b6407e80df1f781923473d19569ac8b3"
+      "sha256Body": "0fb090540b6a56079c38826457576299104179e62b47eee3edae5248e95af0d9"
     },
     {
       "file": "src/modules/96-rio-airport.js",
@@ -734,7 +734,7 @@
     {
       "file": "src/modules/99-rio-compact-world.js",
       "description": "Infraestrutura original e atividades jogáveis da Rio Preto compacta",
-      "sha256Body": "9574494305b9444e5305a3fb27c04a77a11969179114d74e024eb5e6819c97cc"
+      "sha256Body": "ab66f99d50d083c36f7e80f99e929424259d3ac6390acd28dcd83abe6f694fe0"
     },
     {
       "file": "src/modules/100-rio-weather.js",

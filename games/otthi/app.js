@@ -391,7 +391,12 @@
       ['hoodie', 'Moletom com capuz', '#66739c'],
       ['rio-polo', 'Polo vinho da cidade', '#862e4a'],
       ['rio-lavanda', 'Camiseta lavanda', '#9f86b2'],
-      ['rio-social', 'Camisa social azul', '#446a8a']
+      ['rio-social', 'Camisa social azul', '#446a8a'],
+      ['rio-blazer','Blazer grafite','#404955'],
+      ['rio-cropped','Cropped vermelho','#bf293e'],
+      ['rio-vestido-rosa','Vestido rosa','#d77ba1'],
+      ['rio-polo-branco','Polo branca','#ede9df'],
+      ['rio-jaqueta-couro','Jaqueta de couro','#443631']
     ],
     legs: [
       ['original', 'Roupa original'],
@@ -402,7 +407,10 @@
       ['rio-alfaiataria', 'Calça de alfaiataria', '#383b43'],
       ['rio-cargo', 'Calça cargo', '#6c7351'],
       ['rio-jeans-preto', 'Jeans preto', '#252a35'],
-      ['rio-bermuda-jeans', 'Bermuda jeans', '#456786']
+      ['rio-bermuda-jeans', 'Bermuda jeans', '#456786'],
+      ['rio-legging','Legging preta','#262b34'],
+      ['rio-legging-vinho','Legging vinho','#71374e'],
+      ['rio-sarja-clara','Calça bege','#d4bf9f']
     ],
     shoes: [
       ['original', 'Calçado original'],
@@ -413,7 +421,9 @@
       ['rio-sapato', 'Sapato azul-marinho', '#263a58'],
       ['rio-sneaker', 'Tênis urbano', '#b6a088'],
       ['rio-bota', 'Bota preta', '#282b35'],
-      ['rio-salto', 'Sapato de festa', '#b66d76']
+      ['rio-salto', 'Sapato de festa', '#b66d76'],
+      ['rio-tenis-vermelho','Tênis vermelho','#b43639'],
+      ['rio-bota-caramelo','Bota caramelo','#a26b43']
     ],
     hat: [
       ['original', 'Sem chapéu novo'],
@@ -422,21 +432,25 @@
       ['beanie', 'Gorro de tricô', '#496b61'],
       ['headphones', 'Fones de ouvido', '#4b5970'],
       ['rio-bone-azul', 'Boné azul', '#375c96'],
-      ['rio-panama-claro', 'Chapéu verão', '#e6cda3']
+      ['rio-panama-claro', 'Chapéu verão', '#e6cda3'],
+      ['rio-bone-preto','Boné preto','#282e38'],
+      ['rio-gorro-rosa','Gorro rosa','#cc7299']
     ],
     glasses: [
       ['original', 'Óculos originais'],
       ['copper', 'Armação cobre', '#b87955'],
       ['sun', 'Óculos de sol', '#304255'],
       ['rio-armacao', 'Óculos pretos', '#25292e'],
-      ['rio-sol', 'Óculos escuros', '#1a2435']
+      ['rio-sol', 'Óculos escuros', '#1a2435'],
+      ['rio-sol-ambar','Óculos de sol âmbar','#986439']
     ],
     jewel: [
       ['original', 'Acessórios originais'],
       ['necklace', 'Colar pingente', '#d8ae61'],
       ['earrings', 'Brincos pequenos', '#d8ae61'],
       ['rio-brinco-prata', 'Brincos de prata', '#b7c8d2'],
-      ['rio-colar-prata', 'Colar de prata', '#b9cad2']
+      ['rio-colar-prata', 'Colar de prata', '#b9cad2'],
+      ['rio-colar-ouro','Colar dourado','#d8b365']
     ],
     wrist: [
       ['original', 'Acessório original'],
@@ -462,7 +476,10 @@
     'rio-social':96,'rio-alfaiataria':88,'rio-cargo':70,'rio-jeans-preto':78,'rio-bermuda-jeans':52,
     'rio-sneaker':72,'rio-bota':98,'rio-salto':94,'rio-bone-azul':39,'rio-panama-claro':55,
     'rio-armacao':65,'rio-sol':69,'rio-brinco-prata':48,'rio-colar-prata':60,
-    'rio-smartwatch':110,'rio-pulseira-prata':50,'rio-mochila-escola':72,'rio-bolsa-cidade':86});
+    'rio-smartwatch':110,'rio-pulseira-prata':50,'rio-mochila-escola':72,'rio-bolsa-cidade':86,
+    'rio-blazer':125,'rio-cropped':59,'rio-vestido-rosa':110,'rio-polo-branco':70,'rio-jaqueta-couro':140,
+    'rio-legging':62,'rio-legging-vinho':65,'rio-sarja-clara':78,'rio-tenis-vermelho':75,'rio-bota-caramelo':99,
+    'rio-bone-preto':39,'rio-gorro-rosa':42,'rio-sol-ambar':69,'rio-colar-ouro':88});
   function rioWardrobeHasItem(id){return !RIO_WARDROBE_STORE[id]||!!state.cityServices?.rioMap?.wardrobePurchases?.[id];}
   const RIO_WARDROBE_PRESETS = Object.freeze({
     original: {label:'Visual original', outfit:{}},
@@ -485,12 +502,12 @@
   function rioWardrobeToken(value) {
     const outfit=normalizeRioWardrobeOutfit(value);
     const slots=Object.entries(RIO_WARDROBE_CATALOG).map(([slot,choices])=>choices.findIndex(choice=>choice[0]===outfit[slot]));
-    return slots.some(Boolean) ? 'rio1-'+slots.join('') : '';
+    return slots.some(Boolean) ? (slots.every(n=>n<10)?'rio1-'+slots.join(''):'rio2-'+slots.map(n=>n.toString(36)).join('')) : '';
   }
   function rioWardrobeFromToken(value) {
-    const match=/^rio1-([0-9]{8})$/.exec(typeof value==='string'?value:'');
+    const match=/^(?:rio1-([0-9]{8})|rio2-([0-9a-z]{8}))$/.exec(typeof value==='string'?value:'');
     if(!match)return normalizeRioWardrobeOutfit();
-    return normalizeRioWardrobeOutfit(Object.fromEntries(Object.entries(RIO_WARDROBE_CATALOG).map(([slot,choices],i)=>[slot,choices[Number(match[1][i])]?.[0]])));
+    return normalizeRioWardrobeOutfit(Object.fromEntries(Object.entries(RIO_WARDROBE_CATALOG).map(([slot,choices],i)=>[slot,choices[parseInt((match[1]||match[2])[i],36)]?.[0]])));
   }
   function rioWardrobeTint(slot,id) {
     return RIO_WARDROBE_CATALOG[slot].find(choice=>choice[0]===id)?.[2];
@@ -529,7 +546,7 @@
       if(tints.top&&(tag===id&&y>1.22&&y<2.13||/^shoulder[+-]?\d/.test(tag))&&!matches(i,neck))tint=tints.top;
       if(tints.legs&&/^(hips|hip[+-]?\d|knee[+-]?\d)$/.test(tag)){
         tint=tints.legs;
-        if(outfit.legs==='bermuda'&&y<.78){tint=neck;keepDetail=false;}
+        if(['bermuda','rio-bermuda-jeans'].includes(outfit.legs)&&y<.78){tint=neck;keepDetail=false;}
       }
       else if(outfit.top==='festival'&&outfit.legs==='original'&&/^(hips|hip[+-]?\d|knee[+-]?\d)$/.test(tag))tint=joggers;
       if(tints.shoes&&/^ankle[+-]?\d/.test(tag)&&y>.255&&colors.getX(i)<.73)tint=tints.shoes;
@@ -621,7 +638,7 @@
     const top=tint('top');
     if(top){
       const torso=add('top',rootKey);
-      if(['denim','rain','hoodie','rio-social'].includes(outfit.top)){
+      if(['denim','rain','hoodie','rio-social','rio-blazer','rio-jaqueta-couro'].includes(outfit.top)){
         // The sleeves pivot at the existing elbows and leave the tool hand clear.
         for(const side of [-1,1]){
           const sleeve=add('sleeve','elbow'+side);
@@ -644,7 +661,7 @@
       }else if(outfit.top==='linen'){
         piece(torso,'box','#c5b2a0',[.13,.105,.015],[-.16,1.775,.227]);
         piece(torso,'box','#ead8c0',[.46,.024,.026],[0,1.31,.19]);
-      }else if(outfit.top==='festival'){
+      }else if(['festival','rio-vestido-rosa'].includes(outfit.top)){
         state.skirt=add('skirt',rootKey);
         state.skirt.position.set(0,1.14,0);
         piece(state.skirt,'flare',top,[.84,.33,.57],[0,0,0]);
@@ -656,7 +673,7 @@
       const stripe=add('track-stripe','hip'+side);
       piece(stripe,'box','#e0d7ee',[.022,.38,.036],[side*.159,-.252,.04]).rotation.z=-side*.075;
     }
-    if(outfit.shoes==='boot')for(const side of [-1,1]){
+    if(['boot','rio-bota','rio-bota-caramelo'].includes(outfit.shoes))for(const side of [-1,1]){
       const boot=add('boot','ankle'+side);
       piece(boot,'disc',tint('shoes'),[.232,.25,.248],[0,.221,-.04]);
       piece(boot,'disc','#9e7a5b',[.242,.028,.255],[0,.338,-.04]);
@@ -664,7 +681,7 @@
     const hat=tint('hat');
     if(hat){
       const head=add('hat','head');
-      if(['cap','rio-bone-azul'].includes(outfit.hat)){
+      if(['cap','rio-bone-azul','rio-bone-preto'].includes(outfit.hat)){
         piece(head,'sphere',hat,[.81,.28,.72],[0,.444,-.012]);
         piece(head,'sphere',hat,[.58,.06,.34],[0,.393,.38]);
         piece(head,'box','#ead9b3',[.102,.043,.018],[0,.49,.335]);
@@ -684,10 +701,10 @@
         piece(head,'sphere',hat,[.119,.124,.118],[0,.593,-.019]);
       }
     }
-    if(['sun','rio-sol'].includes(outfit.glasses)){
+    if(['sun','rio-sol','rio-sol-ambar'].includes(outfit.glasses)){
       const glasses=add('glasses','head');
       for(const side of [-1,1]){
-        piece(glasses,'sphere','#203744',[.242,.181,.035],[side*.176,.065,.414],'lens');
+        piece(glasses,'sphere',outfit.glasses==='rio-sol-ambar'?'#986439':'#203744',[.242,.181,.035],[side*.176,.065,.414],'lens');
         piece(glasses,'box','#b79267',[.061,.025,.024],[side*.305,.113,.426],'metal');
       }
     }
@@ -695,7 +712,7 @@
     if(['earrings','rio-brinco-prata'].includes(outfit.jewel)){
       const ears=add('earrings','head');
       for(const side of [-1,1])piece(ears,'ring',jewel,[.075,.105,.048],[side*.424,-.127,.039],'metal');
-    }else if(outfit.jewel==='necklace'){
+    }else if(['necklace','rio-colar-prata','rio-colar-ouro'].includes(outfit.jewel)){
       const neck=add('necklace',rootKey);
       const chain=piece(neck,'ring',jewel,[.356,.29,.10],[0,1.92,.188],'metal');
       chain.rotation.x=-.36;
@@ -706,7 +723,7 @@
       piece(watch,'disc',tint('wrist'),[.169,.069,.174],[0,-.283,.006],'metal');
       piece(watch,'box','#253845',[.087,.047,.039],[0,-.283,.101],'metal');
       piece(watch,'box','#98c5c4',[.013,.021,.005],[0,-.279,.124]);
-    }else if(outfit.wrist==='bracelet'){
+    }else if(['bracelet','rio-pulseira-prata'].includes(outfit.wrist)){
       const bracelet=add('bracelet','elbow1');
       piece(bracelet,'disc',tint('wrist'),[.155,.039,.16],[0,-.302,0]);
       piece(bracelet,'sphere','#efcf99',[.055,.052,.035],[0,-.30,.083]);
@@ -7054,8 +7071,31 @@
     const now=performance.now();for(const npc of world.shoreFishers){const act=npc.fishingActivity;if(!act)continue;npc.group.position.set(npc.baseX,0,npc.baseZ);npc.group.rotation.y=act.heading;const pulse=Math.sin(now*.0021+act.phase),bite=Math.sin(now*.006+act.phase)> .92;act.rod.rotation.x=-.58+pulse*.035-(bite?.1:0);if(npc.limbs){npc.limbs.leftArm.rotation.x=lerp(npc.limbs.leftArm.rotation.x,-1.55+(bite?-.18:0),.18);npc.limbs.rightArm.rotation.x=lerp(npc.limbs.rightArm.rotation.x,-1.72+(bite?-.25:0),.18);npc.limbs.leftLeg.rotation.x=lerp(npc.limbs.leftLeg.rotation.x,.16,.18);npc.limbs.rightLeg.rotation.x=lerp(npc.limbs.rightLeg.rotation.x,-.16,.18);}act.bobber.position.y=.15+Math.sin(now*.004+act.phase)*.035-(bite?.055:0);const tip=new THREE.Vector3();act.rod.localToWorld(tip.set(0,1.08,0));const arr=act.line.geometry.attributes.position.array;arr[0]=tip.x;arr[1]=tip.y;arr[2]=tip.z;arr[3]=act.bobber.position.x;arr[4]=act.bobber.position.y;arr[5]=act.bobber.position.z;act.line.geometry.attributes.position.needsUpdate=true;}
   }
   function createLakeBoatHull(){
-    const g=new THREE.Group();g.name='LAKE_FISHING_BOAT';const hull=renderMat(0x7b3f20,{roughness:.72}),edge=renderMat(0xe3ad55,{roughness:.62}),seat=renderMat(0x374151,{roughness:.72});
-    premiumBox(2.4,.42,4.4,hull,0,.38,0,g);premiumBox(2.75,.25,3.85,edge,0,.67,0,g);premiumBox(1.85,.23,3.15,renderMat(0x2d6f8d,{roughness:.48}),0,.83,0,g);premiumBox(1.75,.25,.55,seat,0,1.02,-.65,g);premiumBox(1.75,.25,.55,seat,0,1.02,.72,g);premiumBox(.12,1.8,.12,0xd8c28d,.95,1.35,.1,g);premiumBox(1.45,.05,.72,0xf5f1df,.25,2.05,.1,g);return g;
+    const g=new THREE.Group();g.name='LAKE_FISHING_BOAT';
+    const hull=renderMat(0x315868,{roughness:.55,metalness:.18}),trim=renderMat(0xe6e1cf,{roughness:.55}),wood=renderMat(0x9c7652,{roughness:.72}),seat=renderMat(0x374151,{roughness:.72}),metal=renderMat(0x78868a,{roughness:.5,metalness:.3});
+    // Tapered hull; retain the approved length, beam and both seat anchors.
+    const stations=[[-2.19,.94,.18,.70],[-1.85,1.28,.07,.76],[-.90,1.35,.05,.78],[.6,1.32,.05,.78],[1.45,.93,.14,.80],[2.19,.03,.38,.85]];
+    g.add(new THREE.Mesh(seaCraftHullGeometry(stations,false),hull));
+    campaignBox(g,wood,0,.76,-.15,1.86,.10,3.28);
+    for(const z of[-.65,.72]){
+      campaignBox(g,seat,0,1.02,z,1.75,.22,.55);
+      for(const side of[-1,1])campaignBox(g,metal,side*.72,.87,z,.12,.28,.39);
+    }
+    for(const side of[-1,1]){
+      for(let i=1;i<stations.length;i++){
+        const prev=stations[i-1],next=stations[i],dx=side*(next[1]-prev[1]),dz=next[0]-prev[0];
+        const rail=campaignBox(g,trim,side*(prev[1]+next[1])/2,(prev[3]+next[3])/2,(prev[0]+next[0])/2,.09,.075,Math.hypot(dx,dz));
+        if(rail?.rotation)rail.rotation.y=Math.atan2(dx,dz);
+      }
+      campaignBox(g,metal,side*1.1,.92,-.22,.13,.16,.34);
+    }
+    campaignBox(g,metal,0,.75,-2.12,.49,.72,.28);
+    campaignBox(g,seat,0,1.14,-2.12,.57,.34,.42);
+    campaignBox(g,metal,0,.36,-2.17,.16,.43,.16);
+    campaignBox(g,metal,.24,1.04,-1.81,.50,.06,.07);
+    campaignCylinder(g,metal,.91,1.20,.10,.035,.9);
+    campaignBox(g,trim,.25,1.69,.10,1.45,.045,.72);
+    return g;
   }
   function createBoatModel(){
     const g=createLakeBoatHull();g.position.set(-70,.1,54);worldGroup.add(g);world.boat={id:'lake-boat',group:g,x:-70,z:54,heading:0,driverUid:'',passengerUid:''};
@@ -14334,13 +14374,20 @@ function precompile(T,renderer,scene,camera,timings){
       for(const dz of[-dealer.d/2+1.5,dealer.d/2-1.5])box(concrete,0,3.1,dz,dealer.w,.24,3);
       const sign=campaignSign(root,dealer.title.toUpperCase(),dealer.category==='cars'?'CLÁSSICOS · ESPORTIVOS · PICAPES':dealer.category==='bikes'?'URBANAS · TRAIL · BICICLETAS':'CARGA · RODOVIÁRIOS · ÔNIBUS',4.5);sign.position.x=entrySide*(dealer.w/2-.3);sign.rotation.y=entrySide*Math.PI/2;sign.scale.set(.85,.7,1);
       const deskX=entrySide*(dealer.w/2-3);box(concrete,deskX,.55,0,1.2,1.1,3.6);box(trim,deskX,1.15,0,1.4,.14,3.9);registerCollider(dealer.x+deskX,dealer.z,1.4,3.9,{dealer:dealer.id});
+      box(concrete,deskX-entrySide*1.5,.49,-1.12,.62,.98,.62);box(trim,deskX-entrySide*1.5,1.17,-1.12,.62,.50,.12);
+      box(metal,deskX,1.43,.95,.12,.42,.66);box(concrete,deskX-entrySide*.28,1.22,-.82,.34,.025,.48);
       campaignBatch(root);worldGroup.add(root);
+      const seller=createNPC('dealer-seller-'+dealer.id,'Consultor de vendas',dealer.x+deskX-entrySide*1.5,dealer.z-.6,dealer.color,0);
+      seller.stationary=true;seller.cityLifeManaged=true;seller.rioFloorY=groundHeightAt(dealer.x+deskX,dealer.z)+.20;
+      seller.group.rotation.y=entrySide*Math.PI/2;
+      world.interactables=world.interactables.filter(a=>a.id!=='npc-'+seller.id);
+      registerInteractable({id:'dealer-consultant-'+dealer.id,type:'shop',icon:'💬',label:'Conversar com consultor de vendas',x:dealer.x+deskX+entrySide*1.05,z:dealer.z-.6,radius:2.4,priority:349,available:()=>root.visible&&!player.vehicle&&!player.boating,action:()=>{seller.servingUntil=performance.now()+3000;openDealer(dealer.id);}});
       const stock=neighborhoodDealerStock(dealer),displays=stock.map((entry,index)=>{const point=dealerDisplayPoint(dealer,index),host=new THREE.Group();host.name='SHOWROOM_'+entry.id;host.position.set(point.x,.23,point.z);host.rotation.y=point.heading;worldGroup.add(host);host.visible=false;
         const pad=new THREE.Mesh(sharedBoxGeometry(dealer.category==='trucks'?13:dealer.category==='bikes'?2.1:5.2,.10,dealer.category==='trucks'?4.2:dealer.category==='bikes'?2.5:2.8),campaignMaterial(0x697b80,.18));pad.position.set(point.x,.22,point.z);worldGroup.add(pad);
         const plate=new THREE.Mesh(new THREE.PlaneGeometry(dealer.category==='trucks'?4.2:3.0,.62),new THREE.MeshBasicMaterial({map:signTexture(entry.label+' · '+entry.price+' moedas','#133a4a','#ffffff'),side:THREE.DoubleSide}));plate.position.set(point.x,.9,point.z+(dealer.category==='trucks'?3.2:dealer.category==='bikes'?2.0:1.9));worldGroup.add(plate);
         const record={entry,point,host,pad,plate,ready:false};registerInteractable({id:'showroom-'+entry.id,type:'shop',icon:entry.icon,label:'Ver '+entry.label,x:plate.position.x,z:plate.position.z,radius:2.1,priority:310,available:()=>host.visible&&record.ready,action:()=>openDealerVehicle(dealer.id,entry.id)});
         return record;});
-      registerInteractable({id:dealer.id,type:'shop',icon:dealer.icon,label:'Entrar em '+dealer.title,x:dealer.entryX,z:dealer.entryZ,radius:4,priority:345,action:()=>openDealer(dealer.id)});neighborhoodDealers.stores.push({dealer,root,displays});
+      registerInteractable({id:dealer.id,type:'shop',icon:dealer.icon,label:'Entrar em '+dealer.title,x:dealer.entryX,z:dealer.entryZ,radius:4,priority:345,action:()=>openDealer(dealer.id)});neighborhoodDealers.stores.push({dealer,root,displays,seller});
     }
     neighborhoodDealers.ready=true;world.navCache?.clear?.();
   }
@@ -14353,6 +14400,7 @@ function precompile(T,renderer,scene,camera,timings){
   function updateNeighborhoodDealers(){
     createNeighborhoodDealers();updateNeighborhoodVehicleAccess();const now=performance.now();if(now-neighborhoodDealers.lastAt<120)return;neighborhoodDealers.lastAt=now;const focus=otGamesFocus();let budget=2;
     for(const store of neighborhoodDealers.stores){const near=Math.hypot(focus.x-store.dealer.x,focus.z-store.dealer.z)<100;store.root.visible=near;
+      if(store.seller){store.seller.group.visible=near;if(near)poseResident(store.seller,now<(store.seller.servingUntil||0)?'serve':'work',now/1000);}
       for(const display of store.displays){const visible=near&&Math.hypot(focus.x-display.point.x,focus.z-display.point.z)<(qualityTier()==='low'?48:72);display.pad.visible=display.plate.visible=visible;display.host.visible=visible;
         if(!visible||display.ready||budget<=0)continue;const model=neighborhoodVehicleModel(display.entry);if(window.OTBrazilImports.requires(model)&&!window.OTBrazilImports.ready(model)){requestBrazilModel(model);continue;}
         display.host.add(window.OTBrazilVehicles.create(THREE,model,window.OTBrazilVehicles.catalog[model].color));display.ready=true;display.host.updateWorldMatrix(true,true);const bounds=new THREE.Box3().setFromObject(display.host),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());registerCollider(center.x,center.z,size.x,size.z,{dealerExhibit:display.entry.id});budget--;
@@ -14795,11 +14843,11 @@ function precompile(T,renderer,scene,camera,timings){
  function activityAvatar(){const descriptor=multiplayerAvatarDescriptor(),signature=multiplayerAvatarSignature(descriptor);let v=characterActivities.visual;if(v?.signature===signature)return v;if(v){disposeGhostAvatar(v.host.userData.avatar);otGamesDisposeGroup(v.props);v.host.parent?.remove(v.host);}const host=new THREE.Group(),body=new THREE.Group(),props=new THREE.Group();host.name='OT_CHARACTER_ACTIVITY';host.userData.avatar=body;host.add(body);worldGroup.add(host);buildRemoteAvatarVisual(host,descriptor);host.add(props);const scale=clamp(1.65/neighborhoodAvatarHeight(body),.3,1.3);body.scale.setScalar(scale);return characterActivities.visual={host,body,props,scale,signature};}
  function updateCharacterActivityVisual(){
   const s=characterActivities.session;if(!s)return;const ui=characterActivityUI();ui.hidden=false;ui.querySelector('b').textContent=s.phase==='walk'&&!s.onArrival?'Indo até '+(s.shop?'o pedido':'o objeto'):CHARACTER_ACTIVITIES[s.kind][0];ui.querySelector('progress').value=s.phase==='walk'?0:clamp(s.elapsed/s.duration,0,1);if(s.phase!=='perform')return;
-  const v=activityAvatar(),pose=s.pose||{x:player.x,y:player.y,z:player.z,yaw:player.facing},family=v.host.userData.familyAvatar,limbs=v.host.userData.limbs||{},time=s.elapsed,eat=['eat','meal'].includes(s.kind),drink=['drink','sink'].includes(s.kind),cook=s.kind==='cook',wash=s.kind==='shower';v.host.visible=true;v.host.position.set(pose.x,pose.y,pose.z);v.host.rotation.set(0,pose.yaw||0,0);v.body.position.set(0,pose.sitting?-riderHipHeight(v.body,v.host)*v.scale:0,0);v.body.rotation.set(0,0,pose.lying?Math.PI/2:0);if(family)familyAnimateAvatar(family,limbs,{sitting:!!pose.sitting,time:animTime});
+  const v=activityAvatar(),pose=s.pose||{x:player.x,y:player.y,z:player.z,yaw:player.facing},family=v.host.userData.familyAvatar,limbs=v.host.userData.limbs||{},time=s.elapsed,eat=['eat','meal'].includes(s.kind),drink=['drink','sink'].includes(s.kind),cook=s.kind==='cook',wash=s.kind==='shower',clean=s.kind==='rio-clean-home',study=s.kind==='rio-study';v.host.visible=true;v.host.position.set(pose.x,pose.y,pose.z);v.host.rotation.set(0,pose.yaw||0,0);v.body.position.set(0,pose.sitting?-riderHipHeight(v.body,v.host)*v.scale:0,0);v.body.rotation.set(0,0,pose.lying?Math.PI/2:0);if(family)familyAnimateAvatar(family,limbs,{sitting:!!pose.sitting,time:animTime});
   if(!family)for(const name of['leftLeg','rightLeg'])if(limbs[name])limbs[name].rotation.x=pose.sitting?-Math.PI/2:0;
-  const right=family?.byName.shoulder1||limbs.rightArm,left=family?.byName['shoulder-1']||limbs.leftArm,elbow=family?.byName.elbow1;if(right)right.rotation.x=drink?-1.65-.18*Math.sin(time*3):eat?-1.25-.48*Math.sin(time*3.2):cook?-1.04-.18*Math.sin(time*4.5):wash?-1.8+.7*Math.sin(time*3):s.kind==='bag'?-.9:0;if(elbow)elbow.rotation.x=drink?-1:eat?-.8:cook?-.65:0;if(left)left.rotation.x=cook?-1.10:wash?-1.8-.7*Math.sin(time*3):eat?-.72:0;
-  if(v.props.userData.kind!==s.kind){while(v.props.children.length)otGamesDisposeGroup(v.props.children[0]);v.props.userData.kind=s.kind;const prop=new THREE.Group();v.props.add(prop);if(eat){campaignCylinder(prop,campaignMaterial(0xe6b46c),0,0,0,.105,.09);campaignCylinder(prop,campaignMaterial(0x629348),0,.012,0,.115,.018);}else if(drink){campaignCylinder(prop,campaignMaterial(0xe9ded0),0,0,0,.07,.15);campaignCylinder(prop,campaignMaterial(0x754a28),0,.077,0,.059,.006);}else if(s.kind==='bag')campaignBox(prop,campaignMaterial(0xb9925b),0,0,0,.20,.28,.12);else if(cook){campaignCylinder(prop,campaignMaterial(0x26363c,.45),0,0,0,.21,.07);campaignBox(prop,campaignMaterial(0x1d2b2e),.27,0,0,.26,.035,.06);}else if(wash){const drops=new THREE.InstancedMesh(new THREE.SphereGeometry(.018,5,4),new THREE.MeshBasicMaterial({color:0x83d5ea,transparent:true,opacity:.65}),24);drops.frustumCulled=false;prop.add(drops);}}
-  const prop=v.props.children[0];if(eat||drink||s.kind==='bag'){const hand=family?.byName.hand1||right;v.host.updateMatrixWorld(true);const p=hand?hand.getWorldPosition(new THREE.Vector3()):new THREE.Vector3(pose.x+.2,pose.y+1,pose.z+.2);prop.position.copy(v.host.worldToLocal(p));}if(cook){prop.position.set(0,1,.53);prop.rotation.y=Math.sin(time*2)*.08;}if(wash){const drops=prop.children[0],o=new THREE.Object3D();for(let i=0;i<24;i++){o.position.set(Math.sin(i*3.8)*.28,1.85-((time*1.5+i*.073)%1.7),Math.cos(i*2.1)*.28);o.updateMatrix();drops.setMatrixAt(i,o.matrix);}drops.instanceMatrix.needsUpdate=true;}playerModel.visible=false;if(avatarLayer)avatarLayer.visible=false;
+  const right=family?.byName.shoulder1||limbs.rightArm,left=family?.byName['shoulder-1']||limbs.leftArm,elbow=family?.byName.elbow1;if(right)right.rotation.x=drink?-1.65-.18*Math.sin(time*3):eat?-1.25-.48*Math.sin(time*3.2):cook?-1.04-.18*Math.sin(time*4.5):wash?-1.8+.7*Math.sin(time*3):clean?-.9+Math.sin(time*5)*.38:study?-.9:s.kind==='bag'?-.9:0;if(elbow)elbow.rotation.x=drink?-1:eat?-.8:cook?-.65:0;if(left)left.rotation.x=cook?-1.10:wash?-1.8-.7*Math.sin(time*3):clean?-1.05+Math.cos(time*5)*.30:study?-.95:eat?-.72:0;
+  if(v.props.userData.kind!==s.kind){while(v.props.children.length)otGamesDisposeGroup(v.props.children[0]);v.props.userData.kind=s.kind;const prop=new THREE.Group();v.props.add(prop);if(eat){campaignCylinder(prop,campaignMaterial(0xe6b46c),0,0,0,.105,.09);campaignCylinder(prop,campaignMaterial(0x629348),0,.012,0,.115,.018);}else if(drink){campaignCylinder(prop,campaignMaterial(0xe9ded0),0,0,0,.07,.15);campaignCylinder(prop,campaignMaterial(0x754a28),0,.077,0,.059,.006);}else if(s.kind==='bag')campaignBox(prop,campaignMaterial(0xb9925b),0,0,0,.20,.28,.12);else if(clean){campaignBox(prop,campaignMaterial(0xa3845e),0,.62,0,.045,1.25,.045);campaignBox(prop,campaignMaterial(0x7c988b),0,.05,0,.32,.13,.19);}else if(study){campaignBox(prop,campaignMaterial(0x5e7f8c),0,0,0,.36,.045,.26);campaignBox(prop,campaignMaterial(0xf1e5cc),0,.031,0,.32,.015,.23);}else if(cook){campaignCylinder(prop,campaignMaterial(0x26363c,.45),0,0,0,.21,.07);campaignBox(prop,campaignMaterial(0x1d2b2e),.27,0,0,.26,.035,.06);}else if(wash){const drops=new THREE.InstancedMesh(new THREE.SphereGeometry(.018,5,4),new THREE.MeshBasicMaterial({color:0x83d5ea,transparent:true,opacity:.65}),24);drops.frustumCulled=false;prop.add(drops);}}
+  const prop=v.props.children[0];if(eat||drink||s.kind==='bag'){const hand=family?.byName.hand1||right;v.host.updateMatrixWorld(true);const p=hand?hand.getWorldPosition(new THREE.Vector3()):new THREE.Vector3(pose.x+.2,pose.y+1,pose.z+.2);prop.position.copy(v.host.worldToLocal(p));}if(clean){prop.position.set(.26,.01,.48);prop.rotation.z=Math.sin(time*5)*.25;}if(study){prop.position.set(0,.98,.38);prop.rotation.x=-.32;}if(cook){prop.position.set(0,1,.53);prop.rotation.y=Math.sin(time*2)*.08;}if(wash){const drops=prop.children[0],o=new THREE.Object3D();for(let i=0;i<24;i++){o.position.set(Math.sin(i*3.8)*.28,1.85-((time*1.5+i*.073)%1.7),Math.cos(i*2.1)*.28);o.updateMatrix();drops.setMatrixAt(i,o.matrix);}drops.instanceMatrix.needsUpdate=true;}playerModel.visible=false;if(avatarLayer)avatarLayer.visible=false;
  }
  const activityPreviousFamilyVisuals=updateFamilyPlayableVisuals;updateFamilyPlayableVisuals=function(){activityPreviousFamilyVisuals();updateCharacterActivityVisual();};
  const activityPreviousExit=exitHouse;exitHouse=function(){stopCharacterActivity();return activityPreviousExit();};
@@ -15233,6 +15281,21 @@ function precompile(T,renderer,scene,camera,timings){
   const g=ensurePlayerGarageState(),p=g.roomParking?.[id];if(!p)return{...bay};const finite=[p.x,p.z,p.heading,p.at].every(Number.isFinite),dx=finite?Math.abs(p.x-bay.x):Infinity,dz=finite?Math.abs(p.z-bay.z):Infinity,angle=finite?Math.abs(Math.atan2(Math.sin(p.heading-bay.heading),Math.cos(p.heading-bay.heading))):Infinity,inBay=dx<(heavy?2.5:1.8)&&dz<(heavy?5:2.6)&&angle<.45,grace=finite&&Date.now()-p.at<30000&&dx<(heavy?5:3)&&dz<(heavy?8:4.5);
   if(p.heavy!==!!heavy||!finite||(!inBay&&!grace))return{...bay};return{...bay,x:p.x,z:p.z,heading:p.heading};
  }
+ function garageRoomVehicleExtent(record,heading){
+  const data=record?.group?.userData?.brazilRoot?.userData||{};
+  const wide=Math.max(.65,Number(data.halfWidth)||record?.assignedBay?.w||1.05);
+  const long=Math.max(.95,Math.abs(Number(data.front)||0),Math.abs(Number(data.rear)||0),record?.assignedBay?.l||2.1);
+  return {x:Math.abs(Math.cos(heading))*wide+Math.abs(Math.sin(heading))*long,z:Math.abs(Math.sin(heading))*wide+Math.abs(Math.cos(heading))*long};
+ }
+ function garageRoomBlocked(vehicles,car,x,z,yaw,edge){
+  const e=car?garageRoomVehicleExtent(car,yaw):{x:.35,z:.35};
+  if(Math.abs(x)+e.x>33.6||z-e.z<-edge+.3||z+e.z>edge-.15&&Math.abs(x)+e.x>9.6)return true;
+  return vehicles.some(v=>{
+   if(v===car)return false;
+   const p=v.group?.position||v.bay,h=v.group?.rotation?.y??v.bay.heading,other=garageRoomVehicleExtent(v,h);
+   return Math.abs(x-p.x)<e.x+other.x+.07&&Math.abs(z-p.z)<e.z+other.z+.07;
+  });
+ }
  function garageDriveOutPoint(vehicle,door){
   const d=vehicle.group?.userData?.brazilRoot?.userData||{},rear=Math.max(1.8,-Number(d.rear||-1.8)),front=Math.max(1.8,Number(d.front||1.8)),wide=Math.max(.8,Number(d.halfWidth||.9)),long=Math.max(front,rear),bounds=v704WorldBounds();
   for(const extra of[0,3,6,9,13])for(const side of[0,-3,3,-6,6]){const x=door.x+9.8+rear+extra,z=door.z+side;if(x-long<bounds.minX+1||x+long>bounds.maxX-1||z-wide<bounds.minZ+1||z+wide>bounds.maxZ-1||waterAt(x,z))continue;if((world.colliders||[]).some(c=>!c.disabled&&c.vehicleId!==vehicle.id&&Math.abs(c.x-x)<c.w/2+long+.25&&Math.abs(c.z-z)<c.d/2+wide+.25))continue;if((world.vehicles||[]).some(v=>v!==vehicle&&!v.garageStored&&v.group&&Math.abs(v.group.position.x-x)<long+2.1&&Math.abs(v.group.position.z-z)<wide+1.2))continue;return{x,z,heading:Math.PI/2};}return null;
@@ -15269,14 +15332,23 @@ function precompile(T,renderer,scene,camera,timings){
    const ix=clamp(s.move.x+Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft')),-1,1),iz=clamp(s.move.z+Number(keys.has('KeyS')||keys.has('ArrowDown'))-Number(keys.has('KeyW')||keys.has('ArrowUp')),-1,1);let nx=s.body.x,nz=s.body.z;
    if(s.car){const accel=s.gas||keys.has('KeyW')||keys.has('ArrowUp'),back=s.brake||keys.has('KeyS')||keys.has('ArrowDown'),heavy=brazilDepotVehicle(s.car.entry.id),target=s.engine?(accel?(heavy?3.5:6):back?(heavy?-1.8:-3):0):0;s.speed+=clamp(target-s.speed,-dt*5,dt*(heavy?2.3:4));s.body.yaw+=ix*dt*(heavy?.48:1.5)*clamp(s.speed/3,-1,1);nx+=Math.sin(s.body.yaw)*s.speed*dt;nz+=Math.cos(s.body.yaw)*s.speed*dt;s.voice?.update(s.speed,accel?1:0,false,true);}
    else{const angle=s.cameraYaw,speed=3.3,dx=ix*Math.cos(angle)+iz*Math.sin(angle),dz=-ix*Math.sin(angle)+iz*Math.cos(angle);nx+=dx*dt*speed;nz+=dz*dt*speed;if(Math.hypot(dx,dz)>.1)s.body.yaw=Math.atan2(dx,dz);}
-   const radius=s.car?1.1:.35,blocked=Math.abs(nx)>32-radius||nz<-edge+2+radius||nz>edge-1&&Math.abs(nx)>9||vehicles.some(v=>v!==s.car&&v.group&&Math.abs(nx-v.bay.x)<v.bay.w+radius&&Math.abs(nz-v.bay.z)<v.bay.l+radius);
-   if(!blocked){s.body.x=nx;s.body.z=nz;}else if(s.car)s.speed=0;
+   const blocked=(x,z)=>garageRoomBlocked(vehicles,s.car,x,z,s.body.yaw,edge);
+   if(!blocked(nx,nz)){s.body.x=nx;s.body.z=nz;}
+   else{
+    // Slide along a clear wall or parking aisle instead of freezing on
+    // diagonal motion. Do not pass through parked or still-loading cars.
+    const oldX=s.body.x,oldZ=s.body.z;
+    if(!blocked(nx,oldZ))s.body.x=nx;
+    if(!blocked(s.body.x,nz))s.body.z=nz;
+    if(s.car&&s.body.x===oldX&&s.body.z===oldZ)s.speed=0;
+   }
    if(s.car){s.car.group.position.set(s.body.x,.02,s.body.z);s.car.group.rotation.y=s.body.yaw;for(const w of s.car.group.userData.wheels||[])w.rotation.x-=s.speed*dt*3;for(const w of s.car.group.userData.frontWheels||[])w.rotation.y=-ix*.35;animateBrazilTransport(s.car.group);
-    if(s.body.z>edge&&Math.abs(s.body.x)<8){const id=s.car.entry.id,v=vehicleById(id)||ensureCatalogVehicle(id),point=v&&garageDriveOutPoint(v,door);if(point){close();garageDriveOut(id,point);return;}s.speed=0;s.body.z=edge-.8;ui.querySelector('.garage-room-info').textContent='Saída ocupada. Aguarde a passagem dos veículos.';}}
+    if(s.body.z>edge&&Math.abs(s.body.x)+garageRoomVehicleExtent(s.car,s.body.yaw).x<9.6){const id=s.car.entry.id,v=vehicleById(id)||ensureCatalogVehicle(id),point=v&&garageDriveOutPoint(v,door);if(point){close();garageDriveOut(id,point);return;}s.speed=0;s.body.z=edge-.8;s.exitBlockedUntil=now+2500;ui.querySelector('.garage-room-info').textContent='Saída ocupada. Aguarde a passagem dos veículos.';}}
    nearest=vehicles.filter(v=>v.group).sort((a,b)=>Math.hypot(a.bay.x-s.body.x,a.bay.z-s.body.z)-Math.hypot(b.bay.x-s.body.x,b.bay.z-s.body.z))[0];if(nearest&&Math.hypot(nearest.bay.x-s.body.x,nearest.bay.z-s.body.z)>4.8)nearest=null;board.disabled=!s.car&&!nearest;
-   const info=ui.querySelector('.garage-room-info');info.textContent=s.car?(s.engine?'Motor ligado · dirija até a saída amarela':'Ligue o motor para sair dirigindo'):nearest?nearest.entry.label+' · unidade '+nearest.entry.unit+' · ENTRAR':`${parked.length} veículos nos pisos da garagem · caminhe até uma vaga`;
+   const info=ui.querySelector('.garage-room-info');info.textContent=s.car?(now<(s.exitBlockedUntil||0)?'Saída ocupada · aguarde e tente novamente':s.engine?'Motor ligado · dirija até a saída amarela':'Ligue o motor para sair dirigindo'):nearest?nearest.entry.label+' · unidade '+nearest.entry.unit+' · ENTRAR':`${parked.length} veículos nos pisos da garagem · caminhe até uma vaga`;
    for(const [i,a]of avatars.entries()){if(['thiago','thamis'].includes(a.id))familyAnimateAvatar(a.avatar,null,{speed:!s.car&&Math.hypot(ix,iz)>.1?3.3:0,sitting:!!s.car,time:now/1000});if(s.car){const seat=brazilSeatOffset(s.car.entry.model,i-1),scale=brazilSeatScale(s.car.entry.model);a.host.position.copy(s.car.group.position);a.host.rotation.y=s.body.yaw;a.avatar.group.position.set(seat.x,seat.y,seat.z);a.avatar.group.scale.setScalar(a.avatar.source.scale*scale);}
     else{a.host.position.set(s.body.x+(i?Math.cos(s.body.yaw)*i:0),0,s.body.z-(i?Math.sin(s.body.yaw)*i:0));a.host.rotation.y=s.body.yaw;a.avatar.group.scale.setScalar(a.avatar.source.scale);a.avatar.group.position.set(0,.006-a.avatar.mesh.geometry.boundingBox.min.y*a.avatar.source.scale,0);}}
+   if(!look&&now>(s.lookUntil||0))s.freeCamera=false;
    if(s.car&&!s.freeCamera&&!look&&now>(s.lookUntil||0))s.cameraYaw=lerpAngle(s.cameraYaw,s.body.yaw+Math.PI,Math.min(1,dt*3));const distance=s.car?11:10,y=1.2;cam.position.set(s.body.x+Math.sin(s.cameraYaw)*distance*Math.cos(s.cameraPitch),y+Math.sin(s.cameraPitch)*distance,s.body.z+Math.cos(s.cameraYaw)*distance*Math.cos(s.cameraPitch));cam.lookAt(s.body.x-Math.sin(s.cameraYaw)*4,y,s.body.z-Math.cos(s.cameraYaw)*4);render.render(room,cam);
   };
   s.cleanup=()=>{if(closed)return;if(s.car)garageRememberRoomPose(s.car,heavyFloor);closed=true;cancelAnimationFrame(raf);reset();s.voice?.dispose();window.removeEventListener('keydown',key,true);window.removeEventListener('keyup',key,true);window.removeEventListener('blur',reset);for(const a of avatars)releaseFamilyAvatarVisual(a.avatar.group);for(const v of vehicles)if(v.group)brazilDetach(v.group);for(const g of geo)g.dispose();for(const m of mats){m.map?.dispose();m.dispose();}render.dispose();render.forceContextLoss();personalGarage.room=null;};raf=requestAnimationFrame(frame);return true;
@@ -17382,8 +17454,17 @@ function precompile(T,renderer,scene,camera,timings){
       box(0,.25,0,w*.67,.4,d*.70,shape==='stadium'?0x519353:cream);
       if(shape==='stadium')box(0,.464,0,.12,.035,d*.65,0xf7efd9);
       for(const side of [-1,1]){
-        for(let row=0;row<3;row++)box(0,.48+row*.36,side*(d*.30+row*.55),w*.88,.85+row*.7,1.04,row===2?0x6d8387:cream);
-        collider(0,side*d*.35,w*.88,2.05,1.95);
+        if(p.key==='parque_peao_barretos'&&side===1){
+          const span=(w*.88-4.4)/2;
+          for(const flank of[-1,1]){
+            const cx=flank*(2.2+span/2);
+            for(let row=0;row<3;row++)box(cx,.48+row*.36,side*(d*.30+row*.55),span,.85+row*.7,1.04,row===2?0x6d8387:cream);
+            collider(cx,side*d*.35,span,2.05,1.95);
+          }
+        }else{
+          for(let row=0;row<3;row++)box(0,.48+row*.36,side*(d*.30+row*.55),w*.88,.85+row*.7,1.04,row===2?0x6d8387:cream);
+          collider(0,side*d*.35,w*.88,2.05,1.95);
+        }
         const x=side*w*.37;
         part('post',x,4, -d*.37,.24,8,.24,steel);
         box(x,7.85,-d*.37,1.25,.54,.47,0xf0e0a0);
@@ -17398,7 +17479,10 @@ function precompile(T,renderer,scene,camera,timings){
         }
         for(const side of[-1,1]){
           box(side*w*.31,1.16,0,.12,1.72,d*.62,0xe8d7a7);
-          box(0,1.16,side*d*.28,w*.62,1.72,.12,0xe8d7a7);
+          if(side===1){
+            const span=(w*.62-4.4)/2;
+            for(const flank of[-1,1])box(flank*(2.2+span/2),1.16,side*d*.28,span,1.72,.12,0xe8d7a7);
+          }else box(0,1.16,side*d*.28,w*.62,1.72,.12,0xe8d7a7);
           box(0,4.95,side*d*.40,w*.77,.46,.70,0x9f633f);
         }
         box(0,2.50,-d*.36,6.1,4.5,.23,0x8a593a);
@@ -17808,16 +17892,190 @@ function precompile(T,renderer,scene,camera,timings){
     thermas_laranjais:{label:'Dia no parque aquático',ticket:95,needs:{fun:35,hygiene:12,energy:-7},icon:'🏊'},
     parque_peao_barretos:{label:'Participar do festival de Barretos',ticket:80,needs:{fun:28,energy:-10,hunger:-10},icon:'🎡'}
   });
+  // Distinct physical activities use the native activity/avatar and save systems.
+  // The eight-second game adaptation is not a real-world riding tutorial.
+  const rioAttractionScenes=new Map();
+  const RIO_TOURISM_OPTIONS=Object.freeze({
+    parque_peao_barretos:[
+      {id:'rodeo',label:'Montaria de equilíbrio · 8 segundos',duration:8},
+      {id:'watch',label:'Assistir à prova na arquibancada',duration:9}
+    ],
+    thermas_laranjais:[
+      {id:'wave',label:'Brincar na piscina de ondas',duration:7},
+      {id:'slide',label:'Descer o toboágua',duration:5},
+      {id:'float',label:'Passear de boia no rio lento',duration:8}
+    ],
+    termas_ibira:[
+      {id:'thermal',label:'Banho de imersão termal',duration:7},
+      {id:'rest',label:'Relaxar no jardim do balneário',duration:6}
+    ]
+  });
+  function rioRodeoDirection(elapsed){
+    return [-1,1,-1,-1,1,-1,1,1][Math.min(7,Math.max(0,Math.floor(elapsed)))];
+  }
+  function rioRodeoSample(ride,elapsed){
+    const end=Math.min(8,Math.max(ride.sampled,Number(elapsed)||0));
+    for(let t=ride.sampled;t<end;){
+      const next=Math.min(end,Math.floor(t)+1);
+      if(ride.input===rioRodeoDirection(t))ride.correct+=next-t;
+      t=next;
+    }
+    ride.sampled=end;
+    return Math.round(ride.correct/8*100);
+  }
+  function rioAttractionScene(p,root){
+    if(!RIO_TOURISM_OPTIONS[p.key]||rioAttractionScenes.has(p.id))return;
+    const scene={p,root,guests:[],model:null,session:null,controls:null};
+    const y=groundHeightAt(p.x,p.z);
+    function guest(index,x,z,seat,yaw,color,action='talk'){
+      const npc=createNPC('rio-attraction-'+p.key+'-'+index,p.shape==='arena'?'Torcedor':'Visitante',x,z,color,0);
+      npc.stationary=true;npc.cityLifeManaged=true;npc.rioFloorY=y;
+      npc.group.rotation.y=yaw;npc.group.scale.multiplyScalar(.70);root.add(npc.group);
+      world.interactables=world.interactables.filter(a=>a.id!=='npc-'+npc.id);
+      scene.guests.push({npc,seat,yaw,action});
+    }
+    const colors=[0x547e99,0xc28e65,0x7c9667,0x8e688c];
+    if(p.shape==='arena'){
+      const model=new THREE.Group();model.name='RIO_BARRETOS_BULL';
+      const coat=renderMat(0x584337),dark=renderMat(0x302820),horn=renderMat(0xe8d8b9);
+      const box=(parent,mat,x,y,z,w,h,d)=>{
+        const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+        mesh.position.set(x,y,z);parent.add(mesh);return mesh;
+      };
+      box(model,coat,0,.98,0,.88,.90,1.65);
+      box(model,coat,0,1.08,.88,.64,.69,.55);
+      box(model,dark,0,.92,1.19,.54,.29,.27);
+      box(model,dark,0,1.44,-.10,.84,.14,.68);
+      for(const side of[-1,1]){
+        box(model,horn,side*.38,1.48,.90,.32,.12,.14).rotation.z=side*.45;
+        box(model,dark,side*.40,1.20,.85,.10,.17,.22);
+      }
+      scene.legs=[];
+      for(const x of[-.32,.32])for(const z of[-.58,.58]){
+        const joint=new THREE.Group();joint.position.set(x,.70,z);model.add(joint);
+        box(joint,coat,0,-.30,0,.22,.60,.24);box(joint,dark,0,-.62,.04,.24,.16,.28);scene.legs.push(joint);
+      }
+      box(model,dark,0,.96,-.96,.13,.12,.43).rotation.x=.5;
+      scene.y=y+.42;model.position.set(p.x,scene.y,p.z);root.add(model);scene.model=model;
+      for(const side of[-1,1])for(let i=0;i<4;i++){
+        guest((side===1?4:0)+i,p.x+[-8,-5,5,8][i],p.z+side*(p.d*.30+1.1),y+1.72,side===1?Math.PI:0,colors[i]);
+      }
+      const steward=createNPC('rio-rodeo-steward','Monitor da arena',p.x+3.5,p.z+p.d*.19,0xb38b53,0);
+      steward.stationary=true;steward.cityLifeManaged=true;steward.rioFloorY=y+.42;
+      root.add(steward.group);world.interactables=world.interactables.filter(a=>a.id!=='npc-'+steward.id);
+      scene.guests.push({npc:steward,seat:undefined,yaw:Math.PI,action:'work'});
+    }else{
+      for(const side of[-1,1]){
+        guest(side===1?1:0,p.x+side*p.w*.25,p.z+p.d*.36,y+.55,Math.PI,colors[side===1?1:0],'sit');
+        guest(side===1?3:2,p.x+side*p.w*.33,p.z+p.d*.12,undefined,0,colors[side===1?3:2],'talk');
+      }
+    }
+    rioAttractionScenes.set(p.id,scene);
+  }
+  function rioStartAttraction(p,option,finish){
+    const scene=rioAttractionScenes.get(p.id);
+    if(!scene||!scene.root.visible||typeof beginCharacterActivity!=='function')return false;
+    const y=groundHeightAt(p.x,p.z),key='rio-tourism-'+option.id;
+    const near={x:p.visitX,z:p.visitZ};
+    if(Math.hypot(player.x-near.x,player.z-near.z)>4.2)return false;
+    let target={x:near.x,z:near.z},pose={...target,y,yaw:Math.PI};
+    if(option.id==='rodeo'){
+      target={x:p.x,z:p.z+2.2};pose={x:p.x,z:p.z,y:scene.y+1.51,yaw:0,sitting:true};
+    }else if(option.id==='watch'){
+      target={x:p.x,z:p.z+p.d*.48};pose={x:p.x-3.4,z:p.z+p.d*.30+1.1,y:y+1.72,yaw:Math.PI,sitting:true};
+    }else if(option.id==='rest'){
+      target={x:p.x+p.w*.25,z:p.z+p.d*.36+1.05};pose={x:target.x,z:target.z-1.05,y:y+.55,yaw:0,sitting:true};
+    }else{
+      target={x:p.x,z:p.z+p.d*.19};
+      pose={x:p.x,z:p.z-p.d*.16,y:y+.32,yaw:0,lying:true};
+      if(option.id==='slide'){pose={x:p.x+p.w*.20,z:p.z-p.d*.21,y:y+2.60,yaw:Math.PI,lying:true};}
+      if(option.id==='thermal'){pose={x:p.x+p.w*.22,z:p.z-p.d*.18,y:y+.35,yaw:0,lying:true};}
+    }
+    CHARACTER_ACTIVITIES[key]=[option.label,option.duration];
+    const ride=option.id==='rodeo'?{sampled:0,correct:0,input:0}:null;
+    let session;
+    const commit=()=>{
+      if(characterActivities.session!==session||session?.phase!=='perform'||session.elapsed+1e-6<option.duration)return false;
+      if(ride)rioRodeoSample(ride,8);
+      const result=ride?Math.round(ride.correct/8*100):null;
+      if(!finish(option.id,result))return false;
+      if(ride)toast((result>=75?'Montaria aprovada':'Tente novamente para superar 75%')+' · equilíbrio '+result+'%',result>=75?'good':'info',3000);
+      return true;
+    };
+    const started=beginCharacterActivity(key,{target,pose,walkSpeed:2.1,commit});
+    if(!started)return false;
+    session=characterActivities.session;scene.session={session,option,ride,pose:{...pose}};
+    return true;
+  }
+  function rioAttractionUpdate(focus){
+    const now=performance.now()/1000;
+    for(const scene of rioAttractionScenes.values()){
+      const {p,root,model}=scene;
+      const near=root.visible&&Math.hypot(focus.x-p.x,focus.z-p.z)<65;
+      const active=scene.session&&characterActivities.session===scene.session.session;
+      if(!active&&scene.controls){scene.controls.remove();scene.controls=null;}
+      if(!active)scene.session=null;
+      if(!near&&!active)continue;
+      if(now-(scene.lastGuestsAt||0)>.12){
+        scene.lastGuestsAt=now;
+        for(const [i,g] of scene.guests.entries()){
+          const action=g.action==='talk'&&(now+i)%6>3?'sit':g.action;
+          poseResident(g.npc,action,now,g.seat);
+        }
+      }
+      if(model){
+        const t=active&&scene.session.session.phase==='perform'?scene.session.session.elapsed:now*.45;
+        const riding=active&&scene.session.option.id==='rodeo'&&scene.session.session.phase==='perform';
+        const watching=active&&scene.session.option.id==='watch'&&scene.session.session.phase==='perform';
+        const moving=riding||watching;
+        model.position.y=scene.y+(moving?Math.abs(Math.sin(t*7))*.32:0);
+        model.rotation.y=moving?Math.sin(t*2)*.55:0;
+        model.rotation.z=moving?Math.sin(t*7)*.20:0;
+        model.rotation.x=moving?Math.cos(t*5)*.13:0;
+        for(const [i,leg] of scene.legs.entries())leg.rotation.x=moving?Math.sin(t*7+i*Math.PI*.5)*.45:0;
+      }
+      if(!active||scene.session.session.phase!=='perform')continue;
+      const {session,option,ride,pose}=scene.session,t=session.elapsed,f=Math.min(1,t/option.duration);
+      if(ride){
+        rioRodeoSample(ride,t);
+        session.pose.y=model.position.y+1.51;session.pose.yaw=model.rotation.y;
+        if(!scene.controls){
+          const controls=document.createElement('div');controls.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%';
+          const status=document.createElement('b');status.style.flex='1 1 100%';controls.append(status);
+          for(const [direction,label] of [[-1,'← Esquerda'],[1,'Direita →']]){
+            const button=document.createElement('button');button.type='button';button.textContent=label;button.style.cssText='flex:1;min-height:44px;touch-action:manipulation';
+            button.onclick=()=>{rioRodeoSample(ride,session.elapsed);ride.input=direction;};
+            controls.append(button);
+          }
+          characterActivityUI().append(controls);scene.controls=controls;
+        }
+        const status=scene.controls.firstElementChild;
+        status.textContent=(rioRodeoDirection(t)<0?'Equilibre à esquerda':'Equilibre à direita')+' · '+Math.max(0,8-t).toFixed(1)+' s';
+      }else if(option.id==='wave'){
+        session.pose.x=pose.x+Math.sin(t*1.8)*1.4;session.pose.y=pose.y+Math.sin(t*3)*.17;
+        session.pose.z=pose.z+Math.cos(t*.8)*1.1;
+      }else if(option.id==='slide'){
+        session.pose.x=pose.x-p.w*.14*f;session.pose.z=pose.z-p.d*.10*f;
+        session.pose.y=pose.y-(pose.y-groundHeightAt(p.x,p.z)-.32)*f;
+      }else if(option.id==='float'){
+        session.pose.x=pose.x+Math.sin(f*Math.PI*2)*p.w*.19;
+        session.pose.z=pose.z+Math.cos(f*Math.PI*2)*p.d*.16;
+        session.pose.yaw=f*Math.PI*2;
+      }
+    }
+  }
   function rioRegionalExperience(p){
     const experience=RIO_REGIONAL_ACTIVITIES[p.key];
     if(!experience)return false;
     const save=rioMapSave();
     save.regionExperience??={visits:{},paidTotal:0};
     const visits=save.regionExperience.visits[p.id]||{count:0,spent:0};
+    const options=RIO_TOURISM_OPTIONS[p.key]||[];
+    const choices=options.length?'<label class="field">Escolha a atividade<select data-regional-activity>'+options.map(o=>'<option value="'+o.id+'">'+escapeHtml(o.label)+'</option>').join('')+'</select></label>':'';
     openModal(p.name,
       '<p>'+experience.label+' · atividade jogável e registrada no seu histórico de viagens.</p>'+
       '<p>Ingresso: <b>'+experience.ticket+' moedas</b> · Seu saldo: <b>'+state.profile.coins+' moedas</b></p>'+
-      '<p>Visitas anteriores: '+visits.count+'.</p>'+
+      '<p>Visitas anteriores: '+visits.count+'.</p>'+choices+
       '<div class="modal-actions"><button class="btn primary" data-regional-join>Comprar ingresso e participar</button>'+
       '<button class="btn" data-regional-cancel>Voltar</button></div>',root=>{
       let busy=false;
@@ -17827,12 +18085,14 @@ function precompile(T,renderer,scene,camera,timings){
         if(Number(state.profile.coins)<experience.ticket){toast('Moedas insuficientes para esta atividade.','warn',1900);return;}
         busy=true;
         let committed=false;
-        const finish=()=>{
+        const finish=(activity=null,score=null)=>{
         if(committed||Number(state.profile.coins)<experience.ticket)return false;
         committed=true;
         addCoins(-experience.ticket);
         const record=save.regionExperience.visits[p.id]||{count:0,spent:0};
         record.count++;record.spent+=experience.ticket;record.lastVisit=Date.now();
+        if(activity){record.activities??={};const entry=record.activities[activity]??={count:0};entry.count++;entry.lastVisit=record.lastVisit;
+          if(Number.isFinite(score)){entry.lastScore=score;entry.bestScore=Math.max(Number(entry.bestScore)||0,score);if(score>=75)entry.approved=(Number(entry.approved)||0)+1;}}
         save.regionExperience.visits[p.id]=record;
         save.regionExperience.paidTotal+=experience.ticket;
         for(const [need,delta] of Object.entries(experience.needs)){
@@ -17843,19 +18103,13 @@ function precompile(T,renderer,scene,camera,timings){
         toast(experience.label+' concluído. Visita registrada em '+p.name+'.','good',2800);
         return true;
         };
-        // Thermal-water activities require the player's avatar to walk into
-        // the physical pool and complete the animation before spending coins.
-        if(p.shape==='pool'&&typeof beginCharacterActivity==='function'&&
-          typeof CHARACTER_ACTIVITIES!=='undefined'&&CHARACTER_ACTIVITIES['rio-pool']){
-          const target={x:p.x,z:p.z+p.face*p.d*.19};
-          const pose={x:p.x,z:p.z-p.face*p.d*.16,y:.32,
-            yaw:p.face===1?0:Math.PI,lying:true};
-          const started=beginCharacterActivity('rio-pool',{target,pose,walkSpeed:1.9,
-            commit:finish});
-          if(started){closeModal();return;}
-          busy=false;return;
-        }
-        finish();
+        // Never debit or mark a visit before a real native activity finishes.
+        const scene=rioAttractionScenes.get(p.id);
+        if(!scene||!scene.root.visible){busy=false;toast('Aproxime-se da entrada e aguarde o carregamento da atração.','info',2500);return;}
+        const option=options.find(o=>o.id===root.querySelector('[data-regional-activity]')?.value)||options[0];
+        closeModal();
+        if(!option||!rioStartAttraction(p,option,finish)){busy=false;toast('A passagem está ocupada. Aproxime-se da entrada e tente novamente.','warn',2600);}
+        return;
       };
     });
     return true;
@@ -17925,6 +18179,7 @@ function precompile(T,renderer,scene,camera,timings){
       for(const home of rioDeliveryHomes())rioRegisterHomeDelivery(home);
     }
     const focus=otGamesFocus();
+    rioAttractionUpdate(focus);
     let next=null,distance=Infinity;
     for(const sector of Object.values(RIO_V51.sectors)){
       if(!legacyRegionalLayout&&!RIO_RECOVERED_SECTORS.includes(sector.id))continue;
@@ -18040,6 +18295,7 @@ function precompile(T,renderer,scene,camera,timings){
         rioV51MountPlayableMall(p,root);
       }else rioV51DrawPlace(batch,p);
       if(typeof addRioCityLights==='function')addRioCityLights(p,root);
+      if(RIO_TOURISM_OPTIONS[p.key])rioAttractionScene(p,root);
     }
     if(sector.id==='represa_lagos_damha')rioV51DrawCourse(batch,root);
     batch.commit();
@@ -19097,6 +19353,13 @@ function precompile(T,renderer,scene,camera,timings){
     room.sign('1',-x,1.05,z+.04,.18,.21,'#6b3f31');
     // Keep the original player table, approach, order and payment untouched.
     if(site.key==='canecao_represa'&&w>=15&&d>=8)rioCanecaoGuests(site,room,x,z);
+    else if(w>=8&&d>=6.5){
+      const guest=room.seats[1];
+      rioPublicGuest(site,room,'dining-guest','Cliente',x-.9,z,{seat:.51,action:'eat',yaw:guest.yaw,color:0x98775f});
+      room.box(x,.928,z,.36,.05,.35,0xf1e2c6);
+      room.box(x,.974,z,.24,.06,.23,site.kind==='bakery'?0xc39159:0xc57b48);
+      room.box(x+.33,1.0,z-.22,.10,.18,.10,0xd4ac70);
+    }
   }
 
   function rioCanecaoGuests(site,room,x,z){
@@ -19126,14 +19389,44 @@ function precompile(T,renderer,scene,camera,timings){
   const rioDiningServiceBefore=rioUpdatePlaceService;
   rioUpdatePlaceService=function(site,room,dt){
     rioDiningServiceBefore(site,room,dt);
-    if(!room.root.visible||!room.diningGuests?.length)return;
+    if(!room.root.visible)return;
     const time=performance.now()/1000;
-    for(const {npc,seat,index} of room.diningGuests){
+    for(const {npc,seat,index} of room.diningGuests||[]){
       const phase=(time+index*3)%12,action=phase<5?'talk':phase<9?'eat':'sit';
       poseResident(npc,action,time,seat.seatTop);
       if(phase>=9&&npc.limbs)npc.limbs.rightArm.rotation.x=-1.35-Math.sin(time*2)*.18;
     }
+    for(const {npc,seat,action,index} of room.publicGuests||[]){
+      const gesture=action==='talk'&&((time+index*2)%8)>4?'sit':action;
+      poseResident(npc,gesture,time,seat);
+    }
+    if(room.stageActor&&room.serviceComplete){
+      const npc=room.stageActor;poseResident(npc,'talk',time);
+      if(npc.limbs){npc.limbs.leftArm.rotation.x=-.9-Math.sin(time*3)*.32;npc.limbs.rightArm.rotation.x=-.8+Math.sin(time*3)*.32;}
+    }
+    if(room.cinema?.session&&typeof rioUpdateCinema==='function')rioUpdateCinema(room,time);
   };
+
+  // Occupied furniture and role-specific idle routines share the existing NPC
+  // renderer. These residents stay inside the room, outside walking aisles.
+  function rioPublicGuest(site,room,id,name,x,z,{seat=null,action='talk',yaw=site.yaw,color=0x6d8792}={}){
+    const p=room.point(x,z),npc=createNPC('rio-public-'+site.key+'-'+id,name,p.x,p.z,color,0);
+    npc.stationary=true;npc.cityLifeManaged=true;npc.rioFloorY=room.floorY;
+    npc.group.rotation.y=yaw;room.root.add(npc.group);(room.npcs??=[]).push(npc);
+    world.interactables=world.interactables.filter(item=>item.id!=='npc-'+npc.id);
+    const guests=room.publicGuests??=[];
+    guests.push({npc,seat:seat===null?undefined:room.floorY+seat,action,index:guests.length});
+    poseResident(npc,action,0,seat===null?undefined:room.floorY+seat);
+    return npc;
+  }
+  function rioBasketTotals(basket,items){
+    const entries=[];
+    for(const item of items){
+      const quantity=Math.max(0,Math.min(12,Math.floor(Number(basket[item.id])||0)));
+      if(quantity&&Number.isSafeInteger(item.price)&&item.price>0)entries.push({item,quantity});
+    }
+    return {entries,count:entries.reduce((n,e)=>n+e.quantity,0),total:entries.reduce((n,e)=>n+e.item.price*e.quantity,0)};
+  }
 
   function rioServiceClerk(site,room,role,name,x,z,color){
     const p=room.point(x,z),clerk=createNPC('rio-service-'+site.key+'-'+role,name,p.x,p.z,color,0);
@@ -19171,12 +19464,45 @@ function precompile(T,renderer,scene,camera,timings){
         for(const end of[-1,1])box(sx,.46,end*stallD*.47,stallW+.08,.75,.10,0x9c7453);
       }
     }
+    if(site.kind!=='bakery'){
+      room.basket??={};
+      // Physical shelf access: select goods here, then take the basket to the
+      // original cashier. The existing direct-purchase flow remains available.
+      const positions=items.map((item,i)=>({item,side:i%2?-1:1,z:(Math.floor(i/2)-.5)*stallD*.55}));
+      for(const {item,side,z} of positions){
+        const x=side*(stallX-stallW/2-.85),point=room.point(x,z);
+        room.action('shelf-'+item.id,'Prateleira · '+item.name,x,z,()=>{
+          if(!rioPlayerAt(point))return false;
+          const basket=room.basket,summary=rioBasketTotals(basket,items);
+          if(summary.count>=12){toast('Cesta cheia. Passe no caixa.','info',2000);return false;}
+          basket[item.id]=(Number(basket[item.id])||0)+1;
+          toast(item.name+' na cesta. Total: '+rioBasketTotals(basket,items).total+' moedas.','good',2200);
+          return true;
+        },{inside:true,icon:'🛒',radius:1.45});
+      }
+      if(w>=12&&d>=10){
+        rioPublicGuest(site,room,'market-1','Cliente',-stallX+stallW/2+.70,stallD*.38,{yaw:site.yaw-Math.PI/2,action:'work',color:0x9d785e});
+        rioPublicGuest(site,room,'market-2','Cliente',stallX-stallW/2-.70,stallD*.38,{yaw:site.yaw+Math.PI/2,action:'talk',color:0x568a82});
+      }
+    }
     room.action('counter',site.kind==='bakery'?'Comprar pães no balcão':'Comprar no caixa',0,counterZ+1.02,()=>{
       if(!rioPlayerAt(counter))return;
       clerk.servingUntil=performance.now()+2500;
-      openModal(site.name,'<p>Produtos do jogo disponíveis no balcão.</p><div class="choice-grid">'+items.map(item=>
+      const summary=rioBasketTotals(room.basket||{},items);
+      const basketHTML=summary.count?'<h3>Sua cesta · '+summary.count+' produto(s)</h3><p>'+summary.entries.map(e=>escapeHtml(e.item.name)+' × '+e.quantity).join(' · ')+'</p><p>Total: <b>'+summary.total+' moedas</b></p><div class="modal-actions"><button class="btn primary" data-rio-basket-pay>Pagar cesta</button><button class="btn" data-rio-basket-clear>Esvaziar cesta</button></div>':'<p>Escolha produtos nas prateleiras ou compre diretamente no caixa.</p>';
+      openModal(site.name,basketHTML+'<p>Produtos disponíveis no balcão.</p><div class="choice-grid">'+items.map(item=>
         '<button class="choice" data-rio-checkout="'+item.id+'"><b>'+item.name+'</b><span>'+item.price+' moedas</span></button>').join('')+'</div>',root=>{
         let sold=false;
+        const basketPay=root.querySelector('[data-rio-basket-pay]'),basketClear=root.querySelector('[data-rio-basket-clear]');
+        if(basketPay)basketPay.onclick=()=>{
+          if(sold||!room.root.visible||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85)return;
+          const fresh=rioBasketTotals(room.basket||{},items);
+          if(!fresh.count||fresh.total>Number(state.profile.coins)){toast('Moedas insuficientes.','warn',1800);return;}
+          sold=true;
+          for(const {item,quantity} of fresh.entries)for(let i=0;i<quantity;i++)rioPurchaseItems(item);
+          room.basket={};rioCountVisit(site);closeModal();toast('Compra da cesta concluída.','good',2200);
+        };
+        if(basketClear)basketClear.onclick=()=>{if(sold)return;room.basket={};closeModal();};
         for(const button of root.querySelectorAll('[data-rio-checkout]'))button.onclick=()=>{
           if(sold||Math.hypot(player.x-counter.x,player.z-counter.z)>1.85||!room.root.visible)return;
           const item=items.find(record=>record.id===button.dataset.rioCheckout);
@@ -19221,6 +19547,17 @@ function precompile(T,renderer,scene,camera,timings){
         strip.position.set(p.x,room.floorY+2.69,p.z);strip.visible=false;room.root.add(strip);room.lights.push(strip);
       }
       for(let i=0;i<3;i++)for(const side of [-1,1])room.bench(side*x,.29+i*1.17);
+      room.stageActor=rioPublicGuest(site,room,'stage','Artista',0,-d*.40,{action:'talk',color:0xa76c56});
+      room.stageActor.rioFloorY=room.floorY+.32;
+      for(let i=0;i<3;i++)rioPublicGuest(site,room,'audience-'+i,'Espectador',-x,.29+i*1.17,{seat:.535,yaw:site.yaw+Math.PI,action:'sit'});
+      const approach=room.point(x,.29+1.17+.81),seat=room.point(x,.29+1.17);
+      room.action('watch-show','Sentar e assistir à apresentação',x,.29+1.17+.81,()=>{
+        if(!room.serviceComplete||!rioPlayerAt(approach))return false;
+        return beginCharacterActivity('tv',{target:approach,pose:{...seat,y:room.floorY+.535,yaw:site.yaw+Math.PI,sitting:true},commit:()=>{
+          if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+          state.needs.fun=clamp(Number(state.needs.fun||0)+18,0,100);rioCountVisit(site);return true;
+        }});
+      },{inside:true,available:()=>!!room.serviceComplete,icon:'🎭'});
     }else if(kind==='exhibition'){
       room.object(0,.5,-d*.29,1.25,1,1.25,rioPaint.stone);
       room.part('canopy',0,1.55,-d*.29,.82,.9,.74,0xab7344);
@@ -19232,6 +19569,8 @@ function precompile(T,renderer,scene,camera,timings){
       room.box(examX-.51,1.14,examZ,.075,.91,1.70,0x9fb4ad);
       room.box(examX,1.84,examZ-.98,1.52,.13,.08,0x8ca79e);
       room.sign('SALA DE REPOUSO',examX,2.22,examZ-.97,Math.min(2.9,w*.30),.32,'#57796d');
+      rioServiceClerk(site,room,'nursing','Profissional de enfermagem',examX+.85,examZ-.72,0xe5e8de);
+      if(w>=12&&d>=10)rioPublicGuest(site,room,'waiting','Paciente',x,seatsZ,{seat:.535,action:'sit'});
       const approach=room.point(examX+.91,examZ),bed=room.point(examX,examZ);
       room.action('recovery','Descansar após o atendimento',examX+.91,examZ,()=>{
         if(!room.serviceComplete)return false;
@@ -19252,6 +19591,19 @@ function precompile(T,renderer,scene,camera,timings){
     },{inside:true,icon:'📋'});
     room.action('service',next,stationX,stationZ+1.02,()=>{
       if(!room.ticket||!rioPlayerAt(badge))return;
+      const complete=()=>{
+        if(!room.ticket||!room.root.visible||!rioPlayerAt(badge,.30))return false;
+        room.ticket=false;room.serviceComplete=true;room.lights.forEach(item=>{item.visible=true;});
+        rioCountVisit(site);toast(success,'good',2600);return true;
+      };
+      if(kind==='reception'){
+        CHARACTER_ACTIVITIES['rio-consult']=['Atendimento simulado',4];
+        const doctor=room.npcs?.find(n=>n.shopSlot==='nursing');
+        if(doctor)doctor.servingUntil=performance.now()+4500;
+        return beginCharacterActivity('rio-consult',{target:badge,pose:{...badge,y:room.floorY,yaw:site.yaw+Math.PI},commit:complete});
+      }
+      // Preserve the established interaction radius for civic, station and
+      // exhibition desks; their own objects still provide the visible action.
       room.ticket=false;room.serviceComplete=true;room.lights.forEach(item=>{item.visible=true;});
       rioCountVisit(site);toast(success,'good',2600);
     },{inside:true,available:()=>room.ticket});
@@ -19267,6 +19619,7 @@ function precompile(T,renderer,scene,camera,timings){
     const {w,d}=site;
     const lateral=Math.min(w*.24,4.7), pewZ=Math.min(d*.20,2.8);
     for(let i=0;i<4;i++)for(const side of [-1,1])room.bench(side*lateral,pewZ-i*1.35);
+    for(let i=0;i<3;i++)rioPublicGuest(site,room,'pew-'+i,'Visitante',-lateral,pewZ-i*1.35,{seat:.535,action:'sit',yaw:site.yaw+Math.PI,color:[0x8b736c,0x63878a,0x9a9570][i]});
     const altarZ=-d/2+1.34;
     room.object(0,.53,altarZ,Math.min(3.55,w*.54),1.06,.78,rioPaint.stone);
     room.box(0,3.72,altarZ-.66,.16,2.11,.16,0xa47d61);
@@ -19684,7 +20037,7 @@ function precompile(T,renderer,scene,camera,timings){
       const vehicle=currentVehicleRef();
       if(rioOwnedRoadVehicle(vehicle)){
         const distance=Math.hypot(before.x-player.x,before.z-player.z),fuel=rioFuelLevel(vehicle);
-        if(distance>0&&fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-distance*.002);
+        if(distance>0&&distance<=40){if(fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-distance*.002);if(rioFuelCapacity(vehicle)&&!player.car.passengerOf)rioMaintenanceWear(rioMaintenanceRecord(vehicle),distance);}
       }
     }
     if(player.boating&&world.boat?.kind==='board')stopEngineSound();
@@ -19853,30 +20206,68 @@ function precompile(T,renderer,scene,camera,timings){
     Object.assign(rioRoadVehicleSave(vehicle.id),{x:+x.toFixed(2),z:+z.toFixed(2),heading:+heading.toFixed(3)});
     vehicle.x=x;vehicle.z=z;vehicle.heading=heading;
   }
+  function rioFuelQuote(tank,fuel,coins,requested){
+    if(![tank,fuel,coins,requested].every(Number.isFinite)||tank<=0||coins<0||requested<=0)return{litres:0,price:0};
+    const tenths=Math.max(0,Math.min(Math.floor((tank-fuel)*10+1e-6),Math.floor(coins/RIO_FUEL_PRICE*10+1e-6),Math.floor(requested*10+1e-6)));
+    return{litres:tenths/10,price:Math.ceil(tenths*RIO_FUEL_PRICE/10-1e-9)};
+  }
   function rioOpenFuel(site,room,pump){
     const vehicle=currentVehicleRef(),tank=rioFuelCapacity(vehicle);
-    const parked=()=>player.vehicle&&currentVehicleRef()===vehicle&&tank&&Math.abs(player.car.speed)<.55&&
+    const parked=()=>player.vehicle&&!player.car.passengerOf&&currentVehicleRef()===vehicle&&tank&&Math.abs(player.car.speed)<.55&&
       room.root.visible&&Math.hypot(player.x-pump.x,player.z-pump.z)<2.65;
     if(!parked()){
       toast('Pare um veículo a motor na faixa ao lado da bomba.','warn',2000);return false;
     }
-    const fuel=rioFuelLevel(vehicle),litres=Math.min(10,Math.floor(tank-fuel));
-    if(litres<=0){toast('O tanque está cheio.','info',1800);return false;}
-    const price=litres*RIO_FUEL_PRICE;
-    openModal('Posto Chiesa Brasília','<p>'+escapeHtml(vehicle.label)+' parado na bomba. O tanque tem '+fuel.toFixed(1)+' de '+tank+
-      ' litros.</p><button class="btn primary" data-rio-refuel>Abastecer '+litres+' l por '+price+' moedas</button>',root=>{
-      const button=root.querySelector('[data-rio-refuel]');
+    const fuel=rioFuelLevel(vehicle),max=rioFuelQuote(tank,fuel,Number(state.profile.coins),tank).litres;
+    if(tank-fuel<.1){toast('O tanque está cheio.','info',1800);return false;}
+    if(max<=0){toast('Moedas insuficientes.','warn',2000);return false;}
+    openModal(site.name,'<p>'+escapeHtml(vehicle.label)+' · tanque '+fuel.toFixed(1)+' / '+tank+' L</p>'+
+      '<label class="field">Quantidade em litros<input data-rio-litres type="number" min="0.1" max="'+max+'" step="0.1" inputmode="decimal" value="'+Math.min(10,max)+'"></label>'+
+      '<div class="modal-actions"><button class="btn" data-rio-fill>Completar tanque</button></div>'+
+      '<p data-rio-fuel-total></p><progress data-rio-fuel-progress max="1" value="0" style="width:100%"></progress>'+
+      '<div class="modal-actions"><button class="btn primary" data-rio-refuel>Abastecer</button><button class="btn" data-rio-fuel-cancel>Cancelar</button></div>',root=>{
+      const amount=root.querySelector('[data-rio-litres]'),total=root.querySelector('[data-rio-fuel-total]'),progress=root.querySelector('[data-rio-fuel-progress]'),button=root.querySelector('[data-rio-refuel]'),fill=root.querySelector('[data-rio-fill]');
+      let active=false,cancelled=false;
+      const quote=()=>rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),Number(amount.value));
+      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price+' moedas';button.disabled=q.litres<=0||active;};
+      amount.oninput=refresh;fill.onclick=()=>{amount.value=String(rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),tank).litres);refresh();};
+      root.querySelector('[data-rio-fuel-cancel]').onclick=()=>{cancelled=true;closeModal();};
+      refresh();
       button.onclick=()=>{
-        const current=rioFuelLevel(vehicle);
-        if(button.disabled||!parked()||current+litres>tank+.001)return;
-        if(Number(state.profile.coins)<price){toast('Moedas insuficientes.','warn',2000);return;}
-        button.disabled=true;
-        closeModal();rioRoadVehicleSave(vehicle.id).fuel=current+litres;addCoins(-price);
-        rioCountVisit(site);toast(litres+' litros no tanque.','good',2100);
+        if(active||cancelled||!parked())return;
+        const q=quote(),initial=rioFuelLevel(vehicle);
+        if(q.litres<=0)return;
+        active=true;button.disabled=amount.disabled=fill.disabled=true;
+        const start=performance.now(),duration=Math.max(1500,Math.min(6500,q.litres*120));
+        const tick=now=>{
+          if(cancelled||!button.isConnected||els.modal.hidden)return;
+          if(!parked()||Math.abs(rioFuelLevel(vehicle)-initial)>.001||Number(state.profile.coins)<q.price){
+            active=false;amount.disabled=fill.disabled=false;refresh();toast('Abastecimento interrompido; nada foi cobrado.','warn',2200);return;
+          }
+          const fraction=clamp((now-start)/duration,0,1);progress.value=fraction;
+          total.textContent=(q.litres*fraction).toFixed(1)+' / '+q.litres.toFixed(1)+' L · '+Math.floor(q.price*fraction)+' moedas';
+          if(fraction<1){requestAnimationFrame(tick);return;}
+          cancelled=true;rioRoadVehicleSave(vehicle.id).fuel=Math.min(tank,initial+q.litres);addCoins(-q.price);
+          rioCountVisit(site);saveState(true);updateHUD();closeModal();toast(q.litres.toFixed(1)+' litros abastecidos.','good',2200);
+        };
+        requestAnimationFrame(tick);
       };
     });
     return true;
   }
+
+  // A dry tank is a genuine mobility constraint, not merely a HUD number.
+  const rioVehiclePhysicsBeforeFuel=updateVehiclePhysics;
+  updateVehiclePhysics=function(dt,...args){
+    if((inRioMap()||rioCompactWorld())&&player.vehicle&&!player.car.passengerOf&&rioFuelCapacity(currentVehicleRef())&&rioFuelLevel()<=.001){
+      player.car.speed=0;player.vx=player.vz=0;
+      const now=performance.now();if(now-(rioVehiclePhysicsBeforeFuel.emptyTankNotice||0)>5000){
+        rioVehiclePhysicsBeforeFuel.emptyTankNotice=now;toast('Sem combustível. Solicite socorro ou abasteça no posto.','warn',2400);
+      }
+      return;
+    }
+    return rioVehiclePhysicsBeforeFuel(dt,...args);
+  };
 
   function rioAtFleetCounter(){
     return !player.vehicle&&!player.boating&&!player.swimming&&rioMap.garage&&distance2D(player,rioMap.garage.counter)<2.65;
@@ -20939,6 +21330,27 @@ function precompile(T,renderer,scene,camera,timings){
     ];
   }
 
+  // Shared furnishings keep their original IDs, but a chair, a television
+  // and a refrigerator must not all use the same seated pose.
+  function rioFurnitureUsePlan(item,placement,seat,point,yaw,floorY){
+    const angle=placement.rotation*Math.PI/2,forward={x:Math.sin(angle),z:Math.cos(angle)};
+    const center=point(placement.x,placement.z),approach=point(placement.x+forward.x*(item.d/2+.52),placement.z+forward.z*(item.d/2+.52));
+    const stand={...approach,y:floorY,yaw:yaw+angle+Math.PI};
+    const sit={...center,y:floorY+.55,yaw:yaw+angle,sitting:true};
+    if(['sofa','armchair','chair','lounger'].includes(item.type))return{kind:'sofa',target:approach,pose:sit};
+    if(item.type==='bed')return{kind:'bed',target:approach,pose:{...center,y:floorY+.74,yaw:yaw+angle,lying:true}};
+    if(item.type==='tv')return{kind:'tv',target:seat.target,pose:{...seat.pose,yaw:Math.atan2(center.x-seat.pose.x,center.z-seat.pose.z)}};
+    if(item.type==='computer'||item.type==='desk'||item.type==='bookshelf')return{kind:'rio-study',target:approach,pose:stand};
+    if(item.type==='fridge')return{kind:'eat',target:seat.target,pose:seat.pose};
+    if(item.type==='table')return{kind:'eat',target:approach,pose:stand};
+    if(item.type==='grill')return{kind:'cook',target:approach,pose:stand};
+    return null;
+  }
+  function rioHomeCareValue(record,delta){
+    if(!record?.owned)return null;
+    record.cleanliness=clamp((Number.isFinite(record.cleanliness)?record.cleanliness:85)+delta,0,100);
+    return record.cleanliness;
+  }
   function rioBuildResidence(site,room){
     const selected=rioMapSave().selectedApartmentBySite?.[site.id];
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
@@ -21158,6 +21570,31 @@ function precompile(T,renderer,scene,camera,timings){
       room.box(kitchenX+side*kitchenW*.25,.70,kitchenZ+.39,.18,.045,.055,0x626e70);
     }
     const cookX=compactHome?kitchenX:kitchenX+kitchenW*.12;
+    const homeCare=delta=>rioHomeCareValue(rioPropertyTitle(rioResidencePropertyId()),delta);
+    CHARACTER_ACTIVITIES['rio-clean-home']=['Limpando a casa',6];
+    CHARACTER_ACTIVITIES['rio-study']=['Lendo e estudando',5];
+    // Use the existing accessible kitchen approach for the sink, so no new
+    // solid object is placed across the approved walking route.
+    room.action('drink-water','Beber água na pia',cookX-.34,kitchenZ-1.02,()=>{
+      const target=room.point(cookX,kitchenZ-1.02),sink=room.point(kitchenX-kitchenW*.25,kitchenZ);
+      return beginCharacterActivity('sink',{target,pose:{...target,y:room.floorY,yaw:Math.atan2(sink.x-target.x,sink.z-target.z)},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(target,.26))return false;
+        state.needs.hunger=clamp(Number(state.needs.hunger||0)+5,0,100);
+        state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+5,0,100);
+        rioCountVisit(site);saveState(true);updateHUD();return true;
+      }});
+    },{inside:true,icon:'💧',radius:1.2});
+    room.action('clean-home','Limpar minha residência',0,.8,()=>{
+      const id=rioResidencePropertyId(),record=rioPropertyTitle(id);
+      if(!record?.owned)return false;
+      const target=room.point(0,.8);
+      return beginCharacterActivity('rio-clean-home',{target,pose:{...target,y:room.floorY,yaw},commit:()=>{
+        if(!room.root.visible||rioResidencePropertyId()!==id||!rioPlayerAt(target,.26))return false;
+        if(homeCare(35)===null)return false;
+        state.needs.energy=clamp(Number(state.needs.energy||0)-3,0,100);
+        saveState(true);updateHUD();toast('Limpeza atual: '+Math.round(record.cleanliness)+'%.','good',2000);return true;
+      }});
+    },{inside:true,icon:'🧹',available:()=>!!rioPropertyTitle(rioResidencePropertyId())?.owned});
     const cookZ=kitchenZ-1.02;
     room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',cookX,cookZ,()=>{
       if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return false;}
@@ -21165,7 +21602,7 @@ function precompile(T,renderer,scene,camera,timings){
       return beginCharacterActivity('cook',{target:approach,pose:{...approach,y:room.floorY,yaw:Math.atan2(stove.x-approach.x,stove.z-approach.z)},commit:()=>{
         if(!room.root.visible||!rioPlayerAt(approach,.26)||Number(state.inventory.food||0)<1)return false;
         state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
-        if(condominium){const home=rioPropertyTitle(rioResidencePropertyId());if(home?.owned)home.cleanliness=clamp(Number(home.cleanliness??85)-7,0,100);}
+        homeCare(-7);
         setFlag('ateMeal');state.stats.cooked=(state.stats.cooked||0)+1;trackDaily('cook',1);
         rioCountVisit(site);saveState(true);updateHUD();toast('Refeição preparada. Fome recuperada.','good',2000);return true;
       }});
@@ -21565,8 +22002,8 @@ function precompile(T,renderer,scene,camera,timings){
     // Usable purchased furniture. Actions track moved items, so changing their
     // coordinates never leaves a phantom interaction at the old location.
     const furnitureAction={sofa:'sofa',armchair:'sofa',chair:'sofa',lounger:'sofa',
-      bed:'bed',tv:'tv',computer:'tv',table:'eat',fridge:'eat',grill:'cook',
-      desk:'sofa',bookshelf:'sofa'};
+      bed:'bed',tv:'tv',computer:'rio-study',table:'eat',fridge:'eat',grill:'cook',
+      desk:'rio-study',bookshelf:'rio-study'};
     for(const item of furnishings){
       const activity=furnitureAction[item.type];
       if(!activity)continue;
@@ -21586,12 +22023,13 @@ function precompile(T,renderer,scene,camera,timings){
           if((activity==='cook'||activity==='eat')&&Number(state.inventory.food||0)<1){
             toast('Você precisa comprar alimentos antes.','info',2000);return;
           }
-          const p=currentPlacement(),center=room.point(p.x,p.z);
-          const target=room.point(p.x,p.z+Math.min(item.d/2+.45,1.18));
-          const sitting=['sofa','tv','eat'].includes(activity);
-          beginCharacterActivity(activity,{target,pose:{...center,y:activity==='bed'?.74:.55,
-            yaw:yaw+p.rotation*Math.PI/2,sitting,lying:activity==='bed'},
+          const propertyId=rioResidencePropertyId(),p=currentPlacement();
+          const seat={target:room.point(sx,back+.75),pose:{...room.point(sx,back-.15),y:room.floorY+.535,yaw,sitting:true}};
+          const plan=rioFurnitureUsePlan(item,p,seat,room.point,yaw,room.floorY);
+          if(!plan)return false;
+          return beginCharacterActivity(plan.kind,{target:plan.target,pose:plan.pose,
             commit:()=>{
+              if(!room.root.visible||rioResidencePropertyId()!==propertyId||!rioPlayerAt(plan.target,.26)||currentPlacement().stored)return false;
               if((activity==='cook'||activity==='eat')&&Number(state.inventory.food||0)<1)return false;
               if(activity==='bed')state.needs.energy=100;
               if(activity==='sofa'){
@@ -21599,9 +22037,10 @@ function precompile(T,renderer,scene,camera,timings){
                 state.needs.fun=clamp(Number(state.needs.fun||0)+14,0,100);
               }
               if(activity==='tv')state.needs.fun=clamp(Number(state.needs.fun||0)+28,0,100);
+              if(activity==='rio-study'){state.needs.fun=clamp(Number(state.needs.fun||0)+10,0,100);addXP(8);}
               if(activity==='eat'||activity==='cook'){
                 state.inventory.food--;
-                state.needs.hunger=clamp(Number(state.needs.hunger||0)+(activity==='cook'?55:34),0,100);
+                state.needs.hunger=clamp(Number(state.needs.hunger||0)+(activity==='cook'?55:34),0,100);homeCare(activity==='cook'?-7:-2);
               }
               rioCountVisit(site);saveState(true);updateHUD();return true;
             }});
@@ -21610,7 +22049,7 @@ function precompile(T,renderer,scene,camera,timings){
     }
     room.action('home-entry','Ver propriedade',0,d*.24,()=>{
       const title=rioPropertyTitle(rioResidencePropertyId());
-      toast(title?.owned?'Esta casa é sua.':'Residência disponível para compra na porta.','info',2100);
+      toast(title?.owned?'Sua propriedade · limpeza '+Math.round(Number(title.cleanliness??85))+'%.':'Residência disponível para compra na porta.','info',2100);
     },{inside:true,icon:'🔑'});
   }
 
@@ -21722,10 +22161,75 @@ function precompile(T,renderer,scene,camera,timings){
     dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';room.root.add(dish);room.servedDish=dish;
     room.action('food-court-counter','Pedir lanche na praça de alimentação',x,z+1.02,
       ()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍔'});
+    const guestSeat=rioDiningChair(room,tableX,tableZ,-1);
+    const guestX=tableX-.9;
+    rioPublicGuest(site,room,'foodcourt-guest','Cliente da praça de alimentação',guestX,tableZ,
+      {seat:.51,yaw:guestSeat.yaw,action:'eat',color:0x8c687c});
+    room.box(tableX,.926,tableZ-.30,.29,.06,.24,0xe5cba3);
+    room.box(tableX-.30,.97,tableZ-.27,.12,.17,.12,0xc7a569);
     room.action('food-court-table','Sentar e consumir na praça de alimentação',tableX+.9,tableZ+1.02,
       ()=>rioEatAtTable(site,room,seat),{inside:true,icon:'🍽️',available:()=>rioMap.order?.site===site.id&&dish.visible});
   }
 
+  // Scaled cinema attraction with an original in-game short film. It uses
+  // the existing seat/animation/save system and never opens an external site.
+  function rioCinemaFrame(cinema,elapsed=null){
+    const {canvas,ctx,texture}=cinema,w=canvas.width,h=canvas.height;
+    ctx.fillStyle='#172e43';ctx.fillRect(0,0,w,h);
+    if(elapsed===null){
+      ctx.fillStyle='#fff0d0';ctx.font='bold 28px sans-serif';ctx.textAlign='center';
+      ctx.fillText('CINEMA OTTHI',w/2,58);ctx.font='18px sans-serif';ctx.fillText('Aventura na cidade',w/2,92);ctx.textAlign='left';
+    }else{
+      const t=Math.max(0,elapsed);
+      ctx.fillStyle='#6eaec2';ctx.fillRect(0,0,w,h*.68);
+      ctx.fillStyle='#f7da8b';ctx.beginPath();ctx.arc(w*.8-t*6,33,18,0,Math.PI*2);ctx.fill();
+      for(let i=0;i<7;i++){const x=((i*88-t*26)%(w+88)+w+88)%(w+88)-88;ctx.fillStyle=i%2?'#668a6d':'#587962';ctx.fillRect(x,65+(i%3)*10,64,44);}
+      ctx.fillStyle='#706b66';ctx.fillRect(0,107,w,h-107);
+      ctx.fillStyle='#f0dc9b';for(let i=-1;i<8;i++){const x=((i*68-t*78)%(w+68)+w+68)%(w+68)-68;ctx.fillRect(x,135,36,4);}
+      const carX=65+Math.sin(t*.9)*48,carY=108-Math.abs(Math.sin(t*4))*2;
+      ctx.fillStyle='#b94e48';ctx.fillRect(carX,carY,75,21);ctx.fillRect(carX+15,carY-14,44,15);
+      ctx.fillStyle='#c4e5e5';ctx.fillRect(carX+21,carY-11,31,11);
+      ctx.fillStyle='#26333b';for(const dx of[15,60]){ctx.beginPath();ctx.arc(carX+dx,carY+21,8,0,Math.PI*2);ctx.fill();}
+      if(t>=7){ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,w,h);ctx.fillStyle='#fff';ctx.font='bold 25px sans-serif';ctx.textAlign='center';ctx.fillText('FIM',w/2,h/2);ctx.textAlign='left';}
+    }
+    texture.needsUpdate=true;
+  }
+  function rioUpdateCinema(room,time){
+    const cinema=room.cinema;
+    if(!cinema?.session)return;
+    if(characterActivities.session!==cinema.session){cinema.session=null;rioCinemaFrame(cinema);return;}
+    if(cinema.session.phase!=='perform'||time-(cinema.lastFrame||0)<.10)return;
+    cinema.lastFrame=time;rioCinemaFrame(cinema,cinema.session.elapsed);
+  }
+  function rioBuildShoppingCinema(site,room){
+    if(site.w<24||site.d<16)return;
+    // Use the front-side alcove, not the central entrance or store counters.
+    const x=-site.w*.43,z=site.d*.36,screenZ=site.d*.45;
+    room.bench(x,z);
+    room.sign('CINEMA',x,2.76,screenZ,2.1,.34,'#463b56');
+    const canvas=document.createElement('canvas');canvas.width=320;canvas.height=160;
+    const ctx=canvas.getContext('2d');if(!ctx)return;
+    const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;
+    const screen=new THREE.Mesh(new THREE.PlaneGeometry(2.05,1.03),new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
+    const point=room.point(x,screenZ);screen.position.set(point.x,room.floorY+1.72,point.z);screen.rotation.y=site.yaw+Math.PI;
+    room.root.add(screen);
+    const cinema=room.cinema={canvas,ctx,texture,screen,session:null,lastFrame:0};rioCinemaFrame(cinema);
+    const approach=room.point(x,z+.81),seat=room.point(x,z),price=15;
+    room.action('cinema','Cinema · sessão de 15 moedas',x,z+.81,()=>{
+      if(!rioPlayerAt(approach)||Number(state.profile.coins)<price){toast('Aproxime-se do cinema com 15 moedas.','info',2100);return false;}
+      CHARACTER_ACTIVITIES['rio-cinema']=['Assistindo ao filme',8];
+      let paid=false;
+      const started=beginCharacterActivity('rio-cinema',{target:approach,pose:{...seat,y:room.floorY+.535,yaw:site.yaw,sitting:true},
+        commit:()=>{
+          if(paid||!cinema.session||characterActivities.session!==cinema.session||cinema.session.phase!=='perform'||cinema.session.elapsed+1e-6<8||!room.root.visible||!rioPlayerAt(approach,.30)||Number(state.profile.coins)<price)return false;
+          paid=true;addCoins(-price);state.needs.fun=clamp(Number(state.needs.fun||0)+22,0,100);
+          const visits=rioMapSave().cinemaVisits??={};visits[site.id]=(Number(visits[site.id])||0)+1;
+          rioCountVisit(site);updateHUD();return true;
+        }});
+      if(started)cinema.session=characterActivities.session;
+      return started;
+    },{inside:true,icon:'🎬',radius:1.4});
+  }
   function rioBuildShopping(site,room){
     const x=site.w*.28,z=site.d*.15,w=Math.min(5.5,site.w*.24);
     for(const [index,title,slot] of [[-1,'MODA', 'top'],[1,'CALÇADOS','shoes']]){
@@ -21768,10 +22272,53 @@ function precompile(T,renderer,scene,camera,timings){
     rioBuildMarket(site,room);
     rioBuildFoodCourt(site,room);
     rioBuildFurnitureShowroom(site,room);
+    rioBuildShoppingCinema(site,room);
   }
 
+  const RIO_PREVENTIVE_SERVICES=Object.freeze([
+    {id:'oil',label:'Trocar óleo e filtro',price:12,duration:4200},
+    {id:'engine',label:'Revisão do motor',price:12,duration:4600},
+    {id:'tires',label:'Trocar conjunto de pneus',price:48,duration:6200},
+    {id:'alignment',label:'Alinhamento e balanceamento',price:20,duration:4800},
+    {id:'inspection',label:'Inspecionar motor, freios e suspensão',price:8,duration:2800}
+  ]);
+  function rioMaintenanceRecord(vehicle){
+    const record=rioRoadVehicleSave(vehicle.id);
+    const m=record.maintenance??={oil:100,tires:100,alignment:100,metres:0,history:[]};
+    for(const key of ['oil','tires','alignment'])m[key]=clamp(Number.isFinite(m[key])?m[key]:100,0,100);
+    m.metres=Number.isFinite(m.metres)?Math.max(0,m.metres):0;
+    if(!Array.isArray(m.history))m.history=[];
+    return m;
+  }
+  function rioMaintenanceWear(m,metres){
+    if(!Number.isFinite(metres)||metres<=0||metres>40)return;
+    m.metres+=metres;
+    m.oil=Math.max(0,m.oil-metres*.005);
+    m.tires=Math.max(0,m.tires-metres*.003);
+    m.alignment=Math.max(0,m.alignment-metres*.0015);
+  }
+  function rioCompletePreventive(vehicle,service){
+    if(Number(state.profile.coins)<service.price)return false;
+    const m=rioMaintenanceRecord(vehicle),parts=workshopComponentRecord(vehicle);
+    if(!parts)return false;
+    if(service.id==='oil'){
+      m.oil=100;
+      // An oil change is preventive; it must not magically repair a broken engine.
+    }else if(service.id==='engine'){
+      if(parts.parts.engine>=100)return false;
+      parts.parts.engine=Math.min(100,parts.parts.engine+18);
+      const durability=Math.max(vehicleDurabilityV704(vehicle),workshopPartsOverall(parts.parts));
+      setVehicleDurabilityV704(vehicle,durability,'revisao-motor');parts.lastDurability=durability;
+    }else if(service.id==='tires')m.tires=100;
+    else if(service.id==='alignment')m.alignment=100;
+    else if(service.id!=='inspection')return false;
+    addCoins(-service.price);
+    m.history.push({service:service.id,price:service.price,metres:Math.round(m.metres),at:Date.now()});
+    m.history=m.history.slice(-40);
+    saveState(true);updateHUD();return true;
+  }
   function rioBuildOilShop(site,room){
-    const {w,d,yaw}=site,bay=room.point(0,-.55);
+    const {w,d}=site,bay=room.point(0,-.55);
     room.box(0,.035,0,w,.07,d,0x636c6e);
     for(const side of [-1,1]){
       room.object(side*(w/2-.2),2.1,0,.35,4.2,d,0xc9c6b1);
@@ -21781,21 +22328,43 @@ function precompile(T,renderer,scene,camera,timings){
     room.object(0,2.07,-d/2+.16,w,4.14,.32,0xa8b1a9);
     room.box(0,4.29,0,w+.18,.28,d,0x3d554f);
     room.sign('CACHOEIRA · SUPER TROCA DE ÓLEO',0,3.91,d/2+.1,w-.42,.45,'#315c4c');
-    room.action('oil','Revisar motor e trocar óleo',0,-.55,()=>{
+    // Keep the service bay clear and put supplies and attendant to its side.
+    for(let i=0;i<3;i++){
+      room.part('post',w*.32,1.17+i*.24,-d*.29,.58,.20,.58,0x292e32,0,Math.PI/2);
+      room.box(-w*.32-.35+i*.35,1.18,-d*.29,.22,.23,.21,0xcfaa55);
+    }
+    const mechanic=rioServiceClerk(site,room,'preventive','Mecânico',w*.32,0,0x58787b);
+    room.action('oil','Manutenção · óleo, pneus e revisão',0,-.55,()=>{
       const vehicle=currentVehicleRef();
-      const valid=()=>player.vehicle&&rioOwnedRoadVehicle(vehicle)&&currentVehicleRef()===vehicle&&Math.abs(player.car.speed)<.4&&distance2D(player,bay)<2.3;
+      const valid=()=>player.vehicle&&!player.car.passengerOf&&rioOwnedRoadVehicle(vehicle)&&currentVehicleRef()===vehicle&&Math.abs(player.car.speed)<.4&&distance2D(player,bay)<2.3&&room.root.visible;
       if(!valid()){toast('Pare seu carro dentro da baia demarcada.','info',2100);return false;}
-      const record=workshopComponentRecord(vehicle);
-      if(record.parts.engine>=100){toast('O motor está revisado.','good',1900);return false;}
-      openModal(site.name,'<p>Troca de óleo e revisão do motor por 12 moedas.</p><button class="btn primary" data-rio-oil-confirm>Confirmar revisão</button>',root=>{
-        root.querySelector('[data-rio-oil-confirm]').onclick=event=>{
-          if(event.currentTarget.disabled||!valid()||record.parts.engine>=100||state.profile.coins<12)return;
-          event.currentTarget.disabled=true;record.parts.engine=Math.min(100,record.parts.engine+18);
-          const durability=Math.max(vehicleDurabilityV704(vehicle),workshopPartsOverall(record.parts));
-          setVehicleDurabilityV704(vehicle,durability,'revisao-de-oleo');record.lastDurability=durability;
-          addCoins(-12);rioCountVisit(site);closeModal();toast('Revisão registrada no veículo.','good',2200);
-        };
-      });
+      const m=rioMaintenanceRecord(vehicle),record=workshopComponentRecord(vehicle);
+      openModal(site.name,'<p>Óleo '+Math.round(m.oil)+'% · Pneus '+Math.round(m.tires)+'% · Alinhamento '+Math.round(m.alignment)+'%</p>'+
+        '<p>Motor '+Math.round(record.parts.engine)+'% · Freios '+Math.round(record.parts.brakes)+'% · Suspensão '+Math.round(record.parts.suspension)+'%</p>'+
+        '<div class="choice-grid">'+RIO_PREVENTIVE_SERVICES.map(service=>'<button class="choice" data-rio-preventive="'+service.id+'"><b>'+service.label+'</b><span>'+service.price+' moedas</span></button>').join('')+'</div>'+
+        '<p data-rio-service-status>Escolha um serviço. O pagamento é feito ao concluir.</p><progress data-rio-service-progress value="0" max="1" style="width:100%"></progress>'+
+        '<button class="btn" data-rio-service-cancel>Cancelar / sair</button>',root=>{
+          let busy=false,cancelled=false;
+          const choices=[...root.querySelectorAll('[data-rio-preventive]')],status=root.querySelector('[data-rio-service-status]'),progress=root.querySelector('[data-rio-service-progress]');
+          root.querySelector('[data-rio-service-cancel]').onclick=()=>{cancelled=true;closeModal();};
+          for(const button of choices)button.onclick=()=>{
+            const service=RIO_PREVENTIVE_SERVICES.find(x=>x.id===button.dataset.rioPreventive);
+            if(!service||busy||cancelled||!valid())return;
+            if(service.id==='engine'&&workshopComponentRecord(vehicle).parts.engine>=100){toast('O motor está revisado.','info',1800);return;}
+            if(Number(state.profile.coins)<service.price){toast('Moedas insuficientes.','warn',2100);return;}
+            busy=true;choices.forEach(x=>x.disabled=true);mechanic.servingUntil=performance.now()+service.duration;
+            const start=performance.now();
+            const tick=now=>{
+              if(cancelled||!button.isConnected||els.modal.hidden)return;
+              if(!valid()||Number(state.profile.coins)<service.price){busy=false;choices.forEach(x=>x.disabled=false);status.textContent='Serviço interrompido, sem cobrança.';return;}
+              const ratio=clamp((now-start)/service.duration,0,1);progress.value=ratio;status.textContent=service.label+' · '+Math.floor(ratio*100)+'%';
+              if(ratio<1){requestAnimationFrame(tick);return;}
+              if(!rioCompletePreventive(vehicle,service)){busy=false;choices.forEach(x=>x.disabled=false);status.textContent='Serviço não realizado; nada cobrado.';return;}cancelled=true;
+              rioCountVisit(site);closeModal();toast(service.label+' · concluído e salvo.','good',2400);
+            };
+            requestAnimationFrame(tick);
+          };
+        });
     },{vehicleOnly:true,icon:'🛠️',radius:2.3});
   }
 
@@ -22552,7 +23121,7 @@ function precompile(T,renderer,scene,camera,timings){
   function updateCompactRio(dt,before){
     if(player.vehicle&&rioFuelCapacity(currentVehicleRef())){
       const vehicle=currentVehicleRef(),metres=distance2D(player,before),fuel=rioFuelLevel(vehicle);
-      if(metres>0&&fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-metres*.002);
+      if(metres>0&&metres<=40&&!player.car.passengerOf){if(fuel>0)rioRoadVehicleSave(vehicle.id).fuel=Math.max(0,fuel-metres*.002);rioMaintenanceWear(rioMaintenanceRecord(vehicle),metres);}
     }
     if(player.boating)rioRecordBoatPose();
     updateRioWaterfront(dt);
