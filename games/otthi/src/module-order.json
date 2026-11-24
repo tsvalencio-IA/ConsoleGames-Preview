@@ -171,7 +171,7 @@
       "startLine": 3087,
       "endLine": 3308,
       "description": "Ônibus, rotas viárias, paradas, metrô e painel de transporte",
-      "sha256Body": "2a43f9554f8d0833a77635626fd131c1ed194d09d9c5386b0de2b6c5fb017b59"
+      "sha256Body": "be10aba82af9305f952bbbb7ae1f3423dcf9672bc6c14039b52d9332c6f4ad20"
     },
     {
       "file": "src/modules/16-emergency-services.js",
@@ -248,7 +248,7 @@
       "startLine": 4495,
       "endLine": 4635,
       "description": "Three.js, qualidade, viewport, resize, posição segura e colisões",
-      "sha256Body": "86745267f9ddb3844845c0cfdf8184e1dd2c07f8558aa8edf98dd71809461de3"
+      "sha256Body": "403bcc5879598e013832a67a610971702210a5664334142e9d3f107c811841b7"
     },
     {
       "file": "src/modules/26-input-player-physics.js",
