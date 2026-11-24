@@ -614,6 +614,7 @@
     const ride=option.id==='rodeo'?{sampled:0,correct:0,input:0}:null;
     let session;
     const commit=()=>{
+      if(characterActivities.session!==session||session?.phase!=='perform'||session.elapsed+1e-6<option.duration)return false;
       if(ride)rioRodeoSample(ride,8);
       const result=ride?Math.round(ride.correct/8*100):null;
       if(!finish(option.id,result))return false;
