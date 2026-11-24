@@ -98,7 +98,7 @@
     room.gate=room.colliders.at(-1);
     const doorPoint=room.point(0,front);
     room.door=new THREE.Mesh(new THREE.BoxGeometry(Math.min(3.1,w*.4)-.15,2.5,.17),renderMat(modern?0x4a5a5a:0x8d593c));
-    room.door.position.set(doorPoint.x,1.25,doorPoint.z);room.door.rotation.y=yaw;room.root.add(room.door);
+    room.door.position.set(doorPoint.x,room.floorY+1.25,doorPoint.z);room.door.rotation.y=yaw;room.root.add(room.door);
     const bx=-w*.29;
     room.object(bx,.30,back+.24,1.48,.56,2.03,0x8a6b50);
     room.box(bx,.62,back+.13,1.37,.12,1.90,modern?0x7b979c:0xd3b88e);
@@ -131,13 +131,13 @@
       room.box(0,1.44,-d*.35,.22,.12,d*.19,0xe7ddc8);
       room.box(0,1.51,-d*.35,.17,.04,d*.15,0xb9a18a);
     }
-    const wallZ=-d/2+.48;
+    const wallZ=-d/2+.48,wallBox=room.wallDraw?.back?.box||room.box;
     for(const side of[-1,1]){
       const wx=side*w*.28;
-      room.box(wx,2.15,wallZ,Math.min(1.6,w*.20),.89,.075,cabinet);
-      room.box(wx,2.15,wallZ+.05,Math.min(1.44,w*.18),.73,.06,0x8aa6ad);
-      room.box(wx,2.15,wallZ+.09,.055,.73,.06,0xe8dfca);
-      room.box(wx,2.15,wallZ+.09,Math.min(1.44,w*.18),.055,.06,0xe8dfca);
+      wallBox(wx,2.15,wallZ,Math.min(1.6,w*.20),.89,.075,cabinet);
+      wallBox(wx,2.15,wallZ+.05,Math.min(1.44,w*.18),.73,.06,0x8aa6ad);
+      wallBox(wx,2.15,wallZ+.09,.055,.73,.06,0xe8dfca);
+      wallBox(wx,2.15,wallZ+.09,Math.min(1.44,w*.18),.055,.06,0xe8dfca);
     }
     if(modern){
       room.box(w*.31,.045,d/2+.71,w*.34,.074,1.53,0xb2afa4);
@@ -206,21 +206,24 @@
       const colors=[0xd6cabe,0xcdc6b9,0xd8d6cb,0xc4d0cc,0xcac6bd,0xd8cfc5];
       const order=['rios_candelaro','rios_fiora','rios_salso','rios_fortore','rios_liri','rios_tanaro'];
       const tint=colors[Math.max(0,order.indexOf(site.key))];
-      room.box(0,10.5,-d*.1,w*.70,14.5,d*.64,tint);
+      const towerRoot=new THREE.Group();towerRoot.name='RIO_CONDO_TOWER_'+site.key;room.roof.add(towerRoot);
+      const towerBatch=rioCreateBatch(towerRoot),tower=rioLocal(towerBatch,{...site,floorBaseY:room.floorY});
+      tower.box(0,10.5,-d*.1,w*.70,14.5,d*.64,tint);
       for(let floor=0;floor<5;floor++){
         const y=5.15+floor*2.65;
-        room.box(0,y-.95,d*.224,w*.72,.18,1.1,0xa8aba9);
+        tower.box(0,y-.95,d*.224,w*.72,.18,1.1,0xa8aba9);
         for(const dx of[-w*.24,-w*.08,w*.08,w*.24]){
-          room.box(dx,y,d*.224+.055,w*.105,1.1,.09,0x52727a);
-          room.box(dx,y-.64,d*.224+.09,w*.114,.12,.18,0x526467);
+          tower.box(dx,y,d*.224+.055,w*.105,1.1,.09,0x52727a);
+          tower.box(dx,y-.64,d*.224+.09,w*.114,.12,.18,0x526467);
         }
-        for(const side of[-1,1])room.box(side*w*.354,y,-d*.15,.08,1.12,d*.27,0x66878a);
+        for(const side of[-1,1])tower.box(side*w*.354,y,-d*.15,.08,1.12,d*.27,0x66878a);
       }
-      room.box(0,17.92,-d*.1,w*.75,.25,d*.71,0x66767c);
-      room.box(0,3.35,d*.34,w*.41,.19,2.3,0x6f8284);
+      tower.box(0,17.92,-d*.1,w*.75,.25,d*.71,0x66767c);
+      tower.box(0,3.35,d*.34,w*.41,.19,2.3,0x6f8284);
+      towerBatch.commit();
       const point=room.point(0,d*.18);
       const porteiro=createNPC('porteiro-'+site.key,'Porteiro',point.x,point.z,0x456779,0);
-      porteiro.stationary=true;porteiro.cityLifeManaged=true;room.root.add(porteiro.group);
+      porteiro.stationary=true;porteiro.cityLifeManaged=true;porteiro.rioFloorY=room.floorY;porteiro.group.position.y=room.floorY;room.root.add(porteiro.group);
       world.interactables=world.interactables.filter(action=>action.id!=='npc-'+porteiro.id);
       room.npcs=[porteiro];
       const openCondoConcierge=()=>{
@@ -272,7 +275,7 @@
     room.action('rest','Descansar na sala',sx,back+.65,()=>rioSitOnBench(site,room,sx,back-.15),{inside:true,icon:'🛋️'});
     const bedApproach=room.point(bx,back+1.78),bed=room.point(bx,back+.24);
     room.action('bed','Dormir na cama',bx,back+1.78,()=>beginCharacterActivity('bed',{
-      target:bedApproach,pose:{...bed,y:.72,yaw,lying:true},commit:()=>{
+      target:bedApproach,pose:{...bed,y:room.floorY+.72,yaw,lying:true},commit:()=>{
         state.needs.energy=100;setFlag('slept');rioCountVisit(site);return true;
       }
     }),{inside:true,icon:'🛏️'});
@@ -295,13 +298,15 @@
     const cookX=compactHome?kitchenX:kitchenX+kitchenW*.12;
     const cookZ=kitchenZ-1.02;
     room.action('kitchen',condominium?'Cozinhar no apartamento':'Cozinhar na residência',cookX,cookZ,()=>{
-      if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return;}
-      state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
-      if(condominium){
-        const home=rioPropertyTitle(rioResidencePropertyId());
-        if(home?.owned)home.cleanliness=clamp(Number(home.cleanliness??85)-7,0,100);
-      }
-      rioCountVisit(site);saveState(true);toast('Refeição preparada. Fome recuperada.','good',2000);
+      if(Number(state.inventory.food||0)<1){toast('Compre alimentos no Mercadão para cozinhar.','info',2300);return false;}
+      const approach=room.point(cookX,cookZ),stove=room.point(kitchenX,kitchenZ);
+      return beginCharacterActivity('cook',{target:approach,pose:{...approach,y:room.floorY,yaw:Math.atan2(stove.x-approach.x,stove.z-approach.z)},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(approach,.26)||Number(state.inventory.food||0)<1)return false;
+        state.inventory.food--;state.needs.hunger=clamp(Number(state.needs.hunger||0)+30,0,100);
+        if(condominium){const home=rioPropertyTitle(rioResidencePropertyId());if(home?.owned)home.cleanliness=clamp(Number(home.cleanliness??85)-7,0,100);}
+        setFlag('ateMeal');state.stats.cooked=(state.stats.cooked||0)+1;trackDaily('cook',1);
+        rioCountVisit(site);saveState(true);updateHUD();toast('Refeição preparada. Fome recuperada.','good',2000);return true;
+      }});
     },{inside:true,icon:'🍳'});
     // A separate sanitary zone, with an open shower entry and real fixtures.
     const bathX=w*.39;
@@ -315,12 +320,20 @@
       room.part('post',bathX-.10,.89,bathZ+1.10,.51,.16,.46,0xe9e8df);
     }
     room.action('bathroom','Tomar banho',w*.20,bathZ,()=>{
-      state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+42,0,100);
-      rioCountVisit(site);saveState(true);toast('Banho concluído. Higiene recuperada.','good',2000);
+      const approach=room.point(w*.20,bathZ),shower=room.point(bathX,bathZ);
+      return beginCharacterActivity('shower',{target:approach,pose:{...shower,y:room.floorY+.09,yaw},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+        state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+42,0,100);
+        rioCountVisit(site);saveState(true);updateHUD();toast('Banho concluído. Higiene recuperada.','good',2000);return true;
+      }});
     },{inside:true,icon:'🚿'});
     room.action('tv','Assistir televisão',sx,back+.75,()=>{
-      state.needs.fun=clamp(Number(state.needs.fun||0)+18,0,100);
-      rioCountVisit(site);saveState(true);toast('Você descansou assistindo à TV.','good',2000);
+      const approach=room.point(sx,back+.75),seat=room.point(sx,back-.15);
+      return beginCharacterActivity('tv',{target:approach,pose:{...seat,y:room.floorY+.535,yaw,sitting:true},commit:()=>{
+        if(!room.root.visible||!rioPlayerAt(approach,.26))return false;
+        state.needs.fun=clamp(Number(state.needs.fun||0)+18,0,100);
+        rioCountVisit(site);saveState(true);updateHUD();toast('Você descansou assistindo à TV.','good',2000);return true;
+      }});
     },{inside:true,icon:'📺'});
 
 
@@ -423,7 +436,7 @@
         const existing=decorMeshes.get(item.id);
         if(!owned.has(item.id)){if(existing)existing.visible=false;continue;}
         const pos=layoutFor(item,owner),group=existing||addDecorModel(item),point=room.point(pos.x,pos.z);
-        group.visible=!pos.stored;group.position.set(point.x,0,point.z);
+        group.visible=!pos.stored;group.position.set(point.x,room.floorY,point.z);
         group.rotation.y=yaw+pos.rotation*Math.PI/2;
       }
     };
@@ -497,12 +510,12 @@
         activeDecor.position=bound(activeDecor.position);
         const p=activeDecor.position,worldPoint=room.point(p.x,p.z);
         const object=decorMeshes.get(item.id)||addDecorModel(item);
-        object.visible=!p.stored;object.position.set(worldPoint.x,0,worldPoint.z);
+        object.visible=!p.stored;object.position.set(worldPoint.x,room.floorY,worldPoint.z);
         object.rotation.y=yaw+p.rotation*Math.PI/2;
-        decorSelection.position.set(worldPoint.x,.12,worldPoint.z);
+        decorSelection.position.set(worldPoint.x,room.floorY+.12,worldPoint.z);
         decorSelection.visible=!p.stored;
         window.__OTTHI_DECOR_PREVIEW={siteId:site.id,propertyId:rioResidencePropertyId(),
-          x:worldPoint.x,z:worldPoint.z,yaw,centerX:site.x,centerZ:site.z,roomWidth:w,roomDepth:d};
+          x:worldPoint.x,z:worldPoint.z,yaw,centerX:site.x,centerZ:site.z,roomWidth:w,roomDepth:d,floorY:room.floorY};
         const status=decorOverlay.querySelector('[data-rio-editor-status]');
         const occupied=overlapsAnotherPurchasedItem();
         decorSelection.material.color.setHex(occupied?0xff6767:0xffdc62);
@@ -667,7 +680,7 @@
           makePanel(0,1.45,-d/2+.36,w-.82,2.76,.045);
           for(const x of[-w/2+.35,w/2-.35])makePanel(x,1.45,0,.045,2.76,d-.82);
         }
-        group.position.set(site.x,0,site.z);group.rotation.y=yaw;
+        group.position.set(site.x,room.floorY,site.z);group.rotation.y=yaw;
         group.name='CASA_REFORMA_'+site.key+'_'+kind;
         room.root.add(group);renovateMeshes[kind]=group;
       }
@@ -763,7 +776,7 @@
     const side=-site.w*.39;
     const points=[room.point(side,counterZ-.85),room.point(side,counterZ+1.04),room.point(side,z-.95),room.point(-x-.58,z-.95)];
     const npc=createNPC(site.key==='panificacao-zappas-centro'?'rio-bakery-server':'rio-bakery-server-'+site.key,'Garçonete',points[0].x,points[0].z,0xe6d6c6,0);
-    npc.stationary=true;npc.cityLifeManaged=true;npc.group.name='RIO_BAKERY_SERVER';room.root.add(npc.group);
+    npc.stationary=true;npc.cityLifeManaged=true;npc.group.name='RIO_BAKERY_SERVER';npc.rioFloorY=room.floorY;npc.group.position.y=room.floorY;room.root.add(npc.group);
     world.interactables=world.interactables.filter(action=>action.id!=='npc-'+npc.id);
     room.npcs=[npc];
     const tray=new THREE.Group();tray.position.set(0,1.16,.62);npc.group.add(tray);
@@ -836,7 +849,7 @@
     room.box(x,.07,z+1.5,Math.min(4.1,w*.19),.022,1.22,0xd5b78d);
     room.seats=[rioTable(room,tableX,tableZ,{side:1,cloth:0xc7aa80})];
     const seat=room.seats[0],dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
-    dish.position.set(seat.table.x,groundHeightAt(seat.table.x,seat.table.z)+.917,seat.table.z);
+    dish.position.set(seat.table.x,room.floorY+.917,seat.table.z);
     dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';room.root.add(dish);room.servedDish=dish;
     room.action('food-court-counter','Pedir lanche na praça de alimentação',x,z+1.02,
       ()=>rioOpenDining(site,room,counter),{inside:true,icon:'🍔'});
@@ -856,7 +869,7 @@
         clerkPoint.x,clerkPoint.z,slot==='top'?0x90648c:0x486f80,0);
       clerk.stationary=true;clerk.cityLifeManaged=true;
       clerk.shopSlot=slot;
-      clerk.group.rotation.y=site.yaw;
+      clerk.group.rotation.y=site.yaw;clerk.rioFloorY=room.floorY;clerk.group.position.y=room.floorY;
       room.root.add(clerk.group);
       room.npcs??=[];room.npcs.push(clerk);
       world.interactables=world.interactables.filter(action=>action.id!=='npc-'+clerk.id);

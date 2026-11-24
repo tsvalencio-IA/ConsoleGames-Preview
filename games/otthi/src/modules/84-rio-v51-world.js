@@ -621,6 +621,8 @@
     function enter(){
       if(record.inside||player.vehicle||player.boating||currentHouse)return false;
       record.inside=true;outside.visible=false;room.root.visible=true;
+      rioMap.indoors=true;rioMap.indoorRoom=room;
+      if(room.roof)room.roof.visible=false;
       for(const collider of outsideColliders)collider.disabled=true;
       for(const collider of room.colliders)collider.disabled=false;
       if(room.gate)room.gate.disabled=true;
@@ -637,6 +639,7 @@
       if(!record.inside)return false;
       if(rioMap.order?.site===room.site.id)rioClearDiningOrder(room);
       record.inside=false;room.root.visible=false;outside.visible=true;
+      if(rioMap.indoorRoom===room){rioMap.indoorRoom=null;rioMap.indoors=false;}
       for(const collider of room.colliders)collider.disabled=true;
       for(const collider of outsideColliders)collider.disabled=false;
       const point={x:doorway.x+Math.sin(site.yaw)*1.1,z:doorway.z+Math.cos(site.yaw)*1.1};

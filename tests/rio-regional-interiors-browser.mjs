@@ -1,6 +1,6 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {mkdirSync,writeFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
 import {multiplayerServer} from './helpers/multiplayer-browser-fixture.mjs';
 
 const out='test-results/rio-regional-interiors';
@@ -16,6 +16,42 @@ try{
     JSON.stringify({version:705,profile:{name:'Auditoria prédios',nameConfirmed:true,coins:6000,playerId:'rio-mall-smoke'},
       settings:{quality:'low',sound:false,lastWorldMap:'rio-preto'},flags:{accountPromptedV635:true},guardian:{sessionLimitMinutes:0}})));
   page=await context.newPage();
+  const source=readFileSync('games/otthi/app.js','utf8'),closing=source.lastIndexOf('})();');
+  assert(closing>0);
+  const hook=String.raw`
+  window.__RIO_INTERIOR_TEST={
+    action:id=>{const a=world.interactables.find(x=>x.id===id);return a?{x:a.x,z:a.z}:null;},
+    floor:id=>{
+      const room=rioMap.sites.get(id);if(!room?.floorMesh)return null;
+      worldGroup.updateMatrixWorld(true);
+      const visible=o=>{for(let p=o;p;p=p.parent)if(!p.visible)return false;return true;};
+      const owns=o=>{for(let p=o;p;p=p.parent)if(p===room.root)return true;return false;};
+      const points=[room.point(0,room.site.d*.10),room.point(0,room.site.d*.22)];
+      const ray=new THREE.Raycaster();
+      const probes=points.map(p=>{
+        ray.set(new THREE.Vector3(p.x,room.floorY+.11,p.z),new THREE.Vector3(0,-1,0));
+        const floor=ray.intersectObject(room.floorMesh,false)[0];
+        const first=ray.intersectObject(worldGroup,true).find(hit=>hit.object.isMesh&&visible(hit.object));
+        return {slab:!!floor,slabY:floor?.point.y,first:first?.object.name,owned:!!first&&owns(first.object)};
+      });
+      return {floorY:room.floorY,theme:room.interiorTheme,probes,wallGroups:Object.keys(room.wallGroups||{}),playerY:player.y};
+    }
+  };`;
+  await page.route(/\/games\/otthi\/app\.js(?:\?.*)?$/,route=>route.fulfill({contentType:'application/javascript',body:source.slice(0,closing)+hook+source.slice(closing)}));
+  const approach=async(id)=>{
+    const pos=await page.evaluate(id=>__RIO_INTERIOR_TEST.action(id),id);assert(pos,'Missing native action '+id);
+    await page.evaluate(p=>OTTHOS_TEST_API.teleport(p.x,p.z),pos);
+    await page.waitForFunction(id=>OTTHOS_TEST_API.getContext()?.id===id,id,{timeout:15000});
+    await page.locator('#actionBtn').click();
+  };
+  const verifyFloor=async(id)=>{
+    const result=await page.evaluate(id=>__RIO_INTERIOR_TEST.floor(id),id);
+    assert(result,'Room has no finished floor: '+id);
+    assert.equal(result.wallGroups.length,4);
+    assert(result.probes.every(p=>p.slab&&p.owned&&Math.abs(p.slabY-result.floorY)<.02),JSON.stringify(result));
+    assert(Math.abs(result.playerY-result.floorY)<.15,JSON.stringify(result));
+    return result;
+  };
   page.on('pageerror',e=>report.errors.push(e.stack));
   await page.goto(server.origin+'/games/otthi/?map=rio-preto');
   await page.locator('#playBtn').click();
@@ -40,6 +76,24 @@ try{
     }
     const detail=await page.evaluate(()=>({player:OTTHOS_TEST_API.getGame().player,context:OTTHOS_TEST_API.getContext()}));
     entry.position={x:detail.player.x,z:detail.player.z};
+    const roomId=await page.evaluate(id=>OTTHI_RIO_V51.diagnostics().malls.find(m=>m.id===id).roomId,id);
+    entry.floor=await verifyFloor(roomId);
+    if(id==='regional-shopping_cidade_norte'){
+      await approach(roomId+'-food-court-counter');
+      await page.locator('[data-rio-food="burger"]').waitFor();
+      const before=await page.evaluate(()=>({coins:OTTHOS_TEST_API.getState().profile.coins,meals:Number(OTTHOS_TEST_API.getState().stats.restaurantMeals||0)}));
+      await page.locator('[data-rio-food="burger"]').click();
+      assert.equal(await page.evaluate(()=>OTTHOS_TEST_API.getState().profile.coins),before.coins);
+      await approach(roomId+'-food-court-table');
+      await page.waitForFunction(n=>Number(OTTHOS_TEST_API.getState().stats.restaurantMeals||0)===n+1,before.meals,{timeout:30000});
+      entry.foodCourt={paid:true,consumed:true};
+    }
+    if(id==='regional-planalto_materiais'){
+      assert.equal(entry.floor.theme,'construction');
+      await approach(roomId+'-construction-counter');
+      await page.locator('[data-rio-construction-buy="paint"]').waitFor();
+      await page.locator('#modalClose').click();entry.constructionCatalog=true;
+    }
     report.cases.push(entry);
     await page.screenshot({path:out+'/'+id+'.png'});
     // Clear the active room without manipulating code or disabling collisions.
@@ -61,6 +115,7 @@ try{
   await page.locator('[data-rio-property-enter]').click();
   await page.waitForFunction(id=>OTTHI_DESTINATIONS.diagnostics().cabins.some(c=>c.id===id&&c.inside&&c.visible),cabinId,{timeout:15000});
   assert(await page.evaluate(id=>OTTHOS_TEST_API.getState().cityServices.rioMap.properties[id]?.owned,cabinId));
+  const cabinFloor=await verifyFloor(cabinId);
   await page.screenshot({path:out+'/campos-chale-interior.png'});
   const cabinExit=await page.evaluate(id=>OTTHI_DESTINATIONS.diagnostics().cabins.find(c=>c.id===id)?.exit,cabinId);
   assert(cabinExit);
@@ -68,7 +123,7 @@ try{
   await page.waitForFunction(id=>OTTHOS_TEST_API.getContext()?.id===id+'-chalet-exit',cabinId,{timeout:15000});
   await page.locator('#actionBtn').click();
   await page.waitForFunction(id=>!OTTHI_DESTINATIONS.diagnostics().cabins.find(c=>c.id===id)?.inside,cabinId,{timeout:12000});
-  report.cases.push({id:cabinId,entered:true,purchased:true,exited:true});
+  report.cases.push({id:cabinId,entered:true,purchased:true,exited:true,floor:cabinFloor});
   assert.deepEqual(report.errors,[]);
   report.passed=true;
 }finally{

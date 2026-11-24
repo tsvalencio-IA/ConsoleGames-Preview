@@ -105,7 +105,10 @@
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){if(running)savePlayerPosition(true);else commitState();}});
 
   function groundHeightAt(x,z){
-    let top=typeof inRioMap==='function'&&inRioMap()?rioTerrainY(x,z):typeof professionalTerrainHeightAt==='function'?professionalTerrainHeightAt(x,z):0;if(typeof rioCompactWorld==='function'&&rioCompactWorld())top=Math.max(top,rioDockSurface(x,z));for(const p of world.platforms){if(p.bridgePart!==undefined&&!state.flags.bridgeFixed&&p.bridgePart%2===1)continue;if(Math.abs(x-p.x)<=p.w/2+.35&&Math.abs(z-p.z)<=p.d/2+.35&&p.top>top&&player.y>=p.top-.75)top=p.top;}return top;
+    let top=typeof inRioMap==='function'&&inRioMap()?rioTerrainY(x,z):typeof professionalTerrainHeightAt==='function'?professionalTerrainHeightAt(x,z):0;if(typeof rioCompactWorld==='function'&&rioCompactWorld())top=Math.max(top,rioDockSurface(x,z));for(const p of world.platforms){if(p.bridgePart!==undefined&&!state.flags.bridgeFixed&&p.bridgePart%2===1)continue;if(Math.abs(x-p.x)<=p.w/2+.35&&Math.abs(z-p.z)<=p.d/2+.35&&p.top>top&&player.y>=p.top-.75)top=p.top;}
+    const room=typeof rioMap!=='undefined'?rioMap.indoorRoom:null;
+    if(room?.floorMesh&&room.root.visible&&room.forSite(x,z,-.24)&&Number.isFinite(room.floorY))top=Math.max(top,room.floorY);
+    return top;
   }
   function positionBlockedForPlayer(x,z,radius=.48,options={}){
     if(!Number.isFinite(x)||!Number.isFinite(z))return true;const bounds=v704WorldBounds();if(x<bounds.minX||x>bounds.maxX||z<bounds.minZ||z>bounds.maxZ)return true;

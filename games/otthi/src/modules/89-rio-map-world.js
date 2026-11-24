@@ -357,7 +357,7 @@
       const cameraZ=clamp(sideZ+Math.min(4,maxZ*.72),-maxZ,maxZ);
       desired.set(preview.centerX+cs*cameraX+sn*cameraZ,2.7,
         preview.centerZ-sn*cameraX+cs*cameraZ);
-      look.set(preview.x,.92,preview.z);
+      look.set(preview.x,(preview.floorY||0)+.92,preview.z);
       camera.fov=innerHeight>innerWidth?62:54;
       return;
     }
@@ -411,6 +411,17 @@
   function rioInteriorRender(){
     const room=rioMap.indoorRoom;
     if(!room||otGames.active||player.vehicle)return null;
+    if(room.wallGroups){
+      const {x,z,yaw,w,d}=room.site,ss=Math.sin(yaw),cc=Math.cos(yaw);
+      const dx=camera.position.x-x,dz=camera.position.z-z,lx=cc*dx-ss*dz,lz=ss*dx+cc*dz;
+      const hidden=[];
+      const hide=key=>{const g=room.wallGroups[key];if(g?.visible){hidden.push(g);g.visible=false;}};
+      if(Math.abs(lx)>w/2-1.4)hide(lx<0?'left':'right');
+      if(Math.abs(lz)>d/2-1.4)hide(lz<0?'back':'front');
+      // Only the room's occluding wall is temporarily hidden. Geometry in
+      // neighboring districts, furniture and the physical floor is untouched.
+      return ()=>hidden.forEach(g=>{g.visible=true;});
+    }
     // Residence cutaway uses an indoor camera, not renderer-wide clipping:
     // global planes were also cutting beds, counters and other owned furniture.
     if(room.site.kind==='residence')return null;

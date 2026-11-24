@@ -253,11 +253,20 @@
     root.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=false;}});return npc;
   }
   function createNPC(id,name,x,z,color,pathRadius=3){
+    const otToyHeroes=new Set(['nino','luna','teo','bia','maya','clara','rafa','davi','leo','michelle-ottovias']);
+    const rioModernNpc=!otToyHeroes.has(id)&&
+      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
     const group=new THREE.Group();group.position.set(x,0,z);worldGroup.add(group);
     const hairPalette=[0x34251c,0x15191f,0x6a4429,0xb36b35,0xd5b36a,0x643e55],skinPalette=[0xffd7b1,0xeab589,0xbd825d,0x8d5b43,0x6f4637];
     const hash=String(id).split('').reduce((a,c)=>a+c.charCodeAt(0),0),hairColor=hairPalette[hash%hairPalette.length],skin=skinPalette[hash%skinPalette.length];
     const height=.92+(hash%5)*.025,shoulder=.39+(hash%3)*.025,shirt=renderMat(color,{roughness:.7}),shirtDark=renderMat(shadeColor(color,-32),{roughness:.74}),pants=renderMat(hash%2?0x294b75:0x43365f,{roughness:.78}),shoe=renderMat(hash%3===0?0xf4f5f7:0x202935,{roughness:.6}),skinMat=renderMat(skin,{roughness:.72}),hairMat=renderMat(hairColor,{roughness:.78});
-    const body=new THREE.Mesh(new THREE.CylinderGeometry(shoulder*.78,shoulder,height,12),shirt);body.position.y=1.28;body.castShadow=true;body.receiveShadow=true;group.add(body);
+    const torsoGeometry=rioModernNpc?new THREE.LatheGeometry([
+      new THREE.Vector2(0,-height*.5),new THREE.Vector2(shoulder*.74,-height*.5),
+      new THREE.Vector2(shoulder*.84,-height*.34),new THREE.Vector2(shoulder*.77,-height*.09),
+      new THREE.Vector2(shoulder*.91,height*.14),new THREE.Vector2(shoulder,height*.31),
+      new THREE.Vector2(shoulder*.70,height*.47),new THREE.Vector2(shoulder*.31,height*.5),new THREE.Vector2(0,height*.5)
+    ],12):new THREE.CylinderGeometry(shoulder*.78,shoulder,height,12);
+    const body=new THREE.Mesh(torsoGeometry,shirt);if(rioModernNpc)body.scale.z=.87;body.position.y=1.28;body.castShadow=true;body.receiveShadow=true;group.add(body);
     const head=new THREE.Mesh(new THREE.SphereGeometry(.39,16,11),skinMat);head.position.set(0,2.0,0);head.scale.set(.93,1.04,.9);head.castShadow=true;group.add(head);
     const hairCap=new THREE.Mesh(new THREE.SphereGeometry(.405,14,9,0,Math.PI*2,0,Math.PI*.56),hairMat);hairCap.position.set(0,2.17,-.015);hairCap.scale.set(.97,.68,.94);hairCap.castShadow=true;group.add(hairCap);
     if(hash%4===0){for(const sx of[-1,1]){const lock=new THREE.Mesh(new THREE.SphereGeometry(.12,9,7),hairMat);lock.scale.set(.7,1.8,.8);lock.position.set(sx*.32,2.03,-.04);group.add(lock);}}
@@ -265,22 +274,38 @@
     const eyeMat=renderMat(hash%3===0?0x3c5f72:0x20232a,{roughness:.4});for(const ex of[-.14,.14]){const eye=new THREE.Mesh(new THREE.SphereGeometry(.042,8,6),eyeMat);eye.position.set(ex,2.03,.345);group.add(eye);}const nose=new THREE.Mesh(new THREE.SphereGeometry(.04,7,5),skinMat);nose.position.set(0,1.96,.37);nose.scale.set(.75,1.2,.75);group.add(nose);box(.15,.035,.026,0x9d5052,0,1.88,.365,group);
     const leftArm=new THREE.Group(),rightArm=new THREE.Group(),leftLeg=new THREE.Group(),rightLeg=new THREE.Group();leftArm.position.set(-.48,1.52,0);rightArm.position.set(.48,1.52,0);leftLeg.position.set(-.19,.82,0);rightLeg.position.set(.19,.82,0);group.add(leftArm,rightArm,leftLeg,rightLeg);
     const makeLimb=(parent,r,h,material,y)=>{const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r*.9,r,h,10),material);mesh.position.y=y;mesh.castShadow=true;parent.add(mesh);return mesh;};
-    makeLimb(leftArm,.12,.66,shirt,-.28);makeLimb(rightArm,.12,.66,shirt,-.28);const lh=new THREE.Mesh(new THREE.SphereGeometry(.12,9,7),skinMat),rh=lh.clone();lh.position.y=-.63;rh.position.y=-.63;leftArm.add(lh);rightArm.add(rh);
-    makeLimb(leftLeg,.14,.72,pants,-.31);makeLimb(rightLeg,.14,.72,pants,-.31);box(.29,.15,.42,shoe,0,-.72,.07,leftLeg);box(.29,.15,.42,shoe,0,-.72,.07,rightLeg);box(.7,.18,.54,shirtDark,0,.82,0,group);
+    if(rioModernNpc){
+      for(const arm of[leftArm,rightArm]){
+        makeLimb(arm,.131,.36,shirt,-.14);makeLimb(arm,.115,.065,shirtDark,-.32);
+        makeLimb(arm,.092,.31,skinMat,-.47);
+      }
+    }else{makeLimb(leftArm,.12,.66,shirt,-.28);makeLimb(rightArm,.12,.66,shirt,-.28);}
+    const lh=new THREE.Mesh(new THREE.SphereGeometry(.12,9,7),skinMat),rh=lh.clone();lh.position.y=-.63;rh.position.y=-.63;leftArm.add(lh);rightArm.add(rh);
+    if(rioModernNpc){
+      for(const leg of[leftLeg,rightLeg]){
+        makeLimb(leg,.146,.40,pants,-.16);makeLimb(leg,.117,.36,pants,-.49);
+        const upper=new THREE.Mesh(new THREE.SphereGeometry(.15,10,7),shoe);
+        upper.scale.set(.95,.55,1.44);upper.position.set(0,-.70,.085);leg.add(upper);
+        box(.28,.05,.40,shoe,0,-.773,.075,leg);
+      }
+      box(.65,.12,.46,shirtDark,0,.82,0,group);
+    }else{
+      makeLimb(leftLeg,.14,.72,pants,-.31);makeLimb(rightLeg,.14,.72,pants,-.31);
+      box(.29,.15,.42,shoe,0,-.72,.07,leftLeg);box(.29,.15,.42,shoe,0,-.72,.07,rightLeg);
+      box(.7,.18,.54,shirtDark,0,.82,0,group);
+    }
     if(hash%5===0){const cap=new THREE.Mesh(new THREE.SphereGeometry(.42,12,8,0,Math.PI*2,0,Math.PI*.48),renderMat(0x2f7ed6,{roughness:.62}));cap.position.set(0,2.28,0);cap.scale.y=.55;group.add(cap);box(.28,.04,.3,0x2f7ed6,0,2.27,.39,group);}
     const npc={id,name,x,z,baseX:x,baseZ:z,color,group,pathRadius,phase:Math.random()*6.28,friendship:state.friendship[id]||0,body,head,limbs:{leftArm,rightArm,leftLeg,rightLeg},brain:{state:'idle',target:null,nextThink:0,fearUntil:0,lastVehicle:'',lastVehicleAt:0,lastPlayerAt:0,wanderUntil:0,memory:[]}};
     const badge=new THREE.Sprite(new THREE.SpriteMaterial({map:iconTexture(name.charAt(0),'#ffffff','#15314b'),transparent:true,depthWrite:false}));badge.position.set(0,2.85,0);badge.scale.set(.5,.5,.5);badge.visible=false;group.add(badge);npc.badge=badge;
     // Keep named original OT toy heroes exactly as approved. Ordinary city
     // pedestrians and shop staff in Rio Preto use the new human visual style.
-    const otToyHeroes=new Set(['nino','luna','teo','bia','maya','clara','rafa','davi','leo','michelle-ottovias']);
-    const rioModernNpc=!otToyHeroes.has(id)&&
-      /^(porteiro-|rio-|regional-|citizen-|civilian-|pedestrian-|commuter-|resident-|worker-|staff-|shop-|market-|visitor-|merchant-|shopper-|coast-|beach-|travel-resident-)/.test(String(id));
+
     if(rioModernNpc){
       // Rio Preto service staff should be human-looking, not a randomly assigned
       // Lego/Mario/Minecraft character. Keep the old toy renderers untouched for
       // named OT characters, retro worlds and all other existing NPCs.
       npc.visualStyle='rio-human';
-      const role=/^porteiro-/.test(id)?'concierge':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-|rio-service-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
+      const role=/^porteiro-/.test(id)?'concierge':/rio-service-.*-construction$/.test(id)?'construction':/rio-mall-staff-/.test(id)?'retail':/^(merchant-|coast-vendor-|rio-service-)|bakery|server/.test(id)?'service':/^(coast-walker-|beach-|coast-diner-)/.test(id)?'leisure':'resident';
       npc.visualRole=role;group.userData.visualRole=role;
       const detailLayer=new THREE.Group();detailLayer.name='RIO_NPC_FACE_AND_CLOTHES';group.add(detailLayer);
       const detail=renderMat(shadeColor(color,-42),{roughness:.86});
@@ -305,6 +330,8 @@
       // expressions. All static details are merged into one geometry below.
       const eyeLight=renderMat(0xf6f5f0,{roughness:.43});
       for(const side of[-1,1]){
+        const sclera=new THREE.Mesh(new THREE.SphereGeometry(.064,9,7),eyeLight);
+        sclera.scale.set(1.04,.68,.45);sclera.position.set(side*.14,2.03,.332);detailLayer.add(sclera);
         const glint=new THREE.Mesh(new THREE.SphereGeometry(.012,6,5),eyeLight);
         glint.position.set(side*.152,2.047,.383);detailLayer.add(glint);
       }
@@ -345,6 +372,13 @@
         box(.60,.66,.075,apron,0,1.15,.38,detailLayer);
         box(.13,.57,.045,apron,-.31,1.19,.36,detailLayer);
         box(.13,.57,.045,apron,.31,1.19,.36,detailLayer);
+      }else if(role==='construction'){
+        const vest=renderMat(0xc48b3a,{roughness:.86}),stripe=renderMat(0xe4dcb2,{roughness:.65});
+        for(const side of[-1,1]){
+          box(.17,.68,.055,vest,side*.24,1.35,.345,detailLayer);
+          box(.19,.10,.064,stripe,side*.24,1.18,.386,detailLayer);
+        }
+        box(.52,.09,.075,metalMat,0,.94,.338,detailLayer);
       }else if(role==='retail'){
         // Staff wear a distinct collared outfit and name badge. These details
         // are batched with the rest of the existing articulated model.

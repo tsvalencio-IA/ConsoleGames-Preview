@@ -70,7 +70,7 @@
   }
 
   function rioLocal(batch,site) {
-    const {x,z}=site, yaw=site.yaw||0, sin=Math.sin(yaw), cos=Math.cos(yaw), ground=groundHeightAt(x,z);
+    const {x,z}=site, yaw=site.yaw||0, sin=Math.sin(yaw), cos=Math.cos(yaw), ground=Number.isFinite(site.floorBaseY)?site.floorBaseY:groundHeightAt(x,z);
     function point(dx,dz) {return {x:x+cos*dx+sin*dz,z:z-sin*dx+cos*dz};}
     function part(shape,dx,y,dz,w,h,d,color,angle=0,roll=0) {
       const p=point(dx,dz);batch.part(shape,p.x,ground+y,p.z,w,h,d,color,yaw+angle,roll);
@@ -397,6 +397,8 @@
       if(rioPreto.insideHome&&rioPreto.insideHome!==record)return false;
       record.inside=true;rioPreto.insideHome=record;
       root.visible=false;room.root.visible=true;
+      rioMap.indoors=true;rioMap.indoorRoom=room;
+      room.refreshDecor?.();
       for(const c of outsideColliders)c.disabled=true;
       for(const c of room.colliders)c.disabled=false;
       if(room.gate)room.gate.disabled=true;
@@ -413,6 +415,7 @@
     function leave(){
       record.inside=false;if(rioPreto.insideHome===record)rioPreto.insideHome=null;
       room.root.visible=false;root.visible=true;
+      if(rioMap.indoorRoom===room){rioMap.indoorRoom=null;rioMap.indoors=false;}
       for(const c of room.colliders)c.disabled=true;
       for(const c of outsideColliders)c.disabled=false;
       if(room.door)room.door.visible=true;

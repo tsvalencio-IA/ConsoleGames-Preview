@@ -40,7 +40,11 @@
 
   function rioSiteLayout(site,root){
     const batch=rioCreateBatch(root);batch.root=root;
-    const draw=rioLocal(batch,site);
+    const baseY=groundHeightAt(site.x,site.z);
+    // Biome sheets and terrain decals lie above the original paper-thin floor.
+    // Build an actual foundation, with every furnishing using the same datum.
+    const floorY=rioPlaceStyles[site.kind]?baseY+.24:baseY;
+    const draw=rioLocal(batch,{...site,floorBaseY:floorY});
     const {point}=draw,colliders=[],actions=[],lights=[];
     const forSite=(x,z,r=0)=>rioSiteContains(site,x,z,r);
     function collider(x,z,w,d,height){
@@ -63,7 +67,7 @@
     function bench(x,z){
       draw.bench(x,z);collider(x,z,2.2,.58,1.03);
     }
-    return {...draw,site,bench,batch,root,colliders,actions,lights,object,action,collider,forSite};
+    return {...draw,site,bench,batch,root,colliders,actions,lights,object,action,collider,forSite,baseY,floorY};
   }
 
   function rioSiteContains(site,x,z,pad=0){
@@ -81,43 +85,59 @@
 
   function rioBuildShell(site,room){
     const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:base;
-    const {w,d}=site,{box,object,sign}=room;
+    const {w,d}=site,{box,object}=room;
     const h=p.height,edge=.27,entry=site.kind==='market'?4.8:Math.min(3.1,w*.4);
     const front=d/2-edge,length=(w-entry)/2,center=(w+entry)/4;
-    box(0,.028,0,w,.055,d,p.floor);
-    object(0,h/2,-front,w,h,.39,p.wall);
+    // Real floor is a solid slab, not a depth-disabled overlay.
+    const floorDepth=Math.max(.26,room.floorY-room.baseY+.08);
+    const floor=new THREE.Mesh(new THREE.BoxGeometry(w,floorDepth,d),renderMat(p.floor,{roughness:.9,metalness:0}));
+    floor.name='RIO_FINISHED_FLOOR_'+site.key;floor.position.set(site.x,room.floorY-floorDepth/2,site.z);
+    floor.rotation.y=site.yaw;floor.receiveShadow=true;room.root.add(floor);room.floorMesh=floor;
+    // Separate architectural surfaces allow a true camera cutaway. Colliders
+    // are never disabled by rendering, and all furniture remains visible.
+    room.wallGroups={};room.wallDraw={};const wallBatches=[];
+    for(const key of ['front','back','left','right']){
+      const group=new THREE.Group();group.name='RIO_WALL_'+key+'_'+site.key;room.root.add(group);
+      const batch=rioCreateBatch(group);batch.root=group;wallBatches.push(batch);
+      room.wallGroups[key]=group;room.wallDraw[key]=rioLocal(batch,{...site,floorBaseY:room.floorY});
+    }
+    room.commitWalls=()=>wallBatches.forEach(batch=>batch.commit());
+    const wallObject=(key,x,y,z,ww,hh,dd,color)=>{
+      room.wallDraw[key].box(x,y,z,ww,hh,dd,color);room.collider(x,z,ww,dd,hh);
+    };
+    wallObject('back',0,h/2,-front,w,h,.39,p.wall);
+    const f=room.wallDraw.front;
     for(const side of [-1,1]){
-      object(side*(w/2-edge),h/2,0,.39,h,d,p.wall);
-      object(side*center,h/2,front,length,h,.42,p.wall);
-      box(side*(entry/2+.13),1.48,front+.23,.19,2.96,.23,p.trim);
+      wallObject(side<0?'left':'right',side*(w/2-edge),h/2,0,.39,h,d,p.wall);
+      wallObject('front',side*center,h/2,front,length,h,.42,p.wall);
+      f.box(side*(entry/2+.13),1.48,front+.23,.19,2.96,.23,p.trim);
       for(let offset=entry/2+.82;offset<w/2-.70;offset+=2.38){
         const paneW=Math.min(1.68,2*(w/2-offset-.31));
-        box(side*offset,2.02,front+.222,paneW,1.28,.10,rioPaint.window);
-        box(side*offset,2.02,front+.29,.09,1.27,.05,rioPaint.white);
-        box(side*offset,1.35,front+.30,paneW+.16,.12,.16,p.trim);
+        f.box(side*offset,2.02,front+.222,paneW,1.28,.10,rioPaint.window);
+        f.box(side*offset,2.02,front+.29,.09,1.27,.05,rioPaint.white);
+        f.box(side*offset,1.35,front+.30,paneW+.16,.12,.16,p.trim);
       }
     }
-    box(0,(h+2.95)/2,front,entry+.14,h-2.95,.43,p.wall);
-    box(0,2.91,front+.33,entry+.43,.18,.34,p.trim);
-    box(0,.031,d/2+.63,entry+.88,.058,1.85,rioPaint.paving);
-    // Address, threshold and doorway are in the same open wall.
+    f.box(0,(h+2.95)/2,front,entry+.14,h-2.95,.43,p.wall);
+    f.box(0,2.91,front+.33,entry+.43,.18,.34,p.trim);
+    // Two broad entrance steps bridge the 24 cm foundation and terrain.
+    box(0,-.12,d/2+.58,entry+.88,.12,1.16,rioPaint.paving);
+    box(0,-.21,d/2+1.08,entry+.96,.06,.66,rioPaint.paving);
     const fixedSign=(site.key==='mercado_municipal'||site.key==='catedral_sao_jose'||site.key==='prefeitura_andalo'||site.key==='complexo_swift'||site.kind==='airport')?p.sign:null;
-    sign(fixedSign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
+    f.sign(fixedSign||site.name,0,h-.69,d/2+.005,Math.min(w-.72,17),.56,
       site.kind==='market'?'#87352e':site.kind==='dining'?'#62422f':'#294b56');
-
     const roof=new THREE.Group();roof.name='RIO_ROOF_'+site.key;room.root.add(roof);
-    const cap=rioCreateBatch(roof),top=rioLocal(cap,site);
+    const cap=rioCreateBatch(roof),top=rioLocal(cap,{...site,floorBaseY:room.floorY});
     if(['market','church','theater','dining','bakery'].includes(site.kind)||site.kind==='residence'&&site.style!=='damha'){
       top.box(0,h+.06,0,w+.12,.17,d+.12,p.trim);
       top.part('hip',0,h+.66,0,w+.25,1.24,d+.20,p.roof);
     }else top.box(0,h+.16,0,w+.15,.34,d+.15,p.roof);
     if(site.kind==='market'){
-      // Cream stucco, rounded end towers and red-brimmed canopy reference the Mercado Municipal.
       for(const side of [-1,1]){
-        room.part('post',side*(w/2-1.04),h*.54,front-.56,1.85,h*1.11,1.85,p.wall);
-        for(const y of [2.04,2.46,2.88,3.30])box(side*(w/2-1.04),y,front+.18,1.41,.16,.18,rioPaint.window);
+        f.part('post',side*(w/2-1.04),h*.54,front-.56,1.85,h*1.11,1.85,p.wall);
+        for(const y of [2.04,2.46,2.88,3.30])f.box(side*(w/2-1.04),y,front+.18,1.41,.16,.18,rioPaint.window);
       }
-      box(0,3.09,front+.76,Math.min(7.9,w-.4),.23,1.66,p.trim);
+      f.box(0,3.09,front+.76,Math.min(7.9,w-.4),.23,1.66,p.trim);
     }
     if(site.kind==='church'){
       for(const side of [-1,1]){
@@ -128,8 +148,8 @@
       top.box(0,h+2.37,-d*.38,1.2,.16,.17,0xaf9360);
     }
     if(site.key==='canecao_represa'){
-      for(const x of [-w*.41,-w*.20,w*.20,w*.41])object(x,1.49,front+.55,.32,2.98,.32,rioPaint.brick);
-      box(0,2.99,front+.62,w-.16,.22,1.24,p.trim);
+      for(const x of [-w*.41,-w*.20,w*.20,w*.41])wallObject('front',x,1.49,front+.55,.32,2.98,.32,rioPaint.brick);
+      f.box(0,2.99,front+.62,w-.16,.22,1.24,p.trim);
     }
     cap.commit();
     room.roof=roof;
@@ -150,19 +170,26 @@
     if(!theme)return;
     const [accent,pale]=theme;
     for(const side of[-1,1]){
-      b(side*edgeX,.16,0,.055,.18,d-1.04,accent);
-      b(side*edgeX,2.20,0,.055,.09,d-1.04,pale);
+      const wall=room.wallDraw?.[side<0?'left':'right']?.box||b;
+      wall(side*edgeX,.16,0,.055,.18,d-1.04,accent);
+      wall(side*edgeX,2.20,0,.055,.09,d-1.04,pale);
       // Framed wall panels, not free-floating furniture or false doors.
       const panels=Math.max(1,Math.min(5,Math.floor((d-1.8)/3.4)));
       for(let i=0;i<panels;i++){
         const z=-d*.38+(i+.5)*(d*.76/panels);
         const span=Math.min(1.4,d*.40/panels);
-        b(side*(edgeX-.01),2.46,z,.06,.40,span,accent);
-        b(side*(edgeX-.05),2.46,z,.06,.27,span*.81,pale);
+        wall(side*(edgeX-.01),2.46,z,.06,.40,span,accent);
+        wall(side*(edgeX-.05),2.46,z,.06,.27,span*.81,pale);
       }
     }
-    b(0,.16,-edgeZ,w-1.04,.18,.055,accent);
-    b(0,2.20,-edgeZ,w-1.04,.09,.055,pale);
+    const back=room.wallDraw?.back?.box||b;
+    back(0,.16,-edgeZ,w-1.04,.18,.055,accent);
+    back(0,2.20,-edgeZ,w-1.04,.09,.055,pale);
+    // Fine grout joints / floorboards make the surface visibly intentional.
+    const tile=kind==='residence'?1.1:1.8;
+    const joints=Math.min(12,Math.floor((w-1.2)/tile));
+    for(let i=1;i<joints;i++)b(-w*.5+.6+i*(w-1.2)/joints,.009,0,.025,.012,d-1.2,kind==='residence'?0x9a8d7c:0xa7a49b);
+    if(kind!=='residence')for(let i=1,rows=Math.min(10,Math.floor((d-1.2)/tile));i<rows;i++)b(0,.009,-d*.5+.6+i*(d-1.2)/rows,w-1.2,.012,.025,0xa7a49b);
     if(kind!=='residence'){
       // A clear central route in commercial/public buildings; only floor
       // markings, so walking and vehicle physics remain unchanged.
@@ -214,7 +241,7 @@
     // The place to stand is alongside the chair. Sitting starts on the furniture itself.
     room.collider(sx,z,.54,.56,.96);
     const table=point(x,z),chair=point(sx,z),approach=point(sx,z+1.02);
-    return {table,chair,approach,yaw:Math.atan2(table.x-chair.x,table.z-chair.z),seatTop:.51};
+    return {table,chair,approach,yaw:Math.atan2(table.x-chair.x,table.z-chair.z),seatTop:(room.floorY||0)+.51};
   }
 
   function rioCounter(room,x,z,width=3.05,accent=rioPaint.wood){
@@ -313,7 +340,7 @@
       room.part('post',side*x,1.04,z-.25,.105,.22,.105,0x70935e);
     }
     const marked=room.seats[0], dish=new THREE.Mesh(new THREE.CylinderGeometry(.23,.22,.065,16),renderMat(0xffeaba));
-    dish.position.set(marked.table.x,.917,marked.table.z);dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';
+    dish.position.set(marked.table.x,room.floorY+.917,marked.table.z);dish.visible=false;dish.name='RIO_ORDER_ON_TABLE';
     room.root.add(dish);room.servedDish=dish;
     const counterZ=-d/2+1.85;
     const counter=rioCounter(room,0,counterZ,Math.min(4.6,w*.53));
@@ -336,7 +363,7 @@
   function rioServiceClerk(site,room,role,name,x,z,color){
     const p=room.point(x,z),clerk=createNPC('rio-service-'+site.key+'-'+role,name,p.x,p.z,color,0);
     clerk.stationary=true;clerk.cityLifeManaged=true;clerk.shopSlot=role;
-    clerk.group.rotation.y=site.yaw;room.root.add(clerk.group);
+    clerk.group.rotation.y=site.yaw;clerk.rioFloorY=room.floorY;clerk.group.position.y=room.floorY;room.root.add(clerk.group);
     room.npcs??=[];room.npcs.push(clerk);
     world.interactables=world.interactables.filter(a=>a.id!=='npc-'+clerk.id);
     return clerk;
@@ -400,7 +427,7 @@
     rioServiceClerk(site,room,'reception','Recepcionista',-x,z-.80,0x607f91);
     const badge=rioCounter(room,stationX,stationZ,Math.min(2.3,w*.25),0x738889);
     const light=new THREE.Mesh(new THREE.SphereGeometry(.15,8,6),new THREE.MeshBasicMaterial({color:0xf8bb5b}));
-    light.position.set(badge.x,1.12,badge.z-1.02);light.visible=false;room.root.add(light);room.lights.push(light);
+    light.position.set(badge.x,room.floorY+1.12,badge.z-1.02);light.visible=false;room.root.add(light);room.lights.push(light);
     const seatsZ=Math.min(d*.28,3.6);
     if(kind!=='theater')room.bench(x,seatsZ);
     if(kind==='theater'){
@@ -408,7 +435,7 @@
       for(let i=0;i<5;i++){
         const p=room.point((i-2)*Math.min(w*.105,1.45),-d*.42);
         const strip=new THREE.Mesh(new THREE.BoxGeometry(.47,.27,.31),new THREE.MeshBasicMaterial({color:0xffcf82}));
-        strip.position.set(p.x,2.69,p.z);strip.visible=false;room.root.add(strip);room.lights.push(strip);
+        strip.position.set(p.x,room.floorY+2.69,p.z);strip.visible=false;room.root.add(strip);room.lights.push(strip);
       }
       for(let i=0;i<3;i++)for(const side of [-1,1])room.bench(side*x,.29+i*1.17);
     }else if(kind==='exhibition'){
@@ -433,7 +460,7 @@
   function rioSitOnBench(site,room,x,z){
     const approach=room.point(x,z+.81),seat=room.point(x,z);
     if(!rioPlayerAt(approach))return;
-    beginCharacterActivity('rio-rest',{target:approach,pose:{...seat,y:.535,yaw:site.yaw,sitting:true},
+    beginCharacterActivity('rio-rest',{target:approach,pose:{...seat,y:(room.floorY||0)+.535,yaw:site.yaw,sitting:true},
       commit:()=>{if(!room.root.visible||!rioPlayerAt(approach,.26))return false;state.needs.energy=clamp(state.needs.energy+4,0,100);rioCountVisit(site);return true;}});
   }
   function rioBuildChurch(site,room){
@@ -458,7 +485,7 @@
       room.object(x,.19,kneelerZ,1.17,.38,.45,0xa95c54);
       room.action('altar-'+side,'Rezar no altar lateral',x,kneelerZ+.75,()=>{
         const approach=room.point(x,kneelerZ+.75),kneeler=room.point(x,kneelerZ);
-        beginCharacterActivity('rio-rest',{target:approach,pose:{...kneeler,y:.40,yaw:site.yaw+Math.PI,sitting:true},commit:()=>{rioCountVisit(site);return true;}});
+        beginCharacterActivity('rio-rest',{target:approach,pose:{...kneeler,y:room.floorY+.40,yaw:site.yaw+Math.PI,sitting:true},commit:()=>{rioCountVisit(site);return true;}});
       },{inside:true,icon:'🕯️'});
     }
   }
@@ -554,6 +581,7 @@
       else if(site.kind==='airport')rioBuildAirportTerminal(site,room);
       else rioDeskModel(site,room);
       rioFinishInterior(site,room);
+      room.commitWalls();
     }else if(site.kind==='fuel')rioBuildFuel(site,room);
     else if(site.kind==='oil-shop')rioBuildOilShop(site,room);
     else rioBuildOpenSite(site,room);

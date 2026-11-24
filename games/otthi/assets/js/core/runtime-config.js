@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.45-rio-preto-interiores-vivos',
+    build: '705.28.46-rio-preto-ambientes-3d',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',
