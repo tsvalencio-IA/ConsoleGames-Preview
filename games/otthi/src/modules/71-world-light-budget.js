@@ -82,6 +82,16 @@
   function countWorldPointLightsForView(view){return !scene||!view||!world.glows?.length?0:collectWorldPointLights(view).active;}
   function lightingBucketFor(active){const count=Math.max(0,Math.floor(Number(active)||0));return count?Math.max(16,Math.ceil(count/8)*8):0;}
   function markLightingBucketPrepared(count){worldLightBudget.preparedBuckets.add(lightingBucketFor(count));}
+  // A short hold avoids recompiling a new light-count shader on every
+  // crossing of a camera frustum boundary. Never cap actual active lamps.
+  // The zero-glow quality mode has no padding at all.
+  function progressiveLightBucket(budget,total,active,now){
+    const next=lightingBucketFor(active),previous=Number(budget.progressiveBucket||0);
+    if(!total){budget.progressiveBucket=0;budget.progressiveHoldUntil=0;return 0;}
+    if(next>=previous){if(next>previous)budget.progressiveHoldUntil=now+1200;budget.progressiveBucket=next;return next;}
+    if(previous-next<=16&&now<Number(budget.progressiveHoldUntil||0))return previous;
+    budget.progressiveBucket=next;budget.progressiveHoldUntil=now+1200;return next;
+  }
   function prepareWorldPointLights(view){
     if(!scene||!view||!world.glows?.length)return null;
     const budget=worldLightBudget,{total,active,hidden}=collectWorldPointLights(view);
@@ -93,7 +103,8 @@
       try{precompileWorldLighting({pointLights:bucket,includeVehicleTemplates:false});markLightingBucketPrepared(bucket);budget.onDemand++;}
       catch(error){console.warn('[OTTHI CAMERA] Variante adicional:',error);}
     }
-    const padded=active?Math.max(16,Math.ceil(active/8)*8)-active:0;
+    const renderBucket=budget.preparation?.mode==='progressive'?progressiveLightBucket(budget,total,active,globalThis.performance?.now?.()??Date.now()):bucket;
+    const padded=Math.max(0,renderBucket-active);
     for(let i=0;i<padded;i++){let light=budget.padding[i];if(!light){light=new THREE.PointLight(0x000000,0,1,1);light.name='OTTHI_LIGHT_PADDING';budget.padding.push(light);}scene.add(light);}
     budget.stats={total,active,culled:hidden.length,padded};
     return()=>{for(const light of hidden)light.visible=true;for(let i=0;i<padded;i++)scene.remove(budget.padding[i]);};

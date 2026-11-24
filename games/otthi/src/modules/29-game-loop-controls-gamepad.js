@@ -319,7 +319,16 @@
     document.body.classList.toggle('family-portrait',!!portrait);if(portrait)playerGroup.visible=false;
     if(otGames.active){const navVisible=!!state.waypoint&&!(otGames.armed&&otGames.mode==='ground');if(world.routeGuide)world.routeGuide.visible=navVisible;if(world.waypointMarker)world.waypointMarker.visible=navVisible;}
     if(world.skyDome)world.skyDome.position.copy(camera.position);
+    const drawStart=performance.now(),programsBefore=renderer.info.programs.length;
     const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
+    const renderMs=performance.now()-drawStart,addedPrograms=renderer.info.programs.length-programsBefore;
+    const lastView=perf.lastMeasuredView,view=camera.quaternion;
+    const turning=!!lastView&&Math.abs(lastView.x*view.x+lastView.y*view.y+lastView.z*view.z+lastView.w*view.w)<.99995;
+    if(!perf.lastMeasuredView)perf.lastMeasuredView=view.clone();else perf.lastMeasuredView.copy(view);
+    const metrics=perf.renderCost??={samples:0,slowFrames:0,slowTurningFrames:0,maxMs:0,maxTurningMs:0,newPrograms:0};
+    metrics.samples++;metrics.lastMs=Math.round(renderMs*10)/10;metrics.maxMs=Math.max(metrics.maxMs,metrics.lastMs);metrics.newPrograms+=Math.max(0,addedPrograms);
+    if(renderMs>50)metrics.slowFrames++;
+    if(turning){metrics.maxTurningMs=Math.max(metrics.maxTurningMs,metrics.lastMs);if(renderMs>50)metrics.slowTurningFrames++;}
     }finally{endWorldQueryFrame();}
   }
 

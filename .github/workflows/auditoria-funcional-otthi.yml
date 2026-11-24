@@ -53,7 +53,12 @@ jobs:
             status=FAILED
             if [ "$code" -eq 0 ]; then status=PASSED; elif [ "$code" -eq 124 ] || [ "$code" -eq 137 ]; then status=TIMEOUT; fi
             printf '%s\t%s\t%s\n' "$script" "$status" "$code" | tee -a test-results/audit-logs/summary.tsv
-            if [ "$code" -ne 0 ]; then failed=1; fi
+            if [ "$code" -ne 0 ]; then
+              failed=1
+              echo "::group::Failure details: $script"
+              tail -n 100 "test-results/audit-logs/$script.log"
+              echo "::endgroup::"
+            fi
           done
           cat test-results/audit-logs/summary.tsv >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"

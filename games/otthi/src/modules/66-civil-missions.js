@@ -87,8 +87,9 @@
   button.hidden=!current||current.r.status!=='active'||!near||!!target?.boarding||!!currentHouse||!!civilCommunity.ride||otGames.active&&!flying||!flying&&!!civilMissions.task;
   const valid=flying&&target&&civilValidateTask(current.book,current.r.id,current.uid,current.r.phase,target.id),task=civilMissions.task;
   button.disabled=!!civilMissions.starting||!!task||flying&&!valid;
-  button.textContent=flying?task?.air?task.finishing?'Confirmando foto…':'Registrando · '+Math.min(99,Math.floor((airNow()-task.started)/task.duration*100))+'%':civilMissions.starting?'Preparando foto…':!civilTeamReady(current.r)?'Aguardando a dupla':!valid?'Suba · mínimo '+Number(target?.minAltitude||10)+' m':'📷 Tirar foto':p?.step?.action||'AÇÃO';
-  button.title=flying?'Permaneça sobre o panorama enquanto a foto é registrada. Atalho: F.':'';if(flying)button.setAttribute('aria-keyshortcuts','F');else button.removeAttribute('aria-keyshortcuts');
+  const taskText=flying?task?.air?task.finishing?'Confirmando foto…':'Registrando · '+Math.min(99,Math.floor((airNow()-task.started)/task.duration*100))+'%':civilMissions.starting?'Preparando foto…':!civilTeamReady(current.r)?'Aguardando a dupla':!valid?'Suba · mínimo '+Number(target?.minAltitude||10)+' m':'📷 Tirar foto':p?.step?.action||'AÇÃO';
+  if(button.textContent!==taskText)button.textContent=taskText;
+  const taskTitle=flying?'Permaneça sobre o panorama enquanto a foto é registrada. Atalho: F.':'';if(button.title!==taskTitle)button.title=taskTitle;if(flying){if(button.getAttribute('aria-keyshortcuts')!=='F')button.setAttribute('aria-keyshortcuts','F');}else if(button.hasAttribute('aria-keyshortcuts'))button.removeAttribute('aria-keyshortcuts');
   button.onclick=()=>civilTaskAt(target?.id);return button;
  }
  function civilTriggerFlightPhoto(){
@@ -126,9 +127,12 @@
  const civilLocationsBefore=worldExploreLocations;worldExploreLocations=function(){const p=civilMissionLocation();return[...civilLocationsBefore(),...(p?[p]:[])];};
  function updateCivilHUD(){
   if(!civilMissions.ready)return;const c=civilCurrent(),p=c&&c.book.progress(c.r.id,c.uid),def=p?.definition,step=p?.step;
-  els.missionChapter.textContent=c?c.r.mode==='coop'?'MISSÃO COOPERATIVA':'MISSÃO INDIVIDUAL':'VIVER E EXPLORAR';els.missionTitle.textContent=def?def.icon+' '+def.title:'Nosso Mundo OT';
-  els.missionStep.textContent=!c?'Escolha uma aventura, visite os vizinhos ou explore o mapa.':c.r.status==='lobby'?'Aguardando a dupla ficar pronta.':c.r.status==='completed'?'Aventura concluída. Toque para escolher a próxima.':!civilTeamReady(c.r)?'Aguardando o outro jogador reconectar. Progresso preservado.':step?p.count>=p.quota?'Sua parte está concluída. Aguardando seu parceiro.':step.title+' · você '+p.count+'/'+p.quota:'Missão encerrada.';
-  els.missionFill.style.width=(c?c.r.status==='completed'?100:Math.round((c.r.phase+(p.quota?Math.min(1,p.count/p.quota):0))/(def?.steps.length||1)*100):0)+'%';els.missionCard.title='Missões individuais e cooperativas';els.missionCard.setAttribute('aria-label',els.missionTitle.textContent+'. '+els.missionStep.textContent);
+  const chapter=c?c.r.mode==='coop'?'MISSÃO COOPERATIVA':'MISSÃO INDIVIDUAL':'VIVER E EXPLORAR',title=def?def.icon+' '+def.title:'Nosso Mundo OT';
+  if(els.missionChapter.textContent!==chapter)els.missionChapter.textContent=chapter;if(els.missionTitle.textContent!==title)els.missionTitle.textContent=title;
+  const stepText=!c?'Escolha uma aventura, visite os vizinhos ou explore o mapa.':c.r.status==='lobby'?'Aguardando a dupla ficar pronta.':c.r.status==='completed'?'Aventura concluída. Toque para escolher a próxima.':!civilTeamReady(c.r)?'Aguardando o outro jogador reconectar. Progresso preservado.':step?p.count>=p.quota?'Sua parte está concluída. Aguardando seu parceiro.':step.title+' · você '+p.count+'/'+p.quota:'Missão encerrada.';
+  if(els.missionStep.textContent!==stepText)els.missionStep.textContent=stepText;
+  const width=(c?c.r.status==='completed'?100:Math.round((c.r.phase+(p.quota?Math.min(1,p.count/p.quota):0))/(def?.steps.length||1)*100):0)+'%';if(els.missionFill.style.width!==width)els.missionFill.style.width=width;
+  if(els.missionCard.title!=='Missões individuais e cooperativas')els.missionCard.title='Missões individuais e cooperativas';const label=title+'. '+stepText;if(els.missionCard.getAttribute('aria-label')!==label)els.missionCard.setAttribute('aria-label',label);
  }
  async function civilCreateMission(type,mode){
   if(!ensureCivilMissions())return;const old=civilCurrent();if(old&&['active','lobby'].includes(old.r.status)){toast('Conclua ou encerre a missão atual antes de escolher outra.','warn');return;}

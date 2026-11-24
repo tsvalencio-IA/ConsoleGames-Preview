@@ -64,3 +64,5 @@ test('a world with no visible point lights compiles only once',()=>{
   const f=fixture();f.add(0,0).visible=false;let calls=0;f.c.renderer.compile=()=>calls++;
   const prepared=f.c.precompileWorldLighting();assert.equal(calls,1);assert.equal(prepared.lightingVariants,1);assert.equal(prepared.templates,0);
 });
+
+test('progressive light buckets hold briefly across camera changes without losing any lights',()=>{const f=fixture(),b={};const choose=(total,active,now)=>f.c.progressiveLightBucket(b,total,active,now);assert.equal(choose(40,17,0),24);assert.equal(choose(40,12,100),24);assert.equal(choose(40,12,1300),16);assert.equal(choose(97,97,1400),104);assert.equal(choose(0,0,1500),0);});

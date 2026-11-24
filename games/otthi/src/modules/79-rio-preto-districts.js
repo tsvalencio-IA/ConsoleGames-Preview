@@ -25,6 +25,17 @@
 
   // A batch uses a single mesh per shape, with an exact aggregate bounding sphere.
   // Building primitives are temporary matrices, never individual scene objects.
+  // Keep the exact transforms/colors; split only large geographically spread
+  // batches so one visible tree does not submit the whole city's geometry.
+  function rioSpatialBatchItems(items){
+    if(items.length<128)return [items];
+    let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+    for(const {matrix} of items){const e=matrix.elements;minX=Math.min(minX,e[12]);maxX=Math.max(maxX,e[12]);minZ=Math.min(minZ,e[14]);maxZ=Math.max(maxZ,e[14]);}
+    if(maxX-minX<=64&&maxZ-minZ<=64)return [items];
+    const chunks=new Map();
+    for(const item of items){const e=item.matrix.elements,key=Math.floor(e[12]/48)+':'+Math.floor(e[14]/48);if(!chunks.has(key))chunks.set(key,[]);chunks.get(key).push(item);}
+    return [...chunks.values()];
+  }
   function rioCreateBatch(root) {
     const byShape = new Map();
     const transform = new THREE.Object3D();
@@ -44,7 +55,7 @@
         canopy:()=>new THREE.IcosahedronGeometry(.5,1), roof:()=>rioRoof(false), hip:()=>rioRoof(true)
       };
       let primitives=0;
-      for (const [shape,items] of byShape) {
+      for (const [shape,allItems] of byShape) for(const items of rioSpatialBatchItems(allItems)) {
         const geometry=shapes[shape]();
         geometry.computeBoundingBox();
         const unit=geometry.boundingBox.clone(), bounds=new THREE.Box3(), instanceBox=new THREE.Box3();
