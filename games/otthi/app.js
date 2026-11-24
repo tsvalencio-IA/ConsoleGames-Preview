@@ -10295,7 +10295,16 @@
     document.body.classList.toggle('family-portrait',!!portrait);if(portrait)playerGroup.visible=false;
     if(otGames.active){const navVisible=!!state.waypoint&&!(otGames.armed&&otGames.mode==='ground');if(world.routeGuide)world.routeGuide.visible=navVisible;if(world.waypointMarker)world.waypointMarker.visible=navVisible;}
     if(world.skyDome)world.skyDome.position.copy(camera.position);
+    const drawStart=performance.now(),programsBefore=renderer.info.programs.length;
     const restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();playerGroup.visible=localVisible;}
+    const renderMs=performance.now()-drawStart,addedPrograms=renderer.info.programs.length-programsBefore;
+    const lastView=perf.lastMeasuredView,view=camera.quaternion;
+    const turning=!!lastView&&Math.abs(lastView.x*view.x+lastView.y*view.y+lastView.z*view.z+lastView.w*view.w)<.99995;
+    if(!perf.lastMeasuredView)perf.lastMeasuredView=view.clone();else perf.lastMeasuredView.copy(view);
+    const metrics=perf.renderCost??={samples:0,slowFrames:0,slowTurningFrames:0,maxMs:0,maxTurningMs:0,newPrograms:0};
+    metrics.samples++;metrics.lastMs=Math.round(renderMs*10)/10;metrics.maxMs=Math.max(metrics.maxMs,metrics.lastMs);metrics.newPrograms+=Math.max(0,addedPrograms);
+    if(renderMs>50)metrics.slowFrames++;
+    if(turning){metrics.maxTurningMs=Math.max(metrics.maxTurningMs,metrics.lastMs);if(renderMs>50)metrics.slowTurningFrames++;}
     }finally{endWorldQueryFrame();}
   }
 
@@ -10500,7 +10509,7 @@
     construction:()=>({mode:buildMode,placement:buildPlacement?{...buildPlacement}:null,stateBuilds:JSON.parse(JSON.stringify(state.builds)),tombstones:JSON.parse(JSON.stringify(state.buildTombstones||[])),worldBuilds:world.builds.map(item=>({id:item.data.id,type:item.data.type,x:item.data.x,z:item.data.z,groundY:item.data.groundY,ownerId:item.data.ownerId}))}),
     reconcileBuilds:()=>reconcileWorldBuilds(),
     saveNow:()=>{savePlayerPosition(true);return JSON.parse(JSON.stringify(state.position));},
-    performance:()=>({fps:+perf.fps.toFixed(1),targetRenderFps:targetRenderFrameRate(),targetSimulationFps:typeof targetSimulationFrameRate==='function'?targetSimulationFrameRate():60,renderedFrames:perf.renderedFrames,tier:qualityTier(),requested:requestedQuality(),dpr:renderer?.getPixelRatio?.()||0,governor:performanceGovernorState(),drawCalls:renderer?.info?.render?.calls||0,triangles:renderer?.info?.render?.triangles||0,culling:{criticalVisible:Number(perf.criticalVisible||0),criticalHidden:Number(perf.criticalHidden||0),dynamicVisible:Number(perf.dynamicVisible||0),dynamicHidden:Number(perf.dynamicHidden||0)},textures:Object.fromEntries(Object.entries(textures).map(([id,t])=>[id,{name:t?.name||'',status:t?.userData?.status||'generated',width:t?.image?.naturalWidth||t?.image?.width||0,height:t?.image?.naturalHeight||t?.image?.height||0}]))}),
+    performance:()=>({fps:+perf.fps.toFixed(1),targetRenderFps:targetRenderFrameRate(),targetSimulationFps:typeof targetSimulationFrameRate==='function'?targetSimulationFrameRate():60,renderedFrames:perf.renderedFrames,renderCost:{...(perf.renderCost||{})},tier:qualityTier(),requested:requestedQuality(),dpr:renderer?.getPixelRatio?.()||0,governor:performanceGovernorState(),drawCalls:renderer?.info?.render?.calls||0,triangles:renderer?.info?.render?.triangles||0,culling:{criticalVisible:Number(perf.criticalVisible||0),criticalHidden:Number(perf.criticalHidden||0),dynamicVisible:Number(perf.dynamicVisible||0),dynamicHidden:Number(perf.dynamicHidden||0)},textures:Object.fromEntries(Object.entries(textures).map(([id,t])=>[id,{name:t?.name||'',status:t?.userData?.status||'generated',width:t?.image?.naturalWidth||t?.image?.width||0,height:t?.image?.naturalHeight||t?.image?.height||0}]))}),
     setQuality:(quality='auto')=>{const value=['auto','low','high'].includes(quality)?quality:'auto';state.settings.quality=value;if(value==='auto'){perf.sessionTier=resolvedStableAutoTier();perf.renderScale=1;perf.governorPressure=0;perf.governorReason='quality-auto-reset';}applyAdaptiveRenderSettings(true);lockStableSceneVisibility();saveState(true);return{requested:requestedQuality(),tier:qualityTier(),dpr:renderer?.getPixelRatio?.()||0,governor:performanceGovernorState()};},
     protectPerformance:(reason='guardian',strength=1)=>performanceGovernorProtect(String(reason||'guardian'),Number(strength||1)),
     recoverPerformance:(reason='guardian-stable')=>performanceGovernorRecover(String(reason||'guardian-stable')),
@@ -15765,8 +15774,9 @@ function precompile(T,renderer,scene,camera,timings){
   button.hidden=!current||current.r.status!=='active'||!near||!!target?.boarding||!!currentHouse||!!civilCommunity.ride||otGames.active&&!flying||!flying&&!!civilMissions.task;
   const valid=flying&&target&&civilValidateTask(current.book,current.r.id,current.uid,current.r.phase,target.id),task=civilMissions.task;
   button.disabled=!!civilMissions.starting||!!task||flying&&!valid;
-  button.textContent=flying?task?.air?task.finishing?'Confirmando foto…':'Registrando · '+Math.min(99,Math.floor((airNow()-task.started)/task.duration*100))+'%':civilMissions.starting?'Preparando foto…':!civilTeamReady(current.r)?'Aguardando a dupla':!valid?'Suba · mínimo '+Number(target?.minAltitude||10)+' m':'📷 Tirar foto':p?.step?.action||'AÇÃO';
-  button.title=flying?'Permaneça sobre o panorama enquanto a foto é registrada. Atalho: F.':'';if(flying)button.setAttribute('aria-keyshortcuts','F');else button.removeAttribute('aria-keyshortcuts');
+  const taskText=flying?task?.air?task.finishing?'Confirmando foto…':'Registrando · '+Math.min(99,Math.floor((airNow()-task.started)/task.duration*100))+'%':civilMissions.starting?'Preparando foto…':!civilTeamReady(current.r)?'Aguardando a dupla':!valid?'Suba · mínimo '+Number(target?.minAltitude||10)+' m':'📷 Tirar foto':p?.step?.action||'AÇÃO';
+  if(button.textContent!==taskText)button.textContent=taskText;
+  const taskTitle=flying?'Permaneça sobre o panorama enquanto a foto é registrada. Atalho: F.':'';if(button.title!==taskTitle)button.title=taskTitle;if(flying){if(button.getAttribute('aria-keyshortcuts')!=='F')button.setAttribute('aria-keyshortcuts','F');}else if(button.hasAttribute('aria-keyshortcuts'))button.removeAttribute('aria-keyshortcuts');
   button.onclick=()=>civilTaskAt(target?.id);return button;
  }
  function civilTriggerFlightPhoto(){
@@ -15804,9 +15814,12 @@ function precompile(T,renderer,scene,camera,timings){
  const civilLocationsBefore=worldExploreLocations;worldExploreLocations=function(){const p=civilMissionLocation();return[...civilLocationsBefore(),...(p?[p]:[])];};
  function updateCivilHUD(){
   if(!civilMissions.ready)return;const c=civilCurrent(),p=c&&c.book.progress(c.r.id,c.uid),def=p?.definition,step=p?.step;
-  els.missionChapter.textContent=c?c.r.mode==='coop'?'MISSÃO COOPERATIVA':'MISSÃO INDIVIDUAL':'VIVER E EXPLORAR';els.missionTitle.textContent=def?def.icon+' '+def.title:'Nosso Mundo OT';
-  els.missionStep.textContent=!c?'Escolha uma aventura, visite os vizinhos ou explore o mapa.':c.r.status==='lobby'?'Aguardando a dupla ficar pronta.':c.r.status==='completed'?'Aventura concluída. Toque para escolher a próxima.':!civilTeamReady(c.r)?'Aguardando o outro jogador reconectar. Progresso preservado.':step?p.count>=p.quota?'Sua parte está concluída. Aguardando seu parceiro.':step.title+' · você '+p.count+'/'+p.quota:'Missão encerrada.';
-  els.missionFill.style.width=(c?c.r.status==='completed'?100:Math.round((c.r.phase+(p.quota?Math.min(1,p.count/p.quota):0))/(def?.steps.length||1)*100):0)+'%';els.missionCard.title='Missões individuais e cooperativas';els.missionCard.setAttribute('aria-label',els.missionTitle.textContent+'. '+els.missionStep.textContent);
+  const chapter=c?c.r.mode==='coop'?'MISSÃO COOPERATIVA':'MISSÃO INDIVIDUAL':'VIVER E EXPLORAR',title=def?def.icon+' '+def.title:'Nosso Mundo OT';
+  if(els.missionChapter.textContent!==chapter)els.missionChapter.textContent=chapter;if(els.missionTitle.textContent!==title)els.missionTitle.textContent=title;
+  const stepText=!c?'Escolha uma aventura, visite os vizinhos ou explore o mapa.':c.r.status==='lobby'?'Aguardando a dupla ficar pronta.':c.r.status==='completed'?'Aventura concluída. Toque para escolher a próxima.':!civilTeamReady(c.r)?'Aguardando o outro jogador reconectar. Progresso preservado.':step?p.count>=p.quota?'Sua parte está concluída. Aguardando seu parceiro.':step.title+' · você '+p.count+'/'+p.quota:'Missão encerrada.';
+  if(els.missionStep.textContent!==stepText)els.missionStep.textContent=stepText;
+  const width=(c?c.r.status==='completed'?100:Math.round((c.r.phase+(p.quota?Math.min(1,p.count/p.quota):0))/(def?.steps.length||1)*100):0)+'%';if(els.missionFill.style.width!==width)els.missionFill.style.width=width;
+  if(els.missionCard.title!=='Missões individuais e cooperativas')els.missionCard.title='Missões individuais e cooperativas';const label=title+'. '+stepText;if(els.missionCard.getAttribute('aria-label')!==label)els.missionCard.setAttribute('aria-label',label);
  }
  async function civilCreateMission(type,mode){
   if(!ensureCivilMissions())return;const old=civilCurrent();if(old&&['active','lobby'].includes(old.r.status)){toast('Conclua ou encerre a missão atual antes de escolher outra.','warn');return;}
@@ -16179,6 +16192,16 @@ function precompile(T,renderer,scene,camera,timings){
   function countWorldPointLightsForView(view){return !scene||!view||!world.glows?.length?0:collectWorldPointLights(view).active;}
   function lightingBucketFor(active){const count=Math.max(0,Math.floor(Number(active)||0));return count?Math.max(16,Math.ceil(count/8)*8):0;}
   function markLightingBucketPrepared(count){worldLightBudget.preparedBuckets.add(lightingBucketFor(count));}
+  // A short hold avoids recompiling a new light-count shader on every
+  // crossing of a camera frustum boundary. Never cap actual active lamps.
+  // The zero-glow quality mode has no padding at all.
+  function progressiveLightBucket(budget,total,active,now){
+    const next=lightingBucketFor(active),previous=Number(budget.progressiveBucket||0);
+    if(!total){budget.progressiveBucket=0;budget.progressiveHoldUntil=0;return 0;}
+    if(next>=previous){if(next>previous)budget.progressiveHoldUntil=now+1200;budget.progressiveBucket=next;return next;}
+    if(previous-next<=16&&now<Number(budget.progressiveHoldUntil||0))return previous;
+    budget.progressiveBucket=next;budget.progressiveHoldUntil=now+1200;return next;
+  }
   function prepareWorldPointLights(view){
     if(!scene||!view||!world.glows?.length)return null;
     const budget=worldLightBudget,{total,active,hidden}=collectWorldPointLights(view);
@@ -16190,7 +16213,8 @@ function precompile(T,renderer,scene,camera,timings){
       try{precompileWorldLighting({pointLights:bucket,includeVehicleTemplates:false});markLightingBucketPrepared(bucket);budget.onDemand++;}
       catch(error){console.warn('[OTTHI CAMERA] Variante adicional:',error);}
     }
-    const padded=active?Math.max(16,Math.ceil(active/8)*8)-active:0;
+    const renderBucket=budget.preparation?.mode==='progressive'?progressiveLightBucket(budget,total,active,globalThis.performance?.now?.()??Date.now()):bucket;
+    const padded=Math.max(0,renderBucket-active);
     for(let i=0;i<padded;i++){let light=budget.padding[i];if(!light){light=new THREE.PointLight(0x000000,0,1,1);light.name='OTTHI_LIGHT_PADDING';budget.padding.push(light);}scene.add(light);}
     budget.stats={total,active,culled:hidden.length,padded};
     return()=>{for(const light of hidden)light.visible=true;for(let i=0;i<padded;i++)scene.remove(budget.padding[i]);};
@@ -16901,6 +16925,17 @@ function precompile(T,renderer,scene,camera,timings){
 
   // A batch uses a single mesh per shape, with an exact aggregate bounding sphere.
   // Building primitives are temporary matrices, never individual scene objects.
+  // Keep the exact transforms/colors; split only large geographically spread
+  // batches so one visible tree does not submit the whole city's geometry.
+  function rioSpatialBatchItems(items){
+    if(items.length<128)return [items];
+    let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
+    for(const {matrix} of items){const e=matrix.elements;minX=Math.min(minX,e[12]);maxX=Math.max(maxX,e[12]);minZ=Math.min(minZ,e[14]);maxZ=Math.max(maxZ,e[14]);}
+    if(maxX-minX<=64&&maxZ-minZ<=64)return [items];
+    const chunks=new Map();
+    for(const item of items){const e=item.matrix.elements,key=Math.floor(e[12]/48)+':'+Math.floor(e[14]/48);if(!chunks.has(key))chunks.set(key,[]);chunks.get(key).push(item);}
+    return [...chunks.values()];
+  }
   function rioCreateBatch(root) {
     const byShape = new Map();
     const transform = new THREE.Object3D();
@@ -16920,7 +16955,7 @@ function precompile(T,renderer,scene,camera,timings){
         canopy:()=>new THREE.IcosahedronGeometry(.5,1), roof:()=>rioRoof(false), hip:()=>rioRoof(true)
       };
       let primitives=0;
-      for (const [shape,items] of byShape) {
+      for (const [shape,allItems] of byShape) for(const items of rioSpatialBatchItems(allItems)) {
         const geometry=shapes[shape]();
         geometry.computeBoundingBox();
         const unit=geometry.boundingBox.clone(), bounds=new THREE.Box3(), instanceBox=new THREE.Box3();
