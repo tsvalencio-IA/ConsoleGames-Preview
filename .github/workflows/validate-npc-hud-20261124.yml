@@ -40,7 +40,8 @@ jobs:
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124'
         run: node tests/rio-park-integrity-browser.mjs
       - name: Verify map and physical metro interchange
-        if: startsWith(github.event.head_commit.message, 'release(otthi): performance metro')
+        if: >-
+          startsWith(github.event.head_commit.message, 'release(otthi): performance metro')
         run: node tests/world-metro-itinerary-browser.mjs
       - name: Verify mobile menu and all eight routes
         run: node tests/pages-preview-browser.mjs
@@ -56,6 +57,8 @@ jobs:
           OT_LIVE_BASELINE: 1b7f376bdf0b7b50e9a8c662f6e485ae6a945df9
           OT_LIVE_QUALITY: auto
           OT_LIVE_SECONDS: '15'
+          OT_LIVE_TURN: '1'
+          OT_LIVE_REQUIRE_COMPARISON: '1'
           OT_LIVE_OUT: test-results/world-live-performance
         run: node tests/world-play-performance.mjs
       - name: Store evidence

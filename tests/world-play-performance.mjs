@@ -30,9 +30,23 @@ ${process.env.OT_LIVE_SHADERS?`const shaderReset=__LIVE_QA.reset,shaderRead=__LI
   if(process.env.OT_LIVE_PROFILE){await cdp.send('Profiler.enable');await cdp.send('Profiler.start');}
   await page.evaluate(()=>__LIVE_QA.reset());
   await page.evaluate(()=>OTTHOS_TEST_API.joystickVector(.18,-.75));
-  await page.waitForTimeout(report.requestedSeconds*1000);
+  if(process.env.OT_LIVE_TURN){
+   const begin=Date.now();
+   while(Date.now()-begin<report.requestedSeconds*1000){
+     await page.evaluate(()=>{const stage=document.getElementById('stage')||document.querySelector('canvas')?.parentElement,canvas=stage?.querySelector('canvas');if(!canvas)return;const rect=canvas.getBoundingClientRect(),x=rect.left+rect.width*.5,y=rect.top+rect.height*.35;const id=91;canvas.dispatchEvent(new PointerEvent('pointerdown',{pointerId:id,pointerType:'touch',bubbles:true,clientX:x,clientY:y}));stage.dispatchEvent(new PointerEvent('pointermove',{pointerId:id,pointerType:'touch',bubbles:true,clientX:x+36,clientY:y}));stage.dispatchEvent(new PointerEvent('pointerup',{pointerId:id,pointerType:'touch',bubbles:true,clientX:x+36,clientY:y}));});
+     await page.waitForTimeout(350);
+   }
+  }else await page.waitForTimeout(report.requestedSeconds*1000);
   await page.evaluate(()=>OTTHOS_TEST_API.joystickVector(0,0));
   const result=await page.evaluate(()=>__LIVE_QA.read());if(process.env.OT_LIVE_PROFILE){const profile=(await cdp.send('Profiler.stop')).profile;fs.writeFileSync(out+'/'+label+'.cpuprofile',JSON.stringify(profile));const nodes=new Map(profile.nodes.map(n=>[n.id,n])),times=new Map();profile.samples.forEach((id,i)=>times.set(id,(times.get(id)||0)+(profile.timeDeltas?.[i]||0)));result.hotspots=[...times].sort((a,b)=>b[1]-a[1]).slice(0,40).map(([id,us])=>({us,...nodes.get(id).callFrame}));}if(process.env.OT_LIVE_ONLINE){assert.equal(result.network.connected,true);assert(result.network.count>=1,'fixture must expose a real local online presence');}result.memory={before:memoryBefore,after:await snapshotMemory()};result.drawRoots=await page.evaluate(()=>__CITY_QA.drawProfile());result.label=label;result.errors=errors;fs.writeFileSync(out+'/'+label+'.json',JSON.stringify(result,null,2));console.log('SAMPLES',label,JSON.stringify({frame:result.frame,work:result.work,longTasks:result.longTasks}));assert.deepEqual(errors,[]);assert(result.frame.samples>1&&result.work.samples>1,'native frames must keep running');assert.equal(result.family.party.members.length,4);report.cases.push(result);console.log('RESULT',label,JSON.stringify({frame:result.frame,work:result.work,longTasks:result.longTasks,catalog:result.catalog,npcs:result.npcs,trafficModels:result.trafficModels,drawingBuffer:result.drawingBuffer,governor:result.governor,render:result.render,network:result.network,layoutMetrics:result.layoutMetrics,memory:result.memory}));await page.screenshot({path:out+'/'+label+'.png'});await context.close();
  }
- report.passed=true;fs.writeFileSync(out+'/result.json',JSON.stringify(report,null,2));
+ if(process.env.OT_LIVE_REQUIRE_COMPARISON){
+  const [before,after]=report.cases;
+  assert(before&&after,'before and after evidence required');
+  const metrics=['frame','work','renderMs'];
+  report.comparison=metrics.map(key=>({metric:key,before:before[key].p95,after:after[key].p95,ratio:after[key].p95/Math.max(.01,before[key].p95)}));
+  report.passed=report.comparison.every(m=>m.after<=m.before*1.2+5);
+  fs.writeFileSync(out+'/result.json',JSON.stringify(report,null,2));
+  assert(report.passed,'Native frame p95 regression: '+JSON.stringify(report.comparison));
+ }else{report.passed=true;fs.writeFileSync(out+'/result.json',JSON.stringify(report,null,2));}
 }finally{await browser.close();await server.close();}
