@@ -80,7 +80,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Fonte central de verdade do layout mundial V704",
-      "sha256Body": "99bfdce767380cf778166202719cba6255c1586ccf0fd57bf6aa38902550579f"
+      "sha256Body": "5632f15c12f260ffcb7c09ea1ab1b4409ca377c66cd0d1a8d14576272ec93640"
     },
     {
       "file": "src/modules/06-missions-profile-hud-inventory-tools.js",
@@ -171,7 +171,7 @@
       "startLine": 3087,
       "endLine": 3308,
       "description": "Ônibus, rotas viárias, paradas, metrô e painel de transporte",
-      "sha256Body": "94eefb988277fb3b083b332ed5b0e4cc4d95bd893ae1079e646727eb2f3bb056"
+      "sha256Body": "eb174885d1e73bf598c1f64793abec1bcf94c2a6cbad6a1d7263b1a36875e5d9"
     },
     {
       "file": "src/modules/16-emergency-services.js",
@@ -192,7 +192,7 @@
       "startLine": 3559,
       "endLine": 3717,
       "description": "Água, câmera e animação da pesca, barco e física náutica",
-      "sha256Body": "8391c7e07c475a2b6755f6797c116cb2a5c688a6ab58a0006f8d6c9a5ef0e2bb"
+      "sha256Body": "7f779857c48d5d5ff67a783573bae9680d5b214200c84932320ccf63c8ee6fe4"
     },
     {
       "file": "src/modules/19-campfire-hunting-house-extensions.js",
@@ -297,7 +297,7 @@
       "startLine": 5240,
       "endLine": 5422,
       "description": "Pausa, testes de veículo, API pública de auditoria e bootstrap final",
-      "sha256Body": "b078eb34f9c119a5d96781e688b8e1516a7feb64b9f2c059b2c484b8777ae10e"
+      "sha256Body": "1ef9c3b41d6b9b52161c377ff9e8ef0ef4d1f8d223a93674c94059bb82c777ad"
     },
     {
       "file": "src/modules/31-neighborhood-world-controller.js",
@@ -534,7 +534,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Destinos acessíveis, marina com lanchas pilotáveis e neve visível",
-      "sha256Body": "a6c61360d2e94711b90ae1a3a4ff4def9de458ee63341237559cdbc957671674"
+      "sha256Body": "9642407093b2681841668c95a56020e202038d6d064520a6a1ed519bc63e3c4f"
     },
     {
       "file": "src/modules/58-character-activities.js",
@@ -576,19 +576,19 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Cordilheira, neve, mata e trilha conectadas ao mundo",
-      "sha256Body": "18e1a372ca5f02732e378f145d8259a760035023354358696bbae901551f31c5"
+      "sha256Body": "145f451d247841b654a7735e9e5b1a41781e6a0a17caa73f7ac27c700ea7e14e"
     },
     {
       "file": "src/modules/65-civil-community.js",
       "description": "Vizinhanças, praia, neve, balões e teleférico civil",
-      "sha256Body": "55fd20f440f8a122fefb12d5dd73062af2b690072d3c939ddd12b4c282fb3fb9",
+      "sha256Body": "4167071b09ff190ed5296ce8691722970c61ec7c7fe6ea5ffdd2e4dc45f91c42",
       "startLine": 0,
       "endLine": 0
     },
     {
       "file": "src/modules/66-civil-missions.js",
       "description": "Missões individuais e cooperativas do mundo civil",
-      "sha256Body": "9ebf97a54b1c58aa6f41f8c02ce4b1bb1ed7b087d58c6ddff86706b24b3e0919",
+      "sha256Body": "45f0e83794953760ea4a0d037d2407b4a646aff78832a6452404ee7a9411c7df",
       "startLine": 0,
       "endLine": 0
     },
@@ -667,7 +667,7 @@
     },
     {
       "file": "src/modules/84-rio-v51-world.js",
-      "sha256Body": "568e5d9afe26d6f8c467951cd3269707388ca59b2e629faccfdf57874ed23189"
+      "sha256Body": "c959089acc67e054a849392acd6003804be0946e612679a38eaf574c39a10700"
     },
     {
       "file": "src/modules/85-rio-city-activities.js",
@@ -699,7 +699,7 @@
     },
     {
       "file": "src/modules/92-rio-waterfront.js",
-      "sha256Body": "307a706d7c118a411d9a5b8ff4995a47dd95f186bfd3ed05038edffd7741a0c5"
+      "sha256Body": "a0bff3bd974ed1abb57b11f8b1690ec974398b612293bcfc7c1bdcbaf20deffd"
     },
     {
       "file": "src/modules/93-rio-city-services.js",
