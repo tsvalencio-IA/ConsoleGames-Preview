@@ -15,3 +15,10 @@ test('a instrumentação informa quantas vistas foram preparadas e descartadas',
  assert.match(world,/event:'camera-views',preparedViews:views\.length-skippedViews,skippedViews,fullWarmup/);
  assert.match(world,/return\{views:views\.length,preparedViews:views\.length-skippedViews,skippedViews/);
 });
+
+test('normal playable entry preheats nearby camera views before first frame, without removing world objects',()=>{
+ const body=world.slice(world.indexOf('async function preparePlayableWorld()'),world.indexOf('async function prepareWorldFirstFrame()'));
+ assert.match(body,/const gpuWarmup=await warmWorldCameraViews\(\)/);
+ assert(body.indexOf('await warmWorldCameraViews()')<body.indexOf('renderer.render(scene,camera)'));
+ assert.match(body,/expanded,gpuWarmup/);
+});

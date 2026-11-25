@@ -63,12 +63,15 @@
     // In normal play Three prepares only materials actually drawn. Do not
     // call renderer.compile(scene) across hidden interiors for each bucket.
     worldLightBudget.preparation={...plan,criticalBuckets:[],mode:'progressive'};
-    showWorldLoading(94,'Renderizando a primeira imagem...');await nextPaint();
+    // Upload nearby geometry, textures and shaders before enabling movement.
+    // Reuse the existing adaptive 12-view path rather than compiling hidden interiors.
+    const gpuWarmup=await warmWorldCameraViews();
+    showWorldLoading(99,'Renderizando a primeira imagem...');await nextPaint();
     const first=performance.now(),restoreHome=prepareHomeRender(),restoreLights=prepareWorldPointLights(camera);
     try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();}
     const firstMs=Math.round(performance.now()-first);
     otthiBootMetrics.events.push({event:'first-world-frame',ms:firstMs,sinceBootMs:Math.round(performance.now()-otthiBootMetrics.startedAt)});
-    perf.scenePreparation={mode:'progressive',ms:Math.round(performance.now()-started),programs:renderer.info.programs.length,lightingVariants:0,pointLightBuckets:plan.pointLightBuckets,criticalLightBuckets:[],expanded,gpuWarmup:{preparedViews:0,skippedViews:12}};
+    perf.scenePreparation={mode:'progressive',ms:Math.round(performance.now()-started),programs:renderer.info.programs.length,lightingVariants:0,pointLightBuckets:plan.pointLightBuckets,criticalLightBuckets:[],expanded,gpuWarmup};
     perf.vehiclePreparation={mode:'on-demand',models:Object.keys(window.OTBrazilVehicles?.catalog||{}).length,ms:0};
     otthiBootMetrics.events.push({event:'entry-ready',mode:'progressive',ms:perf.scenePreparation.ms});
   }
