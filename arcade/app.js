@@ -18,6 +18,9 @@
     { id:"voo", title:"Aero Strike WAR", category:"acao", categoryLabel:"Simulador de voo", short:"Pilote caças e helicópteros sobre cidades com trânsito e combate no solo.", icon:"✈️", coverA:"#21486b", coverB:"#3c5baa", source:"GAME", url:BASE+"voo/", tint:"#a7c9ff", destination:"direct" }
   ]);
 
+  // Hide only the family card, retaining the route and saved data.
+  const visibleEntries=entries.filter(game=>game.id!=="familia");
+  const visibleIds=new Set(visibleEntries.map(game=>game.id));
   const FAVORITES_KEY = "thiaguinho-console:v1:favorites";
   const HISTORY_KEY = "thiaguinho-console:v1:recent";
   const store = {
@@ -101,12 +104,12 @@
     return article;
   }
   function render() {
-    const filtered=entries.filter(matches);
+    const filtered=visibleEntries.filter(matches);
     const fragment=document.createDocumentFragment();
     filtered.forEach(game=>fragment.append(renderCard(game)));
     grid.replaceChildren(fragment);
     $("filtered-count").textContent=String(filtered.length).padStart(2,"0");
-    $("favorite-count").textContent=state.favorites.size+" "+(state.favorites.size===1?"favorito":"favoritos");
+    $("favorite-count").textContent=[...state.favorites].filter(id=>visibleIds.has(id)).length+" "+([...state.favorites].filter(id=>visibleIds.has(id)).length===1?"favorito":"favoritos");
     $("empty-state").hidden=filtered.length!==0;
     filters.forEach(button=>{
       const active=button.dataset.filter===state.filter;
@@ -149,7 +152,7 @@
   $("search").addEventListener("input",event=>{state.query=event.target.value;render()});
   $("browse-btn").addEventListener("click",()=>$("biblioteca").scrollIntoView({behavior:"smooth"}));
   const history=store.read(HISTORY_KEY,[]);
-  const recent=Array.isArray(history)?gameById(history.find(gameId=>valid.has(gameId))):null;
+  const recent=Array.isArray(history)?gameById(history.find(gameId=>visibleIds.has(gameId))):null;
   const mainPlay=document.querySelector(".hero-actions [data-launch]");
   if(mainPlay && recent){
     mainPlay.href=destination(recent);
@@ -292,6 +295,6 @@
   // Diagnóstico somente leitura para testes; não altera jogos nem dados.
   Object.defineProperty(window,"THIAGUINHO_CONSOLE",{value:Object.freeze({
     version:"1.0.0",catalog:entries.map(({id,title,source,url,destination})=>({id,title,source,url,destination})),
-    count:entries.length
+    count:entries.length,visibleCount:visibleEntries.length
   }),configurable:false,writable:false});
 })();

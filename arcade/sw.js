@@ -1,6 +1,6 @@
 /* The console worker owns its shell. Each game keeps its own cache. */
 "use strict";
-const SHELL_VERSION=22;
+const SHELL_VERSION=23;
 const PREFIX="thiaguinho-arcade-shell-v";
 const SCOPE=new URL(self.registration.scope);
 const MOUNT='@'+encodeURIComponent(SCOPE.pathname);

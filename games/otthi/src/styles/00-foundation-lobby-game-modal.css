@@ -81,3 +81,6 @@ button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2
  :root{--joy:min(31vw,140px);--action:min(18vw,76px);--gap:9px}.mission-card{width:calc(100vw - 20px)}.needs-box{position:absolute;top:58px;left:50%;transform:translateX(-50%)}.currency-box{justify-self:end}.quick-bar{top:calc(145px + var(--safe-top))}.context-prompt{bottom:calc(180px + var(--safe-bottom))}
 }
 
+
+/* Public lobby only; keep legacy nodes for existing module bindings. */
+#lobby #viewerShell,#lobby #arBtn,#lobby #moldsBtn{display:none!important}#lobby .hero-panel{grid-template-columns:minmax(0,1fr);min-height:0}#lobby .hero-copy{width:100%;min-width:0;box-sizing:border-box}
