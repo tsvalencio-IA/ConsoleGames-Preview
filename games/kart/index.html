@@ -257,7 +257,7 @@
   <link rel="stylesheet" href="./mastery-gamepad.css">
   <link rel="stylesheet" href="./pro-controls.css">
   <link rel="stylesheet" href="./arcade-pause.css">
-<script src="../../arcade/canonical-navigation.js?v=20261120" data-console-canonical="1"></script></head>
+<script src="../../arcade/canonical-navigation.js?v=20261120" data-console-canonical="1"></script><style>.console-session-menu{position:relative;flex:0 0 auto;z-index:30;align-self:center}.console-session-menu summary{list-style:none;cursor:pointer;display:grid;place-items:center;min-width:36px;min-height:36px;color:inherit;font-size:22px;line-height:1}.console-session-menu summary::-webkit-details-marker{display:none}.console-session-menu>button{position:absolute;right:0;top:100%;width:max-content;max-width:200px;padding:10px 12px;border:1px solid #708397;border-radius:10px;background:#18283a;color:#fff;font-size:13px;cursor:pointer;z-index:31}.console-menu-return{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;text-align:center;font-size:clamp(10px,2.5vw,14px);white-space:normal;line-height:1.2}</style></head>
 <body>
 
     <video id="webcam" autoplay playsinline muted></video>
@@ -292,6 +292,7 @@
             <div class="header-top-row">
                 <div class="wii-title">thIAguinho <span>GAME</span></div>
                 <div class="net-info">REDE: <span id="net-status" style="color: #999;">OFFLINE</span></div>
+                <details class="console-session-menu"><summary aria-label="Opções da conta">⋯</summary><button type="button" onclick="this.closest('details').removeAttribute('open');window.Auth.logout()">Desconectar conta</button></details>
             </div>
             <div class="player-profile">
                 <div class="level-badge" id="ui-level">1</div>
@@ -306,7 +307,7 @@
         <div class="channel-grid" id="channel-grid"></div>
 
         <div class="wii-footer">
-            <div class="wii-oval-btn" onclick="window.Auth.logout()">Sair</div>
+            <a class="wii-oval-btn console-menu-return" href="../../arcade/">← Voltar ao console</a>
             <div class="clock" id="clock">12:00</div>
             <!-- Botão Admin, gerado via JS se for admin -->
             <div id="admin-btn-container"></div>

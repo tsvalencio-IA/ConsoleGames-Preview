@@ -3,7 +3,7 @@
 // Release 2026-10-28: body-guided hand crop, hands-free advance, distinct operations.
 "use strict";
 const PREFIX="thia-arcade-ar-";
-const CACHE=PREFIX+"pro-control-v56-integracao20261120";
+const CACHE=PREFIX+"pro-control-v56-integracao20261120-menu20261125";
 const FILES=[
 "./audio/engine-fiat-idle.ogg",
 "./audio/engine-fiat-load.ogg",

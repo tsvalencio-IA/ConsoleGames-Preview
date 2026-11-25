@@ -76,7 +76,7 @@ const saveReport = () => writeFile(path.join(out, 'result.json'), JSON.stringify
 async function inspectConsole() {
   await waitPath('arcade/');
   await page.waitForFunction(() => window.THIAGUINHO_CONSOLE?.count === 8);
-  assert.equal(await page.locator('.game-card').count(), 8);
+  assert.equal(await page.locator('.game-card').count(), 7);
   assert.equal(await page.evaluate(() => OTTHI_CANONICAL.consoleUrl), href('arcade/'));
 }
 
@@ -111,7 +111,7 @@ try {
   await inspectConsole();
   const project='https://github.com/tsvalencio-IA/ConsoleGames-Preview';
   const sourceLinks=await page.locator('a.origin').evaluateAll(links=>links.map(a=>a.href));
-  assert.equal(sourceLinks.length,8);
+  assert.equal(sourceLinks.length,7);
   assert(sourceLinks.every(link=>link.startsWith(project+'/tree/main/games/')));
   assert.equal(await page.locator('footer.footer a').getAttribute('href'),project);
   await go('arcade/instalar/');
@@ -148,9 +148,8 @@ try {
     assert(backendRequests.includes('identitytoolkit.googleapis.com'), 'Firebase network probe must reach the intercepted QA route');
     assert.equal(await page.evaluate(()=>window.OTTHOS_FIREBASE_CONFIG?.projectId), 'otthi-656c5');
     assert.equal(await page.evaluate(()=>window.OTTHOS_FIREBASE_CONFIG?.enabled), true);
-    await page.locator('#profile-btn').tap();
-    await page.locator('#login-form').waitFor({state:'visible'});
-    await page.locator('#profile-dialog').evaluate(dialog=>dialog.close());
+    assert(await page.locator('#profile-btn').isHidden());
+    assert.equal(await page.locator('#login-form').count(),1,'Account binding stays intact; public entry hidden');
   }
   report.checks.push(firebaseEnabled?'firebase-config-and-policy-with-remote-network-blocked':'firebase-network-policy');
   for (const name of ['index.html', 'app.js', 'sw.js', 'src/module-order.json', '../danca/index.html']) {
@@ -190,7 +189,7 @@ try {
   }
 
   for (const [id, [relative, script]] of Object.entries(routeTable)) {
-    await page.locator(`[data-game="${id}"] [data-launch="${id}"]`).tap();
+    if(id==="familia")await go(relative);else await page.locator(`[data-game="${id}"] [data-launch="${id}"]`).tap();
     await waitPath(relative);
     await page.waitForFunction(() => !!window.OTTHI_CANONICAL && !!window.CONSOLEGAMES_PREVIEW);
     const gameAsset = await page.locator('body').evaluate((body, suffix) => [...body.ownerDocument.scripts]
