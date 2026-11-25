@@ -8,7 +8,7 @@
  */
 // @otthi-module-body
   const GM_ITEM_CATALOG=Object.freeze({
-    wood:{label:'Madeira',icon:'🪵'},stone:{label:'Pedra',icon:'🪨'},goldOre:{label:'Minério de ouro',icon:'🟨'},goldBar:{label:'Barra de ouro',icon:'🏅'},food:{label:'Comida',icon:'🍎'},water:{label:'Água',icon:'💧'},crystals:{label:'Cristais',icon:'💎'},blocks:{label:'Blocos',icon:'🧱'},fences:{label:'Cercas',icon:'🪵'},keys:{label:'Chaves',icon:'🗝️'},fishingRod:{label:'Vara de pesca',icon:'🎣'},bait:{label:'Iscas',icon:'🪱'},rawFish:{label:'Peixe cru',icon:'🐟'},cookedFish:{label:'Peixe assado',icon:'🍽️'},forestResources:{label:'Recursos da floresta',icon:'🌿'},package:{label:'Pacotes',icon:'📦'}
+    wood:{label:'Madeira',icon:'🪵'},stone:{label:'Pedra',icon:'🪨'},goldOre:{label:'Minério de ouro',icon:'🟨'},goldBar:{label:'Barra de ouro',icon:'🏅'},food:{label:'Comida',icon:'🍎'},water:{label:'Água',icon:'💧'},crystals:{label:'Cristais',icon:'💎'},blocks:{label:'Blocos',icon:'🧱'},fences:{label:'Cercas',icon:'🪵'},keys:{label:'Chaves',icon:'🗝️'},fishingRod:{label:'Vara de pesca',icon:'🎣'},bait:{label:'Iscas',icon:'🪱'},rawFish:{label:'Peixe cru',icon:'🐟'},cookedFish:{label:'Peixe assado',icon:'🍽️'},forestResources:{label:'Recursos da floresta',icon:'🌿'},package:{label:'Pacotes',icon:'📦'},seeds:{label:'Sementes',icon:'🌱'},wheat:{label:'Trigo',icon:'🌾'},carrots:{label:'Cenouras',icon:'🥕'},clay:{label:'Argila',icon:'🟫'}
   });
   const GM_MAX_ADD=1000000,GM_TAP_WINDOW_MS=2600,GM_APPLIED_HISTORY_LIMIT=500;
   let gmTapTimes=[],gmTapLockedUntil=0,gmFailedAttempts=0,gmAttemptBlockedUntil=0,gmPanel=null,gmUsers=[],gmAudit=[],gmSelectedUid='',gmSelectedDetail=null,gmGrantQueue=Promise.resolve(),gmRefreshSequence=0;
@@ -29,8 +29,8 @@
     return String(value).slice(0,96);
   }
   function gmGrantSummary(grant={}){
-    const parts=[];if(gmPositiveInt(grant.coins))parts.push(`🪙 +${gmPositiveInt(grant.coins)}`);
-    for(const[key,value]of Object.entries(grant.items||{})){const amount=gmPositiveInt(value);if(!amount)continue;const meta=GM_ITEM_CATALOG[key]||{icon:'🎁',label:key};parts.push(`${meta.icon} ${meta.label} +${amount}`);}
+    const catalog=gmCatalog(),parts=[];if(gmPositiveInt(grant.coins))parts.push(`🪙 +${gmPositiveInt(grant.coins)}`);
+    for(const[key,value]of Object.entries(grant.items||{})){const amount=gmPositiveInt(value);if(!amount)continue;const meta=catalog[key]||{icon:'🎁',label:key};parts.push(`${meta.icon} ${meta.label} +${amount}`);}
     return parts.join(' • ');
   }
   function gmNormalizeIncomingGrant(detail={}){
@@ -57,7 +57,7 @@
     if(!alreadyAppliedLocally){
       if(grant.coins){state.profile.coins=Math.max(0,Number(state.profile.coins||0))+grant.coins;added+=grant.coins;}
       state.inventory=state.inventory&&typeof state.inventory==='object'?state.inventory:{};
-      for(const[key,amount]of Object.entries(grant.items)){state.inventory[key]=Math.max(0,Number(state.inventory[key]||0))+amount;added+=amount;}
+      const catalog=gmCatalog();for(const[key,amount]of Object.entries(grant.items))added+=gmApplyItem(key,amount,catalog);
       gmState.appliedGrantIds.push(grant.grantId);gmState.appliedGrantIds=[...new Set(gmState.appliedGrantIds)].slice(-GM_APPLIED_HISTORY_LIMIT);gmState.lastGrantAt=Date.now();
     }
     const localSaved=await commitState().catch(()=>false);
@@ -80,8 +80,66 @@
   }
   function gmSetBusy(busy){gmPanel?.classList.toggle('is-busy',!!busy);gmPanel?.querySelectorAll('button,input').forEach(node=>{if(node.matches('[data-gm-close]'))return;node.disabled=!!busy;});}
   function gmUserName(userRecord={}){return String(userRecord.name||userRecord.profile?.name||userRecord.username||'Jogador').slice(0,40);}
-  function gmItemMeta(key){return GM_ITEM_CATALOG[key]||{label:key.replace(/([a-z])([A-Z])/g,'$1 $2'),icon:'🎁'};}
-  function gmInventoryKeys(inventory={}){return [...new Set([...Object.keys(GM_ITEM_CATALOG),...Object.keys(inventory||{}).filter(key=>Number.isFinite(Number(inventory[key])))])].sort((a,b)=>gmItemMeta(a).label.localeCompare(gmItemMeta(b).label,'pt-BR'));}
+  function gmCatalog(){
+    const entries=Object.create(null);
+    const put=(key,label,icon,group,unique=false)=>{if(gmItemKey(key)===key&&!['__proto__','constructor','prototype'].includes(key))entries[key]={label,icon,group,max:unique?1:GM_MAX_ADD};};
+    for(const [key,meta]of Object.entries(GM_ITEM_CATALOG))put(key,meta.label,meta.icon,'Inventário',key==='fishingRod');
+    for(const item of worldShopItems()){
+      if(item.tool)put('tool-'+item.tool,item.name,item.icon,'Ferramentas pessoais',true);
+      else put(item.key,item.name,item.icon,item.group,!!item.unique);
+    }
+    for(const [key,value]of Object.entries(state.inventory||{}))if(typeof value==='number'&&!entries[key]&&!/^(tool|construction|wardrobe|furniture|vehicle)-/.test(key))put(key,key,'🎁','Outros itens existentes');
+    for(const group of Object.values(RIO_CONSTRUCTION_CATALOG))for(const item of group)put('construction-'+item.id,item.label,'🧱','Estoque geral de construção');
+    for(const choices of Object.values(RIO_WARDROBE_CATALOG))for(const item of choices)if(RIO_WARDROBE_STORE[item[0]])put('wardrobe-'+item[0],item[1],'👕','Roupas e acessórios',true);
+    for(const item of rioFurnitureCatalog({w:10,d:8}))put('furniture-'+item.id,item.name,'🛋️','Móveis para a casa principal',true);
+    for(const item of OTTHI_PLAYER_VEHICLE_CATALOG)put('vehicle-'+item.id,item.label,item.icon||'🚗','Modelos para a garagem',true);
+    return entries;
+  }
+  function gmItemMeta(key){return gmCatalog()[key]||{label:key.replace(/([a-z])([A-Z])/g,'$1 $2'),icon:'🎁',group:'Outros itens existentes',max:GM_MAX_ADD};}
+  function gmInventoryKeys(inventory={},catalog=gmCatalog()){
+    return [...new Set([...Object.keys(catalog),...Object.keys(inventory||{}).filter(key=>typeof inventory[key]==='number'&&gmItemKey(key)===key&&!['__proto__','constructor','prototype'].includes(key)&&!/^(tool|construction|wardrobe|furniture|vehicle)-/.test(key))])].sort((a,b)=>(catalog[a]?.group||'Outros').localeCompare(catalog[b]?.group||'Outros','pt-BR')||(catalog[a]?.label||a).localeCompare(catalog[b]?.label||b,'pt-BR'));
+  }
+  function gmCurrentItem(progress,key){
+    const rio=progress.cityServices?.rioMap||{};
+    if(key.startsWith('tool-'))return Number((progress.tools?.owned||[]).includes(key.slice(5)));
+    if(key.startsWith('construction-'))return Number(rio.constructionInventory?.[key.slice(13)]||0);
+    if(key.startsWith('wardrobe-'))return Number(!!rio.wardrobePurchases?.[key.slice(9)]);
+    if(key.startsWith('furniture-'))return Number((rio.properties?.home?.furniture||[]).includes(key.slice(10)));
+    if(key.startsWith('vehicle-'))return Number((progress.vehicles?.owned||[]).some(id=>(progress.vehicles?.instances?.[id]?.catalogId||id)===key.slice(8)));
+    return Number(progress.inventory?.[key]||0);
+  }
+  function gmApplyItem(key,amount,catalog){
+    const meta=catalog[key],qty=gmPositiveInt(amount,meta?.max||GM_MAX_ADD);
+    if(!qty||['__proto__','constructor','prototype'].includes(key))return 0;
+    if(key.startsWith('tool-')&&meta){
+      state.tools.owned=[...new Set([...(state.tools.owned||[]),key.slice(5)])];return qty;
+    }
+    if(key.startsWith('construction-')&&meta){
+      const save=rioConstructionSave(),id=key.slice(13);
+      save.constructionInventory[id]=Number(save.constructionInventory[id]||0)+qty;
+      save.constructionLegacyStock[id]=Number(save.constructionLegacyStock[id]||0)+qty;return qty;
+    }
+    if(key.startsWith('wardrobe-')&&meta){(rioMapSave().wardrobePurchases??={})[key.slice(9)]=true;return qty;}
+    if(key.startsWith('furniture-')&&meta){
+      const title=rioPropertyTitle('home'),id=key.slice(10);title.furniture=[...new Set([...(title.furniture||[]),id])];(title.decorLayout??={})[id]??={stored:true};return qty;
+    }
+    if(key.startsWith('vehicle-')&&meta){
+      const id=key.slice(8),garage=ensurePlayerGarageState();
+      if(!(state.vehicles.owned||[]).some(owned=>(state.vehicles.instances?.[owned]?.catalogId||owned)===id)){
+        state.vehicles.owned.push(id);garage.stored[id]=true;garage.purchasedAt[id]=Date.now();
+      }
+      return qty;
+    }
+    // Preserve compatibility with historical custom numeric inventory rewards.
+    if(/^(tool|construction|wardrobe|furniture|vehicle)-/.test(key))return 0;
+    state.inventory[key]=Math.max(0,Number(state.inventory[key]||0))+qty;return qty;
+  }
+  function gmFillItems(form,mode){
+    const amount=gmPositiveInt(form.querySelector('[data-gm-bulk-amount]')?.value);
+    const selected=[...form.querySelectorAll('[data-gm-item]')].filter(input=>form.querySelector('[data-gm-pick="'+input.dataset.gmItem+'"]')?.checked);
+    for(const input of selected)input.value=mode==='max'?Number(input.max):mode==='clear'?0:Math.min(Number(input.max),amount);
+    if(form.querySelector('[data-gm-pick-coins]')?.checked)form.querySelector('[data-gm-coins]').value=mode==='max'?GM_MAX_ADD:mode==='clear'?0:amount;
+  }
   function gmFormatDate(value){const number=Number(value||0);return number?new Date(number).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'Aguardando';}
   function gmRenderUserList(){
     if(!gmPanel)return;const query=String(gmPanel.querySelector('[data-gm-search]')?.value||'').trim().toLocaleLowerCase('pt-BR'),list=gmPanel.querySelector('[data-gm-users]');
@@ -98,8 +156,12 @@
   function gmRenderSelected(){
     if(!gmPanel)return;const root=gmPanel.querySelector('[data-gm-detail]'),userRecord=gmUsers.find(item=>item.uid===gmSelectedUid),detail=gmSelectedDetail;
     if(!userRecord){root.innerHTML='<div class="gm-placeholder"><span>🎮</span><b>Escolha um jogador</b><p>Selecione um usuário para consultar o progresso e adicionar recompensas.</p></div>';return;}
-    const progress=detail?.user?.progress||userRecord.progress||{},profile={...(progress.profile||{}),...(detail?.user?.profile||userRecord.profile||{})},inventory=progress.inventory||userRecord.inventory||{},keys=gmInventoryKeys(inventory),moderation=detail?.moderation||userRecord.moderation||null,isBlocked=moderation?.state==='blocked';
-    root.innerHTML=`<section class="gm-player-header"><div><small>JOGADOR SELECIONADO</small><h3>${gmEscape(gmUserName({...userRecord,...profile}))}</h3><p>${userRecord.username?`@${gmEscape(userRecord.username)} • `:''}<code>${gmEscape(userRecord.uid)}</code></p></div><span class="gm-player-status ${userRecord.online?'online':''}">${userRecord.online?`● Online em ${gmEscape(userRecord.room||'um bairro')}`:'○ Offline'}</span></section><div class="gm-metrics"><div><small>Nível</small><b>${Number(profile.level||1)}</b></div><div><small>XP</small><b>${Number(profile.xp||0)}</b></div><div><small>Moedas atuais</small><b>${Number(profile.coins||0)}</b></div><div><small>Reputação</small><b>${Number(profile.reputation||0)}</b></div></div><section class="gm-moderation-card ${isBlocked?'is-blocked':''}"><header><div><h3>Administração do usuário</h3><p>${isBlocked?`Conta bloqueada${moderation?.reason?` • ${gmEscape(moderation.reason)}`:''}`:'Bloqueie o acesso ou exclua os dados deste usuário quando necessário.'}</p></div><span>${isBlocked?'🔒 Bloqueado':'🛡️ Ativo'}</span></header><label class="gm-reason"><span>Motivo administrativo</span><input maxlength="160" value="${gmEscape(moderation?.reason||'Ação administrativa do GM')}" data-gm-moderation-reason></label><div class="gm-moderation-actions">${isBlocked?'<button class="btn good" type="button" data-gm-unblock>🔓 Desbloquear usuário</button>':'<button class="btn warning" type="button" data-gm-block>🔒 Bloquear usuário</button>'}<button class="btn danger" type="button" data-gm-delete-user>🗑️ Excluir usuário e dados</button></div><small>Excluir remove o cadastro e progresso do Realtime Database e mantém um bloqueio administrativo mínimo para impedir recriação pela mesma conta. O registro do Firebase Authentication só pode ser apagado por backend com Admin SDK.</small></section><form class="gm-grant-form" data-gm-grant-form><header><div><h3>Adicionar recompensas</h3><p>Os valores abaixo são somados. O painel nunca diminui nem substitui o saldo atual.</p></div><span class="gm-positive-only">Somente +</span></header><label class="gm-coin-field"><span>🪙 Adicionar moedas</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-coins></label><div class="gm-item-grid">${keys.map(key=>{const meta=gmItemMeta(key);return`<label class="gm-item-field"><span><i>${meta.icon}</i><b>${gmEscape(meta.label)}</b><small>Atual: ${Number(inventory[key]||0)}</small></span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-item="${gmEscape(key)}" aria-label="Adicionar ${gmEscape(meta.label)}"></label>`;}).join('')}</div><details class="gm-custom-item"><summary>Adicionar outro item existente no jogo</summary><div><label><span>Chave técnica do item</span><input maxlength="48" placeholder="Ex.: ticket" data-gm-custom-key></label><label><span>Quantidade</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-custom-amount></label></div><small>Use somente a chave de um item que o jogo reconheça. Itens desconhecidos ficam salvos, mas não ganham função automaticamente.</small></details><label class="gm-reason"><span>Motivo ou observação</span><input maxlength="160" value="Recompensa do GM" data-gm-reason></label><div class="gm-form-actions"><button class="btn primary" type="submit">Adicionar ao jogador</button><button class="btn" type="button" data-gm-refresh-user>Atualizar dados</button></div></form><section class="gm-history"><header><h3>Histórico deste jogador</h3><small>Entrega imediata quando online; na próxima entrada quando offline.</small></header>${gmGrantHistoryMarkup(detail)}</section>`;
+    const progress=detail?.user?.progress||userRecord.progress||{},profile={...(progress.profile||{}),...(detail?.user?.profile||userRecord.profile||{})},inventory=progress.inventory||userRecord.inventory||{},catalog=gmCatalog(),keys=gmInventoryKeys(inventory,catalog),moderation=detail?.moderation||userRecord.moderation||null,isBlocked=moderation?.state==='blocked';
+    root.innerHTML=`<section class="gm-player-header"><div><small>JOGADOR SELECIONADO</small><h3>${gmEscape(gmUserName({...userRecord,...profile}))}</h3><p>${userRecord.username?`@${gmEscape(userRecord.username)} • `:''}<code>${gmEscape(userRecord.uid)}</code></p></div><span class="gm-player-status ${userRecord.online?'online':''}">${userRecord.online?`● Online em ${gmEscape(userRecord.room||'um bairro')}`:'○ Offline'}</span></section><div class="gm-metrics"><div><small>Nível</small><b>${Number(profile.level||1)}</b></div><div><small>XP</small><b>${Number(profile.xp||0)}</b></div><div><small>Moedas atuais</small><b>${Number(profile.coins||0)}</b></div><div><small>Reputação</small><b>${Number(profile.reputation||0)}</b></div></div><section class="gm-moderation-card ${isBlocked?'is-blocked':''}"><header><div><h3>Administração do usuário</h3><p>${isBlocked?`Conta bloqueada${moderation?.reason?` • ${gmEscape(moderation.reason)}`:''}`:'Bloqueie o acesso ou exclua os dados deste usuário quando necessário.'}</p></div><span>${isBlocked?'🔒 Bloqueado':'🛡️ Ativo'}</span></header><label class="gm-reason"><span>Motivo administrativo</span><input maxlength="160" value="${gmEscape(moderation?.reason||'Ação administrativa do GM')}" data-gm-moderation-reason></label><div class="gm-moderation-actions">${isBlocked?'<button class="btn good" type="button" data-gm-unblock>🔓 Desbloquear usuário</button>':'<button class="btn warning" type="button" data-gm-block>🔒 Bloquear usuário</button>'}<button class="btn danger" type="button" data-gm-delete-user>🗑️ Excluir usuário e dados</button></div><small>Excluir remove o cadastro e progresso do Realtime Database e mantém um bloqueio administrativo mínimo para impedir recriação pela mesma conta. O registro do Firebase Authentication só pode ser apagado por backend com Admin SDK.</small></section><form class="gm-grant-form" data-gm-grant-form><header><div><h3>Adicionar recompensas</h3><p>Os valores abaixo são somados. O painel nunca diminui nem substitui o saldo atual.</p></div><span class="gm-positive-only">Somente +</span></header><section class="gm-bulk"><b>Recompensas em massa</b><label><input type="checkbox" data-gm-all-items> Selecionar todos os itens e moedas</label><label><span>Quantidade para os selecionados</span><input type="number" data-gm-bulk-amount min="0" max="${GM_MAX_ADD}" value="1000"></label><div class="gm-form-actions"><button type="button" class="btn" data-gm-fill>Aplicar quantidade</button><button type="button" class="btn good" data-gm-max>Máximo permitido</button><button type="button" class="btn" data-gm-clear>Zerar selecionados</button><button type="button" class="btn" data-gm-copy>Copiar códigos</button></div><label><input type="checkbox" data-gm-all-users> Enviar a TODOS os usuários ativos (${gmUsers.filter(u=>!u.blocked&&u.moderation?.state!=='blocked').length}) em vez de apenas ao jogador selecionado</label><small>Máximo: 1.000.000 por item de quantidade; roupas, ferramentas pessoais, móveis e modelos de veículos são desbloqueios únicos. Enviar exige confirmação.</small></section><label class="gm-coin-field"><span><input type="checkbox" data-gm-pick-coins> 🪙 Adicionar moedas</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-coins></label><div class="gm-item-grid">${keys.map(key=>{const meta=catalog[key]||gmItemMeta(key);return`<div class="gm-item-field"><span><label><input type="checkbox" data-gm-pick="${gmEscape(key)}"> <i>${meta.icon}</i><b>${gmEscape(meta.label)}</b></label><small>${gmEscape(meta.group)} · Atual: ${gmCurrentItem({...progress,inventory},key)}</small><code>${gmEscape(key)}</code></span><input type="number" min="0" max="${meta.max}" step="1" inputmode="numeric" value="0" data-gm-item="${gmEscape(key)}" aria-label="Adicionar ${gmEscape(meta.label)}"></div>`;}).join('')}</div><details class="gm-custom-item"><summary>Adicionar outro item existente no jogo</summary><div><label><span>Chave técnica do item</span><input maxlength="48" placeholder="Ex.: ticket" data-gm-custom-key></label><label><span>Quantidade</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-custom-amount></label></div><small>Use somente a chave de um item que o jogo reconheça. Itens desconhecidos ficam salvos, mas não ganham função automaticamente.</small></details><label class="gm-reason"><span>Motivo ou observação</span><input maxlength="160" value="Recompensa do GM" data-gm-reason></label><div class="gm-form-actions"><button class="btn primary" type="submit">Adicionar ao jogador</button><button class="btn" type="button" data-gm-refresh-user>Atualizar dados</button></div></form><section class="gm-history"><header><h3>Histórico deste jogador</h3><small>Entrega imediata quando online; na próxima entrada quando offline.</small></header>${gmGrantHistoryMarkup(detail)}</section>`;
+    const form=root.querySelector('[data-gm-grant-form]');
+    form.querySelector('[data-gm-all-items]').onchange=e=>form.querySelectorAll('[data-gm-pick],[data-gm-pick-coins]').forEach(input=>input.checked=e.target.checked);
+    for(const mode of ['fill','max','clear'])form.querySelector('[data-gm-'+mode+']').onclick=()=>gmFillItems(form,mode);
+    form.querySelector('[data-gm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(keys.map(key=>key+' — '+(catalog[key]?.label||key)).join('\n'));gmStatus('Códigos copiados.','success');}catch{gmStatus('Não foi possível copiar. Os códigos continuam visíveis no catálogo.','error');}};
     root.querySelector('[data-gm-grant-form]')?.addEventListener('submit',event=>gmSubmitGrant(event,userRecord));root.querySelector('[data-gm-refresh-user]')?.addEventListener('click',()=>gmSelectUser(userRecord.uid,true));
     root.querySelector('[data-gm-block]')?.addEventListener('click',()=>gmModerateSelected(userRecord,true));root.querySelector('[data-gm-unblock]')?.addEventListener('click',()=>gmModerateSelected(userRecord,false));root.querySelector('[data-gm-delete-user]')?.addEventListener('click',()=>gmDeleteSelectedUser(userRecord));
   }
@@ -120,13 +182,16 @@
   }
   async function gmSubmitGrant(event,userRecord){
     event.preventDefault();const form=event.currentTarget,coins=gmPositiveInt(form.querySelector('[data-gm-coins]')?.value),items={};
-    form.querySelectorAll('[data-gm-item]').forEach(input=>{const amount=gmPositiveInt(input.value),key=gmItemKey(input.dataset.gmItem);if(key&&amount)items[key]=(items[key]||0)+amount;});
-    const customKey=gmItemKey(form.querySelector('[data-gm-custom-key]')?.value),customAmount=gmPositiveInt(form.querySelector('[data-gm-custom-amount]')?.value);if(customKey&&customAmount)items[customKey]=(items[customKey]||0)+customAmount;
+    form.querySelectorAll('[data-gm-item]').forEach(input=>{const amount=gmPositiveInt(input.value,Number(input.max)||GM_MAX_ADD),key=gmItemKey(input.dataset.gmItem);if(key&&amount)items[key]=amount;});
+    const customKey=gmItemKey(form.querySelector('[data-gm-custom-key]')?.value),customAmount=gmPositiveInt(form.querySelector('[data-gm-custom-amount]')?.value);if(customKey&&customAmount){const meta=gmCatalog()[customKey];if(!meta&&!Object.hasOwn(state.inventory||{},customKey)){gmStatus('Código não reconhecido no catálogo do jogo.','error');return;}items[customKey]=gmPositiveInt((items[customKey]||0)+customAmount,meta?.max||GM_MAX_ADD);}
     if(!coins&&!Object.keys(items).length){gmStatus('Informe pelo menos uma quantidade positiva.','error');return;}
     const reason=String(form.querySelector('[data-gm-reason]')?.value||'Recompensa do GM').trim().slice(0,160),preview=gmGrantSummary({coins,items});
-    if(!window.confirm(`Confirmar para ${gmUserName(userRecord)}?\n\n${preview}\n\nOs valores serão somente adicionados.`))return;
+    const all=form.querySelector('[data-gm-all-users]')?.checked,targets=all?gmUsers.filter(u=>!u.blocked&&u.moderation?.state!=='blocked'):[userRecord];
+    if(!targets.length)return;
+    if(!window.confirm(`Confirmar para ${all?targets.length+' usuários ativos':gmUserName(userRecord)}?\n\n${preview}\n\nOs valores serão somente adicionados. Móveis: casa principal; veículos: coleção da garagem.`))return;
+    if(all&&String(window.prompt('Para confirmar a concessão coletiva, digite TODOS','')||'').trim()!=='TODOS')return;
     gmSetBusy(true);gmStatus('Registrando concessão segura no Firebase…');
-    try{const result=await window.OTTHOS_RTDB?.gmCreateGrant?.(userRecord.uid,{coins,items,reason,targetName:gmUserName(userRecord)});if(!result?.ok)throw new Error(result?.error||'Concessão recusada pelo Firebase.');gmStatus(`Concessão registrada: ${preview}`,'success');await gmRefreshPanel();}
+    try{const result=await window.OTTHOS_RTDB?.gmCreateGrantBatch?.(targets.map(u=>({uid:u.uid,name:gmUserName(u)})),{coins,items,reason});if(!result?.ok)throw new Error(result?.error||'Concessão recusada pelo Firebase.');gmStatus(`Concessão registrada para ${targets.length} jogador(es): ${preview}`,'success');await gmRefreshPanel();}
     catch(error){gmStatus(error?.message||'Não foi possível registrar a concessão.','error');}
     finally{gmSetBusy(false);}
   }
