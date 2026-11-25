@@ -1,0 +1,94 @@
+name: OTThi - Diretor cinematografico Full HD
+on:
+  push:
+    branches: ['capture/clipe-otthi-20261125']
+    paths: ['.github/workflows/filmagem-cinematografica-hd.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  piloto:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar captura isolada
+        run: |
+          python3 games/otthi/tools/build_project.py
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+          node --check tools/filmagem/diretor-hd.mjs
+      - name: Validar captura Full HD real com tres cameras
+        run: |
+          FILM_CATEGORY=pilot node tools/filmagem/diretor-hd.mjs
+          python3 -c "import json,glob; p=json.load(open(glob.glob('filmagem-hd/*/cobertura.json')[0])); assert p.get('completed') and sum(1 for x in p['scenes'] if x.get('frames',0)>=60)>=3, p"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: PILOTO-FULL-HD
+          path: filmagem-hd/
+          if-no-files-found: error
+          retention-days: 14
+  catalogo:
+    needs: piloto
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {category: places, shard: 0, shards: 8}
+          - {category: places, shard: 1, shards: 8}
+          - {category: places, shard: 2, shards: 8}
+          - {category: places, shard: 3, shards: 8}
+          - {category: places, shard: 4, shards: 8}
+          - {category: places, shard: 5, shards: 8}
+          - {category: places, shard: 6, shards: 8}
+          - {category: places, shard: 7, shards: 8}
+          - {category: actions, shard: 0, shards: 12}
+          - {category: actions, shard: 1, shards: 12}
+          - {category: actions, shard: 2, shards: 12}
+          - {category: actions, shard: 3, shards: 12}
+          - {category: actions, shard: 4, shards: 12}
+          - {category: actions, shard: 5, shards: 12}
+          - {category: actions, shard: 6, shards: 12}
+          - {category: actions, shard: 7, shards: 12}
+          - {category: actions, shard: 8, shards: 12}
+          - {category: actions, shard: 9, shards: 12}
+          - {category: actions, shard: 10, shards: 12}
+          - {category: actions, shard: 11, shards: 12}
+          - {category: npcs, shard: 0, shards: 4}
+          - {category: npcs, shard: 1, shards: 4}
+          - {category: npcs, shard: 2, shards: 4}
+          - {category: npcs, shard: 3, shards: 4}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar captura
+        run: |
+          python3 games/otthi/tools/build_project.py
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+      - name: Filmar itens do catalogo
+        env:
+          FILM_CATEGORY: ${{ matrix.category }}
+          FILM_SHARD: ${{ matrix.shard }}
+          FILM_SHARDS: ${{ matrix.shards }}
+        run: node tools/filmagem/diretor-hd.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HD-${{ matrix.category }}-${{ matrix.shard }}
+          path: filmagem-hd/
+          if-no-files-found: error
+          retention-days: 14
