@@ -7,33 +7,58 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
+  recuperar:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 45650986588
+          path: originais
+      - name: Recuperar vídeos originais válidos e converter sem repetir a jogabilidade
+        shell: bash
+        run: |
+          mkdir -p recuperados
+          find originais -name '*.webm' -print0 | while IFS= read -r -d '' video; do
+            rel="${video#originais/}"
+            dst="recuperados/${rel%.webm}.mp4"
+            mkdir -p "$(dirname "$dst")"
+            if ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 "$video" | grep -q .; then
+              ffmpeg -nostdin -hide_banner -loglevel error -y -i "$video" -c:v libx264 -preset fast -crf 20 -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -pix_fmt yuv420p -movflags +faststart "$dst" || { rm -f "$dst"; continue; }
+              echo "$rel" >> recuperados/videos-recuperados.txt
+            fi
+          done
+          find recuperados -name '*.mp4' -size +0c | grep -q .
+          echo 'Gravações da primeira execução. Podem conter trechos incompletos; não equivalem a aprovação de todos os roteiros.' > recuperados/LEIA-ME.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 00-Videos-originais-recuperados
+          path: recuperados/
+          if-no-files-found: error
+          retention-days: 14
   filmar:
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     strategy:
       fail-fast: false
-      max-parallel: 5
+      max-parallel: 3
       matrix:
         include:
           - capitulo: 01-Ferrari-compra-interior
             scripts: 'tests/filmagem-ferrari.mjs'
           - capitulo: 02-Oficina-missoes-policia-bombeiros
-            scripts: 'tests/world-civil-browser.mjs tests/rio-city-services-browser.mjs'
+            scripts: 'tests/rio-city-services-browser.mjs'
           - capitulo: 03-Aviao-helicoptero-balao
-            scripts: 'tests/world-airport-balloon-browser.mjs tests/vehicle-orbit-browser.mjs tests/balloon-photo-browser.mjs'
+            scripts: 'tests/vehicle-orbit-browser.mjs tests/balloon-photo-browser.mjs'
           - capitulo: 04-Casas-comercio-mansoes-hoteis
-            scripts: 'tests/rio-regional-interiors-browser.mjs tests/rio-compact-world-browser.mjs'
+            scripts: 'tests/rio-compact-world-browser.mjs'
           - capitulo: 05-Fotografos-corrida-parque
             scripts: 'tests/rio-park-integrity-browser.mjs'
-          - capitulo: 06-Kart-boxe-tenis-guerra-voo
-            scripts: 'tests/playable-smoke.mjs'
-          - capitulo: 07-Familia-danca
-            scripts: 'tests/family-playable.mjs tests/dance-console-browser.mjs'
-          - capitulo: 08-Corridas-regionais
-            scripts: 'tests/rio-regional-races-browser.mjs'
           - capitulo: 09-Compras-entregas-garagem
-            scripts: 'tests/world-phone-orders-browser.mjs tests/world-fleet-garage-browser.mjs'
+            scripts: 'tests/world-fleet-garage-browser.mjs'
           - capitulo: 10-Modos-OT-Games
             scripts: 'tests/ot-games-browser.mjs'
     steps:
@@ -51,6 +76,13 @@ jobs:
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/filmagem-http.log 2>&1 &
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+      - name: Verificar gravador antes de iniciar o jogo
+        run: |
+          node --check tools/filmagem/record.mjs
+          node --check tests/filmagem-ferrari.mjs
+          node tools/filmagem/record.mjs tests/filmagem-preflight.mjs
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 filmagem/filmagem-preflight/cena-01.webm | grep -q .
+          rm -rf filmagem/filmagem-preflight
       - name: Jogar e gravar em modo independente
         env:
           ARCADE_QA_LAYOUTS: landscape-844,portrait
