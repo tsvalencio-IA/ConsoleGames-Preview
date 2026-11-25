@@ -86,7 +86,7 @@
   }
 
   function rioBuildShell(site,room){
-    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:base;
+    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:site.style==='mountain-luxury'?{...base,wall:0xe7ded0,trim:0x66594a,roof:0x526270,floor:0xd4cbbb,height:4.1}:base;
     const {w,d}=site,{box,object}=room;
     const h=p.height,edge=.27,entry=site.kind==='market'?4.8:Math.min(3.1,w*.4);
     const front=d/2-edge,length=(w-entry)/2,center=(w+entry)/4;
@@ -163,7 +163,7 @@
   function rioFinishInterior(site,room){
     const {w,d,kind}=site, b=room.box, edgeX=w/2-.51,edgeZ=d/2-.51;
     const theme={
-      residence:site.style==='damha'||site.style==='rios-ditalia'?[0x6d8b8a,0xe8dfd0]:site.style==='snow-cabin'?[0x896748,0xd4bf97]:[0x9d7659,0xe6d6bb],
+      residence:site.style==='damha'||site.style==='rios-ditalia'?[0x6d8b8a,0xe8dfd0]:site.style==='snow-cabin'?[0x896748,0xd4bf97]:site.style==='mountain-luxury'?[0x526d75,0xe8dfcf]:[0x9d7659,0xe6d6bb],
       mall:[0x467579,0xe4ddd0],market:[0xa46a43,0xe8dbbb],dining:[0x9c6249,0xe8c6a4],
       bakery:[0xaa7950,0xf0dfbe],construction:[0x516b61,0xd2c7a8],church:[0x9a7954,0xe1cfac],
       station:[0x4d6b7b,0xd7dfe0],airport:[0x486c80,0xd4e0e4],reception:[0x61847c,0xe1e9e3],

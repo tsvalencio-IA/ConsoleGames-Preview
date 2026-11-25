@@ -177,7 +177,8 @@ try{
     await page.waitForFunction(id=>OTTHI_DESTINATIONS.diagnostics().regional.luxury.some(h=>h.id===id&&h.inside),id);
     assert(await page.evaluate(id=>OTTHOS_TEST_API.getState().cityServices.rioMap.properties[id]?.owned,id));
     await verifyFloor(id);await page.screenshot({path:out+'/'+id+'.png'});await approach(id+'-chalet-exit');
-    await approach(id+'-pool');await page.waitForFunction(()=>OT_CHARACTER_ACTIVITIES.diagnostics().lastAction==='rio-pool'&&!OT_CHARACTER_ACTIVITIES.diagnostics().session,null,{timeout:45000});
+    const completed=await page.evaluate(()=>OT_CHARACTER_ACTIVITIES.diagnostics().completed);
+    await approach(id+'-pool');await page.waitForFunction(n=>OT_CHARACTER_ACTIVITIES.diagnostics().completed>n&&OT_CHARACTER_ACTIVITIES.diagnostics().lastAction==='rio-pool'&&!OT_CHARACTER_ACTIVITIES.diagnostics().session,completed,{timeout:45000});
   }
   await approach('regional-campos-hotel-1-door');
   await page.locator('[data-regional-hotel-book]').click();

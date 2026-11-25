@@ -18,3 +18,13 @@ test('GM atomic batch splits 85 items for two players and keeps coins once per u
  const items=Object.fromEntries(Array.from({length:85},(_,i)=>['item'+i,1000000]));const result=await ctx.gmCreateGrantBatch([{uid:'player1',name:'One'},{uid:'player2',name:'Two'}],{coins:1000000,items});assert.equal(result.ok,true);assert.equal(result.grantIds.length,6);
  for(const uid of ['player1','player2']){const records=Object.entries(write).filter(([p])=>p.startsWith('gmGrants/'+uid+'/')).map(([,v])=>v);assert.equal(records.length,3);assert.equal(records.reduce((n,r)=>n+r.coins,0),1000000);assert.equal(records.reduce((n,r)=>n+Object.keys(r.items).length,0),85);assert(records.every(r=>r.totalUnits<=41000000));for(const r of records)assert.equal(write['gmAudit/'+r.grantId],r);}
 });
+
+test('typed rewards use real ownership, construction and furniture fields without fake inventory keys',()=>{
+ const state={inventory:{wood:2},tools:{owned:[]},vehicles:{owned:[],instances:{}}},rio={constructionInventory:{},constructionLegacyStock:{},wardrobePurchases:{}},title={owned:true},garage={stored:{},purchasedAt:{}};
+ const ctx=vm.createContext({state,GM_MAX_ADD:1000000,gmPositiveInt:(v,max=1000000)=>Math.min(max,Math.max(0,Math.floor(Number(v)||0))),rioConstructionSave:()=>rio,rioMapSave:()=>rio,rioPropertyTitle:()=>title,ensurePlayerGarageState:()=>garage,Date,Math,Set,Object});
+ vm.runInContext(gm.slice(gm.indexOf('  function gmApplyItem('),gm.indexOf('  function gmScheduleLegacyRecovery(')),ctx);
+ const catalog={'tool-axe':{max:1},'construction-paint':{max:1000000},'wardrobe-rio-polo':{max:1},'furniture-sofa-modular':{max:1},'vehicle-garage-orange':{max:1},wood:{max:1000000}};
+ for(const key of Object.keys(catalog))ctx.gmApplyItem(key,50,catalog);
+ assert.equal(state.inventory.wood,52);assert(state.tools.owned.includes('axe'));assert.equal(rio.constructionInventory.paint,50);assert.equal(rio.constructionLegacyStock.paint,50);assert.equal(rio.wardrobePurchases['rio-polo'],true);assert(title.furniture.includes('sofa-modular'));assert.equal(title.decorLayout['sofa-modular'].stored,true);assert(state.vehicles.owned.includes('garage-orange'));assert.equal(garage.stored['garage-orange'],true);assert.equal(Object.keys(state.inventory).length,1);
+ state.inventory['construction-paint']=12;assert.equal(ctx.gmRecoverLegacyTypedItems(catalog),1);assert.equal(rio.constructionInventory.paint,62);assert.equal(ctx.gmRecoverLegacyTypedItems(catalog),0);assert.equal(rio.constructionInventory.paint,62);
+});

@@ -332,7 +332,7 @@
     if(!boat){playerModel.position.x=0;playerModel.position.z=0;return;}
     const p=boat.driver,board=boat.kind==='board',surf=boat.kind==='surf';
     playerModel.position.set(p.x||0,(playerModel.userData.baseY||0)+(board||surf?0:-.47),p.z||0);
-    playerModel.rotation.x=0;
+    playerModel.rotation.x=0;playerModel.rotation.z=0;
     if(boat.kind==='jet'){
       const rig=visual?.byName,parts=playerModel.userData.parts;
       if(rig){rig.shoulder1.rotation.set(-1.12,0,-.18);rig['shoulder-1'].rotation.set(-1.12,0,.18);}

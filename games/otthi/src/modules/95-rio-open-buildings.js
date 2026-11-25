@@ -136,8 +136,8 @@
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
     const rioResidencePropertyId=()=>room.selectedUnitId||site.propertyId;
     const {w,d,yaw}=site,condominium=site.style==='rios-ditalia',modern=site.style==='damha'||condominium,back=-d/2+1.04,front=d/2-.12;
-    const compactHome=d<7.2,linen=modern?0x709490:site.style==='snow-cabin'?0xb17c53:0xb8946f;
-    const cabinet=modern?0xc8c9c1:site.style==='snow-cabin'?0x8b6447:0xa17e5e;
+    const luxury=site.style==='mountain-luxury',compactHome=d<7.2,linen=luxury?0x506e80:modern?0x709490:site.style==='snow-cabin'?0xb17c53:0xb8946f;
+    const cabinet=luxury?0x725e4c:modern?0xc8c9c1:site.style==='snow-cabin'?0x8b6447:0xa17e5e;
     const kitchenX=compactHome?-w*.17:-w*.32,kitchenZ=compactHome?Math.min(1.35,d*.27):d*.27;
     const wardrobeX=compactHome?-w*.43:-w*.37,wardrobeZ=compactHome?1.02:.8;
     const bathZ=Math.min(1.85,d/2-.88);
@@ -325,6 +325,24 @@
       };
       room.action('portaria','Conversar com o porteiro',0,d*.18,openCondoConcierge,
         {inside:true,icon:'🏢',radius:2.1});
+    }
+    if(luxury){
+      // Luxury fittings keep the central entry and exit clear. The suite is a
+      // real walkable interior, not just the decorative upper-floor facade.
+      room.box(0,.065,-.8,Math.min(w*.25,4.1),.035,Math.min(d*.30,3.5),0x748e96);
+      for(const side of[-1,1]){
+        room.object(side*w*.39,.38,-d*.20,.7,.76,.7,0x967c58);
+        room.box(side*w*.39,.99,-d*.20,.36,.32,.36,0xe9dfcc);
+      }
+      room.box(0,3.44,-.7,1.1,.12,.70,0xc5b28b);
+      for(const dx of[-.4,0,.4])room.part('post',dx,3.20,-.7,.17,.30,.17,0xe6d8af);
+      room.sign(site.hotel?'SUÍTE PREMIUM':'SALÃO PRINCIPAL',0,2.8,-d/2+.3,4.4,.54);
+      if(site.hotel){
+        const breakfast=room.point(-w*.17,d*.15);
+        room.action('hotel-breakfast','Tomar café da manhã',-w*.17,d*.15,()=>beginCharacterActivity('meal',{target:breakfast,pose:{...breakfast,y:room.floorY,yaw:site.yaw},commit:()=>{
+          if(!regionalHotelBooking(site))return false;state.needs.hunger=100;state.needs.energy=clamp(Number(state.needs.energy||0)+12,0,100);saveState(true);updateHUD();return true;
+        }}),{inside:true,icon:'☕',available:()=>regionalHotelBooking(site)});
+      }
     }
     room.action('rest','Descansar na sala',sx,back+.65,()=>rioSitOnBench(site,room,sx,back-.15),{inside:true,icon:'🛋️'});
     const bedApproach=room.point(bx,back+1.78),bed=room.point(bx,back+.24);
