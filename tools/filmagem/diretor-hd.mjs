@@ -27,7 +27,7 @@ const hook=String.raw`
   for(const h of world.houses){const p=h.group?.position;put({id:h.id,name:h.name||h.label||h.id,x:h.x??p?.x,z:h.z??p?.z,group:'Casa'});}
   for(const rec of snowCabinRecords.values())put({...rec.site,navX:rec.site.entry[0],navZ:rec.site.entry[1]});
   for(const room of rioMap.sites.values())if(room.site)put({...room.site,navX:room.site.entry?.[0],navZ:room.site.entry?.[1]});
-  return {places:[...locations.values()],actions:filmRows(),npcs:world.npcs.map((n,i)=>({id:n.id||String(i),index:i,label:n.name||n.label||n.id||'NPC '+i,x:n.group.position.x,z:n.group.position.z})),vehicles:OTTHI_PLAYER_VEHICLE_CATALOG.map(v=>({id:v.id,label:v.label||v.id,category:v.category,model:v.model})),boats:Array.from(world.boats.values()).map(b=>({id:b.id,label:b.label,kind:b.kind,x:b.group.position.x,z:b.group.position.z})),air:OT_WORLD_AIRPORT.diagnostics().fleet,controls:[...document.querySelectorAll('#game button')].map(b=>({id:b.id,label:b.getAttribute('aria-label')||b.textContent.trim()})).filter(b=>b.id||b.label)};
+  return {places:[...locations.values()],actions:filmRows(),npcs:world.npcs.map((n,i)=>({id:n.id||String(i),index:i,label:n.name||n.label||n.id||'NPC '+i,x:n.group.position.x,z:n.group.position.z})),vehicles:OTTHI_PLAYER_VEHICLE_CATALOG.map(v=>({id:v.id,label:v.label||v.id,category:v.category,model:v.model,dealer:OTTHI_DEALERS.find(d=>d.category===neighborhoodVehicleCategory(v))?.id})),boats:Array.from(world.boats.values()).map(b=>({id:b.id,label:b.label,kind:b.kind,x:b.group.position.x,z:b.group.position.z})),air:OT_WORLD_AIRPORT.diagnostics().fleet,controls:[...document.querySelectorAll('#game button')].map(b=>({id:b.id,label:b.getAttribute('aria-label')||b.textContent.trim()})).filter(b=>b.id||b.label)};
  }
  window.__FILM={
   ready:()=>running&&worldInitializationReady&&!!renderer,
@@ -44,11 +44,12 @@ const hook=String.raw`
   menu:()=>!els.modal.hidden?{title:els.modalTitle?.textContent||'',options:[...els.modalBody.querySelectorAll('button,select,input')].map(b=>({label:(b.textContent||b.getAttribute('aria-label')||b.placeholder||'').trim(),id:b.id,data:{...b.dataset},disabled:b.disabled}))}:null,
   activity:()=>({session:!!characterActivities.session,completed:OT_CHARACTER_ACTIVITIES.diagnostics().completed,last:OT_CHARACTER_ACTIVITIES.diagnostics().lastAction,indoor:rioMap.indoorRoom?.site?.id||null,vehicle:player.vehicle,boat:player.boating,flight:otGames.active}),
   actor:i=>{const n=world.npcs[i];return n?{x:n.group.position.x,y:n.group.position.y,z:n.group.position.z}:null;},
-  frame:({view='native',x,z,radius=12,angle=0,steps=2,npc=null}={})=>{
+  frame:({view='native',x,z,radius=12,angle=0,steps=2,npc=null,followPlayer=false}={})=>{
    cancelAnimationFrame(raf);
    for(let i=0;i<steps;i++){cityQaMs+=1000/60;stepWorldSimulation(1/60);}
+   if(followPlayer){x=player.x;z=player.z;}
    if(npc!==null){const p=world.npcs[npc]?.group?.position;if(p){x=p.x;z=p.z;}}
-   const m=viewportMetrics();renderer.setDrawingBufferSize(m.w,m.h,2);perf.pendingRenderBuffer=null;camera.aspect=m.w/m.h;
+   const m=viewportMetrics();if(renderer.domElement.width!==m.w*2||renderer.domElement.height!==m.h*2||renderer.getPixelRatio()!==2)renderer.setDrawingBufferSize(m.w,m.h,2);perf.pendingRenderBuffer=null;camera.aspect=m.w/m.h;
    if(view==='orbit'||view==='aerial'){
     const y=groundHeightAt(x,z),h=view==='aerial'?radius*.85:Math.max(2,radius*.26);
     camera.position.set(x+Math.sin(angle)*radius,y+h,z+Math.cos(angle)*radius);
@@ -60,7 +61,9 @@ const hook=String.raw`
   drive:(x,z)=>OTTHOS_TEST_API.setDriveInput(x,z),
   resetRideCamera:()=>resetVehicleView(),
   rideCamera:(inside,angle)=>{const ride=vehicleViewRide();if(!ride)return false;beginVehicleOrbit();vehicleView.inside=inside;vehicleView.snap=true;cameraYaw=angle;cameraPitch=inside?.035:.28;return true;},
-  dealer:id=>openDealer(id)
+  dealer:id=>{const d=OTTHI_DEALERS.find(d=>d.id===id);if(!d)return false;OTTHOS_TEST_API.teleport(d.entryX,d.entryZ);playerGroup.position.set(player.x,player.y,player.z);updateContext(true);if(currentContext?.id===id)doAction();else openDealer(id);return true;},
+  vehicle:()=>({id:currentVehicleRef()?.id||null,catalog:OT_PERSONAL_GARAGE.diagnostics().units.find(e=>e.id===currentVehicleRef()?.id)?.catalogId,x:player.x,z:player.z,ignition:player.car.ignition,speed:player.car.speed,inside:!!vehicleView.inside}),
+  engine:()=>{if(!player.car.ignition)document.querySelector('#vehicleEngineSwitch')?.click();return player.car.ignition;}
  };
  `;
 const app=source.slice(0,end)+hook+source.slice(end);
@@ -123,13 +126,37 @@ async function action(a){
    report.scenes.push({id:a.id,status:'entry-attempted',state:await page.evaluate(()=>__FILM.activity())});save();break;
   }
  }
+ const active=await page.evaluate(()=>__FILM.activity());
+ if(!menu&&(active.session||active.indoor||active.vehicle||active.boat||active.flight)){
+  await clip(a.id,'orbit-action',{followPlayer:true,radius:5,sweep:1.2},2);
+  await clip(a.id,'aerial-action',{followPlayer:true,radius:9,sweep:1.0},2);
+ }
  await page.evaluate(()=>__FILM.clean());
+}
+async function vehicle(v){
+ if(!v.dealer)throw Error('No dealer for '+v.id);
+ await page.evaluate(id=>__FILM.dealer(id),v.dealer);
+ await page.locator('[data-dealer-vehicle="'+v.id+'"]').click();
+ await clip(v.id,'purchase-menu',{},2);
+ await page.locator('[data-dealer-purchase]').click();await page.locator('[data-yes]').click();await page.locator('[data-delivery-drive]').click({timeout:60000});
+ const a=await page.evaluate(()=>__FILM.vehicle());if(a.catalog!==v.id)throw Error('Delivered wrong vehicle '+JSON.stringify(a));
+ await page.evaluate(()=>{__FILM.engine();__FILM.drive(0,1);});
+ await clip(v.id,'driving-follow',{},4);
+ const b=await page.evaluate(()=>__FILM.vehicle());if(Math.hypot(b.x-a.x,b.z-a.z)<.3)throw Error('Vehicle did not move');
+ await page.evaluate(()=>__FILM.rideCamera(false,-.9));await clip(v.id,'driving-external-side',{},3);
+ await page.evaluate(()=>__FILM.rideCamera(false,2.4));await clip(v.id,'driving-external-front',{},3);
+ const inside=await page.evaluate(()=>__FILM.rideCamera(true,0));if(inside)await clip(v.id,'driving-interior',{},3);
+ await page.evaluate(()=>__FILM.drive(0,0));report.scenes.push({id:v.id,status:'purchase-and-drive-verified',distance:Math.hypot(b.x-a.x,b.z-a.z),inside});save();
 }
 try{
  await boot();const catalog=await page.evaluate(()=>__FILM.inventory());writeFileSync(out+'/catalogo.json',JSON.stringify(catalog,null,2));console.log('CATALOG',JSON.stringify(Object.fromEntries(Object.entries(catalog).map(([k,v])=>[k,v.length]))));
  if(category==='pilot'){
   const p=catalog.places.find(p=>p.id==='regional-campos-mansao-1')||catalog.places.find(p=>p.id==='marina-costa');if(!p)throw Error('Pilot destination absent');
   await place(p);const a=catalog.actions.find(a=>a.id===p.id+'-door');if(a)await action(a);
+ }else if(category==='vehicle-pilot'||category==='vehicles'){
+  const rows=category==='vehicle-pilot'?catalog.vehicles.filter(v=>v.id==='br-ferrari458'):subset(catalog.vehicles);
+  if(!rows.length)throw Error('No vehicles selected');
+  for(const v of rows){try{await vehicle(v);}catch(e){report.errors.push(v.id+': '+e.message);save();if(category==='vehicle-pilot')throw e;}if(v!==rows.at(-1))await boot();}
  }else if(category==='places'){
   for(const p of subset(catalog.places))try{await place(p);}catch(e){report.errors.push(p.id+': '+e.message);save();}
  }else if(category==='actions'){
