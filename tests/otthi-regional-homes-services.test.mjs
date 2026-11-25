@@ -46,3 +46,13 @@ test('port has a separate real berth, cargo and collision checks, not merely a m
  const water=readFileSync('games/otthi/src/modules/92-rio-waterfront.js','utf8');
  assert.match(water,/w\.portObstacles/);assert.match(water,/w\.portTraffic/);
 });
+
+test('luxury estates preserve existing homes and reserve distinct accessible lots',()=>{
+ const code=src.slice(src.indexOf('function regionalLuxurySites()'),src.indexOf('  function regionalNatureReserve('));const ctx=vm.createContext({Math});vm.runInContext(code,ctx);
+ const sites=JSON.parse(vm.runInContext('JSON.stringify(regionalLuxurySites())',ctx));assert.equal(sites.length,5);assert.equal(sites.filter(s=>s.hotel).length,2);assert.equal(sites.filter(s=>s.architecture==='castle').length,1);
+ assert(sites.every(s=>s.lotW>s.w&&s.lotD>s.d&&s.price>0));
+});
+test('Santos has separate berths for five watercraft and Guaruja has an actual surfboard',()=>{
+ for(const id of ['rio-santos-lancha','rio-santos-jet-ski','rio-santos-surf','rio-santos-sup','rio-santos-escuna'])assert(src.includes("id:'"+id+"'"));
+ const water=readFileSync('games/otthi/src/modules/92-rio-waterfront.js','utf8');assert.match(water,/function rioMakeSurfboard/);assert.match(water,/kind:'surf'/);assert.match(src,/regionalLuxuryPool/);
+});

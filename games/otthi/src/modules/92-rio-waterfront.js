@@ -103,6 +103,13 @@
     return root;
   }
 
+  function rioMakeSurfboard(color){
+    const root=new THREE.Group();root.name='RIO_SURFBOARD';
+    const board=new THREE.Mesh(new THREE.SphereGeometry(1,24,10),campaignMaterial(color,.32));board.scale.set(.36,.075,1.28);root.add(board);
+    campaignBox(root,campaignMaterial(0x183f61),0,.075,.15,.075,.015,1.60);
+    campaignBox(root,campaignMaterial(0xe9e9db),0,.075,-.48,.52,.025,.47);
+    campaignBox(root,campaignMaterial(0x29465a),0,-.12,-.88,.055,.25,.27);return root;
+  }
   function rioMakeJetSki(){
     const root=new THREE.Group();root.name='RIO_JET_SKI';
     const white=campaignMaterial(0xe9eeeb,.3),blue=campaignMaterial(0x1389be,.32),dark=campaignMaterial(0x20333d,.2),metal=campaignMaterial(0xa0b0b5,.45);
@@ -150,8 +157,8 @@
     const moor={...rioDockPoint(side*(width+spec.halfLength+.38),length,d),heading:d.yaw+side*Math.PI/2};
     const boat={...spec,rioBerth:{step,moor}};
     rioSetBoatPose(boat,moor);worldGroup.add(boat.group);world.boats.set(boat.id,boat);
-    const icon=boat.kind==='board'?'🏄':boat.kind==='ship'?'🛳️':'🛶';
-    registerInteractable({id:'rio-board-'+boat.id,type:'boat',icon,label:boat.kind==='board'?'Subir na prancha':'Embarcar · '+boat.label,
+    const icon=['board','surf'].includes(boat.kind)?'🏄':boat.kind==='ship'?'🛳️':'🚤';
+    registerInteractable({id:'rio-board-'+boat.id,type:'boat',icon,label:boat.kind==='surf'?'Subir na prancha de surfe':boat.kind==='board'?'Subir na prancha':'Embarcar · '+boat.label,
       ...step,radius:1.48,priority:250,available:()=>rioCanBoard(boat),action:()=>enterBoat(boat)});
     return boat;
   }
@@ -244,6 +251,8 @@
       halfWidth:1.57,halfLength:4.42,maxSpeed:9.8,acceleration:5.6,reverseSpeed:2.3,driver:{y:1.16,z:.94},group:rioMakeTourShip()},-1,20,d));
     craft.push(rioMakeBerth({id:'rio-jet-ski',label:'Jet ski · moto aquática',kind:'jet',halfWidth:.65,halfLength:1.60,
       maxSpeed:19,acceleration:10.5,reverseSpeed:2.1,driver:{y:.74,z:-.26},group:rioMakeJetSki()},-1,35,d));
+    craft.push(rioMakeBerth({id:'rio-surf',label:'Prancha de surfe · Guarujá',kind:'surf',halfWidth:.39,halfLength:1.30,maxSpeed:6.2,acceleration:3.1,reverseSpeed:1.1,driver:{y:.22},group:rioMakeSurfboard(0xf3b644)},-1,47,d));
+    for(const b of craft.filter(b=>b.rioBerth)){const p=b.rioBerth.step;citySign(group,b.label,p.x,1.85,p.z,3.2,-1,'#245b67',.40);}
     if(!player.boating)world.boat=world.boats.get('lake-boat');
     registerInteractable({id:'rio-guaruja-cais',type:'activity',icon:'⚓',label:'Escolher embarcação na marina',...entry,
       radius:3.4,priority:255,available:()=>!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session,action:openRioDock});
@@ -321,14 +330,20 @@
     if(!paddle)return;
     paddle.visible=boat?.kind==='board';
     if(!boat){playerModel.position.x=0;playerModel.position.z=0;return;}
-    const p=boat.driver,board=boat.kind==='board';
-    playerModel.position.set(p.x||0,(playerModel.userData.baseY||0)+(board?0:-.47),p.z||0);
+    const p=boat.driver,board=boat.kind==='board',surf=boat.kind==='surf';
+    playerModel.position.set(p.x||0,(playerModel.userData.baseY||0)+(board||surf?0:-.47),p.z||0);
     playerModel.rotation.x=0;
     if(boat.kind==='jet'){
       const rig=visual?.byName,parts=playerModel.userData.parts;
       if(rig){rig.shoulder1.rotation.set(-1.12,0,-.18);rig['shoulder-1'].rotation.set(-1.12,0,.18);}
       else if(parts){parts.rightArm.rotation.set(-1.12,0,-.18);parts.leftArm.rotation.set(-1.12,0,.18);}
       return;
+    }
+    if(surf){
+      const rig=visual?.byName,parts=playerModel.userData.parts,lean=player.boat.steerVisual||0;
+      if(rig){for(const side of[-1,1]){rig['shoulder'+side].rotation.set(-.25,0,-side*.95);rig['hip'+side].rotation.x=-.28;rig['knee'+side].rotation.x=.48;}}
+      else if(parts){parts.rightArm.rotation.set(-.25,0,-.95);parts.leftArm.rotation.set(-.25,0,.95);}
+      playerModel.rotation.z=lean*.12;return;
     }
     if(!board)return;
     const stroke=Math.sin(animTime*(3.2+Math.abs(player.boat.speed)*.54))*clamp(Math.abs(player.boat.speed)/2,0,1);

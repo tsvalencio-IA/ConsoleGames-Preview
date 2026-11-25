@@ -389,7 +389,7 @@
       ?RIO_PRETO_LAYOUT.lots.filter(lot=>lot.style.startsWith('house-')).map(rioHistoricHomeSite):[];
     const available=[];
     const cabins=typeof snowCabinSites==='function'&&typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites():[];
-    const newHomes=typeof regionalExpansion!=='undefined'?(regionalExpansion.homes||[]).map(h=>h.site):[];
+    const newHomes=typeof regionalExpansion!=='undefined'?[...(regionalExpansion.homes||[]),...(regionalExpansion.luxury||[])].map(h=>h.site).filter(s=>!s.hotel):[];
     for(const site of [...compact,...historic,...cabins,...newHomes]){
       if(site.kind!=='residence'||!site.propertyId)continue;
       if(site.style==='rios-ditalia'){

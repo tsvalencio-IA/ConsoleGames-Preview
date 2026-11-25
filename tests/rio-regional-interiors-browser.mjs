@@ -13,7 +13,7 @@ try{
   const context=await browser.newContext({viewport:{width:393,height:852},isMobile:true,hasTouch:true,serviceWorkers:'block'});
   await context.route(/^https?:\/\//,r=>new URL(r.request().url()).origin===server.origin?r.continue():r.abort());
   await context.addInitScript(()=>localStorage.setItem('otthos_life_world_roleplay_v700',
-    JSON.stringify({version:705,profile:{name:'Auditoria prédios',nameConfirmed:true,coins:6000,playerId:'rio-mall-smoke'},
+    JSON.stringify({version:705,profile:{name:'Auditoria prédios',nameConfirmed:true,coins:50000,playerId:'rio-mall-smoke'},
       settings:{quality:'low',sound:false,lastWorldMap:'rio-preto'},flags:{accountPromptedV635:true},guardian:{sessionLimitMinutes:0}})));
   page=await context.newPage();
   const source=readFileSync('games/otthi/app.js','utf8'),closing=source.lastIndexOf('})();');
@@ -170,6 +170,20 @@ try{
     await approach(id+'-chalet-exit');
     report.cases.push({id,entered:true,purchased:true,exited:true,floor});
   }
+  assert.equal(regions.luxury.length,5,JSON.stringify(regions.rejected));
+  assert.equal(regions.luxury.filter(h=>h.hotel).length,2);
+  for(const id of ['regional-campos-mansao-1','regional-campos-castelo']){
+    await approach(id+'-door');await page.locator('[data-rio-property-buy]').click();await page.locator('[data-rio-property-enter]').click();
+    await page.waitForFunction(id=>OTTHI_DESTINATIONS.diagnostics().regional.luxury.some(h=>h.id===id&&h.inside),id);
+    assert(await page.evaluate(id=>OTTHOS_TEST_API.getState().cityServices.rioMap.properties[id]?.owned,id));
+    await verifyFloor(id);await page.screenshot({path:out+'/'+id+'.png'});await approach(id+'-chalet-exit');
+    await approach(id+'-pool');await page.waitForFunction(()=>OT_CHARACTER_ACTIVITIES.diagnostics().lastAction==='rio-pool'&&!OT_CHARACTER_ACTIVITIES.diagnostics().session,null,{timeout:45000});
+  }
+  await approach('regional-campos-hotel-1-door');
+  await page.locator('[data-regional-hotel-book]').click();
+  await page.waitForFunction(()=>OTTHI_DESTINATIONS.diagnostics().regional.luxury.some(h=>h.id==='regional-campos-hotel-1'&&h.inside));
+  assert(await page.evaluate(()=>OTTHOS_TEST_API.getState().cityServices.rioMap.hotelStays['regional-campos-hotel-1'].until>Date.now()));
+  await verifyFloor('regional-campos-hotel-1');await approach('regional-campos-hotel-1-chalet-exit');
   await approach('campos-sled-start');
   await page.waitForFunction(()=>OT_CIVIL_COMMUNITY.diagnostics().sledRide.active);
   await page.keyboard.down('KeyW');
@@ -188,6 +202,7 @@ try{
   const cargo=await page.evaluate(()=>OTTHI_DESTINATIONS.diagnostics().regional.port.cargo);
   assert(Math.abs(cargo[2]-523)<.1);
   await approach('santos-port-tour');
+  for(const id of ['rio-santos-lancha','rio-santos-jet-ski','rio-santos-surf','rio-santos-sup','rio-santos-escuna'])assert(await page.locator('[data-rio-dock-boat="'+id+'"]').isVisible());
   await page.locator('[data-rio-dock-boat="rio-santos-escuna"]').click();
   await page.waitForFunction(()=>OTTHI_DESTINATIONS.diagnostics().activeBoat==='rio-santos-escuna',null,{timeout:45000});
   const start=await page.evaluate(()=>OTTHOS_TEST_API.getGame().player);

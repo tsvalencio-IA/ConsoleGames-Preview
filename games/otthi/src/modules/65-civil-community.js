@@ -5,7 +5,13 @@
  const civilTerrainBefore=professionalTerrainHeightAt;
  const civilTerraces=[{x:147,z:305,w:17,d:15,y:civilTerrainBefore(147,305)},{x:210,z:235,w:15,d:12,y:civilTerrainBefore(210,235)}];
  const regionalMountainTerraces=typeof regionalHomeSites==='function'?regionalHomeSites().filter(s=>s.style==='snow-cabin').map(s=>({x:s.x,z:s.z,w:s.d+2,d:s.w+2,y:civilTerrainBefore(s.road[0],s.road[1]),blend:7})):[];
- professionalTerrainHeightAt=function(x,z,roadbedClearance=0){let y=civilTerrainBefore(x,z);for(const p of civilTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<4)y=lerp(p.y,y,clamp(distance/4,0,1));}for(const p of regionalMountainTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<p.blend&&!v704RoadAt(x,z,.1,true))y=lerp(p.y,y,clamp(distance/p.blend,0,1));}return y;};
+ const regionalLuxuryTerraces=regionalLuxurySites().map(s=>({x:s.x,z:s.z,w:Math.abs(Math.sin(s.yaw))>.5?s.lotD:s.lotW,d:Math.abs(Math.sin(s.yaw))>.5?s.lotW:s.lotD,y:civilTerrainBefore(s.road[0],s.road[1]),entry:{x:s.entry[0],z:s.entry[1]},road:{x:s.road[0],z:s.road[1]},blend:12}));
+ professionalTerrainHeightAt=function(x,z,roadbedClearance=0){let y=civilTerrainBefore(x,z);for(const p of civilTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<4)y=lerp(p.y,y,clamp(distance/4,0,1));}for(const p of regionalMountainTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<p.blend&&!v704RoadAt(x,z,.1,true))y=lerp(p.y,y,clamp(distance/p.blend,0,1));}for(const p of regionalLuxuryTerraces){
+  const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),lotDistance=Math.hypot(dx,dz);
+  if(lotDistance>p.blend+Math.hypot(p.entry.x-p.road.x,p.entry.z-p.road.z))continue;
+  const pathDistance=Math.max(0,v704DistanceToSegment({x,z},p.entry,p.road).distance-2.3),distance=Math.min(lotDistance,pathDistance);
+  if(distance<p.blend&&!v704RoadAt(x,z,.1,true))y=lerp(p.y,y,clamp(distance/p.blend,0,1));
+ }return y;};
  for(const [id,x,z]of[['balloon-coast',-380,458],['balloon-snow',-83,208],['balloon-serra',250,205]])WORLD_CAMPAIGN_AIRCRAFT[id]={id,mode:'balloon',model:'balloon',label:id==='balloon-coast'?'Balão da Costa Verde':id==='balloon-snow'?'Balão dos Picos Nevados':'Balão do Festival da Serra',x,z,yaw:0,radius:5,height:1.05};
  function civilTarget(id,label,x,z,options={}){
   const p={id,label,name:label,x,z,y:groundHeightAt(x,z),radius:3.4,...options};civilCommunity.targets.set(id,p);

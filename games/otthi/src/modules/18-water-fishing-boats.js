@@ -155,12 +155,12 @@
   }
   function updateBoatPanel(){
     const panel=ensureBoatPanel(),rioCraft=!!world.boat?.rioBerth;
-    const board=world.boat?.kind==='board';
+    const board=['board','surf'].includes(world.boat?.kind);
     panel.hidden=!player.boating||(rioCraft&&board);
     if(!player.boating)return;
     panel.querySelector('[data-boat-exit]').hidden=rioCraft;
     const passenger=!!player.boat.passengerOf,fish=panel.querySelector('[data-boat-fish]');
-    fish.hidden=['board','jet'].includes(world.boat?.kind);fish.disabled=passenger;
+    fish.hidden=['board','surf','jet'].includes(world.boat?.kind);fish.disabled=passenger;
     setControlText(fish.querySelector('span'),passenger?'Passageiro':'Pescar');
   }
   function applyBoatDriver(selected){
@@ -190,7 +190,7 @@
     if(separate){
       if(rioMap.compact){state.boats.activeBoatId=selected.id;state.boats.passengerOf='';}
       rioRecordBoatPose();
-      toast(selected.kind==='board'?'Use o manche para remar. Volte à mesma vaga para sair.':
+      toast(selected.kind==='surf'?'Surfe: controle a direção e aproveite as ondas perto da costa. Volte à mesma vaga para sair.':selected.kind==='board'?'Use o manche para remar. Volte à mesma vaga para sair.':
         'Use o manche para navegar. Volte à sua vaga e freie para desembarcar.','good',3000);
     }else{
       state.boats.activeBoatId=selected.id;state.boats.passengerOf='';
@@ -241,7 +241,7 @@
     const boat=player.boat;if(boat.passengerOf){const ghost=world.ghosts.get(boat.passengerOf),target=ghost?.userData?.target;if(!ghost||!target){boat.hostMissingAt=boat.hostMissingAt||performance.now();if(performance.now()-boat.hostMissingAt>3500){toast('O motorista saiu. Você voltou ao píer.','warn');player.x=BOAT_DOCK.exitX;player.z=54;exitBoat(true);}player.vx=player.vz=0;return;}boat.hostMissingAt=0;const tx=Number(target.x||ghost.position.x),tz=Number(target.z||ghost.position.z);player.vx=clamp((tx-player.x)*8,-18,18);player.vz=clamp((tz-player.z)*8,-18,18);boat.heading=Number(target.r||boat.heading);player.facing=boat.heading;return;}
     // V643: mesma convenção do carro — manche para a direita vira para a direita.
     const steer=Math.abs(ix)<.07?0:-ix,command=mobilityThrottleIntent(iz,boat.speed),throttle=command.throttle;
-    if(command.brake)boat.speed=approachNumber(boat.speed,0,(7.2+Math.abs(boat.speed)*.8)*dt);else{const crossing=boat.speed*throttle<-.08;boat.speed+=throttle*(world.boat?.acceleration??(world.boat?.seaGoing?11:8.5))*(crossing?1.8:1)*dt;}
+    if(command.brake)boat.speed=approachNumber(boat.speed,0,(7.2+Math.abs(boat.speed)*.8)*dt);else{const crossing=boat.speed*throttle<-.08;boat.speed+=throttle*(world.boat?.acceleration??(world.boat?.seaGoing?11:8.5))*(crossing?1.8:1)*dt;if(world.boat?.kind==='surf'&&throttle>.1&&player.z<563){const shoreward=Math.max(0,-Math.cos(boat.heading)),wave=Math.max(0,Math.sin((player.z-513)*.34-performance.now()*.0017));boat.speed+=wave*shoreward*2.7*dt;}}
     if(!throttle&&!command.brake)boat.speed*=Math.pow(.12,dt);if(Math.abs(boat.speed)<.02&&!throttle)boat.speed=0;boat.speed=clamp(boat.speed,-(world.boat?.reverseSpeed||3.4),world.boat?.maxSpeed||8.8);boat.steerVisual=lerp(boat.steerVisual||0,steer,Math.min(1,dt*6.5));const authority=Math.max(clamp(Math.abs(boat.speed)/2.8,0,1),Math.abs(throttle)>.1?.12:0);const turnRate=1.5/(1+Math.abs(boat.speed)*.075);boat.heading+=boat.steerVisual*turnRate*authority*dt*(boat.speed<-.08?-1:1);player.vx=Math.sin(boat.heading)*boat.speed;player.vz=Math.cos(boat.heading)*boat.speed;player.facing=boat.heading;updateMobilityControlLabels();
   }
   function constrainBoat(prevX,prevZ,previousHeading=player.boat.heading){
@@ -257,7 +257,7 @@
     if(!player.boat.passengerOf&&(!isInsideLakeNavigable(player.x,player.z)||world.boat?.seaGoing&&typeof seaNavigationBlocked==='function'&&seaNavigationBlocked(player.x,player.z,player.boat.heading))){player.x=prevX;player.z=prevZ;player.boat.speed*=-.18;player.vx=player.vz=0;}if(world.boat){world.boat.group.position.set(player.x,.1,player.z);world.boat.group.rotation.y=player.boat.heading;world.boat.heading=player.boat.heading;state.boats.parked=state.boats.parked||{};state.boats.parked[world.boat.id]={x:+player.x.toFixed(2),z:+player.z.toFixed(2),heading:+player.boat.heading.toFixed(3)};}state.boats.lastPosition={x:+player.x.toFixed(2),z:+player.z.toFixed(2),heading:+player.boat.heading.toFixed(3)};}
   function weightedFish(){let r=Math.random()*100;for(const fish of FISH_SPECIES){r-=fish.weight;if(r<=0)return fish;}return FISH_SPECIES[0];}
   function startFishing(source='shore',options={}){
-    if(fishingSession){toast('Finalize a pesca atual primeiro.','warn');return;}if((state.inventory.fishingRod||0)<1){toast('Você precisa de uma vara de pesca.','warn');return;}if((state.inventory.bait||0)<1){toast('Você ficou sem isca.','warn');return;}if(source==='boat'&&(!player.boating||world.boat?.kind==='board')){toast('Entre no barco primeiro.','warn');return;}if(source!=='boat'&&!isNearFishingArea()){toast('Pesque somente nos pontos marcados da margem.','warn');return;}const wait=Math.max(0,6500-(Date.now()-Number(state.fishing.lastAttempt||0)));if(wait>0){toast(`Aguarde ${Math.ceil(wait/1000)} s para tentar novamente.`,'warn');return;}
+    if(fishingSession){toast('Finalize a pesca atual primeiro.','warn');return;}if((state.inventory.fishingRod||0)<1){toast('Você precisa de uma vara de pesca.','warn');return;}if((state.inventory.bait||0)<1){toast('Você ficou sem isca.','warn');return;}if(source==='boat'&&(!player.boating||['board','surf','jet'].includes(world.boat?.kind))){toast('Entre no barco primeiro.','warn');return;}if(source!=='boat'&&!isNearFishingArea()){toast('Pesque somente nos pontos marcados da margem.','warn');return;}const wait=Math.max(0,6500-(Date.now()-Number(state.fishing.lastAttempt||0)));if(wait>0){toast(`Aguarde ${Math.ceil(wait/1000)} s para tentar novamente.`,'warn');return;}
     setFishingUiActive(true);const token=uid();fishingSession={token,source,options,hookTimer:0,escapeTimer:0,finishTimer:0};beginFishingVisual(source);ensureFishingModalStyle();openModal(options.cooperative?'Pesca com amigo':'Pesca',`<div class="activity-card fishing-card"><div class="fishing-compact-status" data-fishing-status>🎣 Pronto</div><div class="fishing-camera-hint">↔ Arraste a paisagem para girar a câmera</div><div class="activity-meter"><i data-fishing-meter></i></div><button class="btn primary xl" data-cast>Lançar</button><button class="btn good xl" data-pull hidden>PUXAR!</button></div>`,root=>{
       els.modal.classList.add('fishing-modal');
       const status=$('[data-fishing-status]',root),cast=$('[data-cast]',root),pull=$('[data-pull]',root),meter=$('[data-fishing-meter]',root);

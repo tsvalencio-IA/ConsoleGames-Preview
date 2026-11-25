@@ -40,7 +40,7 @@
     for(let z=501;z<=548;z+=.7)campaignBox(root,steel,-220,.49,z,8,.012,.025);
     for(const x of[-223.5,-216.5])for(const z of[502,515,529,545])campaignCylinder(root,steel,x,.1,z,.15,1.4);
     for(const x of[-223.8,-216.2])for(const z of[501,511,548]){campaignCylinder(root,white,x,1.05,z,.055,1.1);const lamp=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:0xf5e6b1}));lamp.position.set(x,1.62,z);root.add(lamp);}
-    citySign(root,'GUARUJÁ · MARINA',-220,3,501,8,-1,'#1c525d',.75);
+    citySign(root,'GUARUJÁ · MARINA · LANCHAS · JET SKI · SURFE',-220,3,501,14,-1,'#1c525d',.75);
     mergeTrafficStatic(root);
     for(const spec of SEA_CRAFT){
       const group=createSeaCraftModel(spec),saved=state.boats.parked?.[spec.id],bounds=v704WorldBounds();
@@ -63,8 +63,8 @@
   function styleGhostBoat(ghost,target){
     const group=ghost?.userData.boatVisual;if(!group)return;
     const key=target.boatId||'lake-boat';if(group.userData.craftKey===key)return;
-    const spec=SEA_CRAFT.find(b=>b.id===(key==='rio-lancha-familia'?'sea-familia':key));
-    const model=spec?createSeaCraftModel(spec):key==='rio-prancha'?rioMakeBoard(0x35b4ad):(key==='rio-navio-passeio'||key==='rio-santos-escuna')?rioMakeTourShip():key==='rio-jet-ski'?rioMakeJetSki():null;
+    const spec=SEA_CRAFT.find(b=>b.id===(key==='rio-lancha-familia'?'sea-familia':key==='rio-santos-lancha'?'sea-azul':key));
+    const model=spec?createSeaCraftModel(spec):(key==='rio-prancha'||key==='rio-santos-sup')?rioMakeBoard(0x35b4ad):(key==='rio-surf'||key==='rio-santos-surf')?rioMakeSurfboard(0xf3b644):(key==='rio-navio-passeio'||key==='rio-santos-escuna')?rioMakeTourShip():(key==='rio-jet-ski'||key==='rio-santos-jet-ski')?rioMakeJetSki():null;
     group.userData.lakeParts??=group.children.slice();if(group.userData.seaModel){otGamesDisposeGroup(group.userData.seaModel);group.userData.seaModel=null;}
     for(const part of group.userData.lakeParts)part.visible=!model;
     if(model){group.add(model);group.userData.seaModel=model;}
@@ -101,12 +101,24 @@
       street:style==='snow-cabin'?'Campos do Jordão · estrada da serra':'Guarujá · Avenida da Orla',
       entry:[x+Math.sin(yaw)*(d/2+1.35),z+Math.cos(yaw)*(d/2+1.35)],road}));
   }
+  function regionalLuxurySites(){
+    const rows=[
+      ['regional-campos-mansao-1','Mansão Vista dos Picos',-15,315,18,12,Math.PI/2,8400,'mansion',[39.3,315]],
+      ['regional-campos-castelo','Castelo da Mantiqueira',-105,350,22,16,-Math.PI/2,14800,'castle',[-156.7,350]],
+      ['regional-campos-mansao-2','Mansão Bosque Imperial',-47,378,18,12,0,9700,'mansion',[-47,410]],
+      ['regional-campos-hotel-1','Hotel Panorama Imperial',82,395,24,16,-Math.PI/2,240,'hotel',[17.5,395]],
+      ['regional-campos-hotel-2','Grand Hotel dos Pinheiros',-82,277,24,16,-Math.PI/2,190,'hotel',[-147.75,277]]
+    ];
+    return rows.map(([id,name,x,z,w,d,yaw,price,architecture,road])=>({id,key:id,propertyId:id,name,x,z,w,d,yaw,price,architecture,hotel:architecture==='hotel',style:'mountain-luxury',kind:'residence',lotW:w+10,lotD:d+26,road,street:'Campos do Jordão · Estrada dos Picos Nevados',
+      entry:[x+Math.sin(yaw)*(d/2+1.35),z+Math.cos(yaw)*(d/2+1.35)]}));
+  }
+  function regionalLuxuryPoint(site,x,z){const s=Math.sin(site.yaw),c=Math.cos(site.yaw);return{x:site.x+c*x+s*z,z:site.z-s*x+c*z};}
   function regionalNatureReserve(x,z,margin=0){
     // Reserve just the new property footprints and access paths, not whole mountains.
     if(typeof rioCompactWorld==='function'&&!rioCompactWorld())return false;
     if(v704DistanceToSegment({x,z},{x:125,z:295},{x:105,z:270}).distance<margin+3.2)return true;
-    return regionalHomeSites().some(s=>{
-      const rotated=Math.abs(Math.sin(s.yaw))>.5,w=rotated?s.d:s.w,d=rotated?s.w:s.d;
+    return [...regionalHomeSites(),...regionalLuxurySites()].some(s=>{
+      const rotated=Math.abs(Math.sin(s.yaw))>.5,w=rotated?(s.lotD||s.d):(s.lotW||s.w),d=rotated?(s.lotW||s.w):(s.lotD||s.d);
       if(Math.abs(x-s.x)<=w/2+margin+1.4&&Math.abs(z-s.z)<=d/2+margin+1.4)return true;
       return v704DistanceToSegment({x,z},{x:s.entry[0],z:s.entry[1]},{x:s.road[0],z:s.road[1]}).distance<margin+1.5;
     });
@@ -122,7 +134,7 @@
       record.room=room;room.legacyResidence=true;room.legacyRecord=record;
       room.root.visible=false;
       for(const c of room.colliders)c.disabled=true;
-      room.action('chalet-exit',site.style==='beach-house'?'Sair da casa':'Sair do chalé',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:1.4,priority:260});
+      room.action('chalet-exit',site.hotel?'Sair da suíte':site.style==='mountain-luxury'?'Sair do imóvel':site.style==='beach-house'?'Sair da casa':'Sair do chalé',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:1.4,priority:260});
       return room;
     }
     function move(p){
@@ -156,9 +168,9 @@
     }
     record.enter=enter;record.leave=leave;
     registerInteractable({id:site.id+'-door',type:'door',icon:'🏠',
-      label:'Visitar ou comprar · '+site.name,...entrance,radius:3.2,priority:258,
+      label:(site.hotel?'Recepção e hospedagem · ':'Visitar ou comprar · ')+site.name,...entrance,radius:3.2,priority:258,
       available:()=>available()&&!player.swimming&&!characterActivities.session,
-      action:()=>rioPropertyDoor({id:site.propertyId,name:site.name,price:site.price,available,
+      action:()=>site.hotel?regionalHotelMenu(site,available,enter):rioPropertyDoor({id:site.propertyId,name:site.name,price:site.price,available,
         enter,decorate:()=>{if(enter())record.room.manageFurniture?.();}})});
     return record;
   }
@@ -191,7 +203,93 @@
     const flakes=new THREE.Points(geometry,new THREE.PointsMaterial({color:0xffffff,size:.15,map:new THREE.CanvasTexture(canvas),transparent:true,opacity:.82,depthWrite:false}));flakes.name='LOCAL_SNOWFALL';flakes.frustumCulled=false;worldGroup.add(flakes);worldDestinations.flakes=flakes;
     registerInteractable({id:'snow-lookout',type:'viewpoint',icon:'❄️',label:'Mirante da Neve',x:20,z:180,radius:3,priority:120,action:()=>toast('Trecho de neve da OTTOVIAS. A pista continua liberada para viajar.','good',2600)});
   }
-  const regionalExpansion={homes:[],rejected:[],port:null,tour:[],restaurant:null};
+  const regionalExpansion={homes:[],luxury:[],rejected:[],port:null,tour:[],restaurant:null};
+  function regionalHotelBooking(site){return Number(rioMapSave().hotelStays?.[site.id]?.until||0)>Date.now();}
+  function regionalHotelMenu(site,available,enter){
+    if(!available())return false;
+    const booked=regionalHotelBooking(site);
+    openModal(site.name,'<p>Hotel de luxo · suíte mobiliada, piscina e passeios pela serra.</p><p>'+ (booked?'Hospedagem ativa por até 24 horas.':'Diária: '+site.price+' moedas do jogo.')+'</p><div class="modal-actions"><button class="btn primary" data-regional-hotel-book>'+ (booked?'Entrar na suíte':'Reservar diária e entrar')+'</button><button class="btn" data-regional-hotel-tour>Ver passeios</button></div>',root=>{
+      root.querySelector('[data-regional-hotel-book]').onclick=()=>{
+        if(!available())return;
+        if(!regionalHotelBooking(site)){
+          if(state.profile.coins<site.price){toast('Moedas insuficientes para a diária.','warn');return;}
+          addCoins(-site.price);(rioMapSave().hotelStays??={})[site.id]={until:Date.now()+86400000,paid:site.price};saveState(true);
+        }
+        closeModal();enter();
+      };
+      root.querySelector('[data-regional-hotel-tour]').onclick=()=>{closeModal();openModal('Passeios da serra','<div class="choice-grid">'+[['campos-sled-start','Trenó da serra'],['cable-base','Teleférico'],['mountain-balloon','Passeio de balão'],['snow-trail-2','Mirante da cordilheira']].map(([id,label])=>'<button class="choice" data-hotel-tour="'+id+'"><b>'+label+'</b><small>GPS</small></button>').join('')+'</div>',panel=>{
+        for(const btn of panel.querySelectorAll('[data-hotel-tour]'))btn.onclick=()=>{const id=btn.dataset.hotelTour;if(currentMapLocations().some(p=>p.id===id)){setWaypoint(id);closeModal();}else toast('Destino ainda carregando.','warn');};
+      });};
+    });return true;
+  }
+  function regionalLuxuryPool(site,root,y){
+    const px=site.w*.28,pz=site.d/2+8,w=site.hotel?8:6,d=4.4,p=regionalLuxuryPoint(site,px,pz),approach=regionalLuxuryPoint(site,px,pz+d/2+1.2);
+    const pool=new THREE.Group();pool.position.set(site.x,y,site.z);pool.rotation.y=site.yaw;root.add(pool);
+    const cream=campaignMaterial(0xe0dacf),aqua=campaignMaterial(0x278cb5,.25),stone=campaignMaterial(0xa6aba8),steel=campaignMaterial(0xc6cfcc,.35);
+    campaignBox(pool,stone,px,.08,pz,w+2,.16,d+2);
+    campaignBox(pool,cream,px,.18,pz,w+.5,.22,d+.5);
+    campaignBox(pool,aqua,px,.30,pz,w,.04,d);
+    for(const side of[-1,1]){
+      campaignBox(pool,cream,px+side*(w/2+.24),.35,pz,.48,.18,d+.5);
+      campaignBox(pool,cream,px,.35,pz+side*(d/2+.24),w+.5,.18,.48);
+    }
+    for(const dx of[-.35,.35])campaignCylinder(pool,steel,px+dx,.55,pz+d/2+.1,.035,.75);
+    for(const dx of[-1,1]){campaignBox(pool,cream,px+dx*(w/2+.72),.26,pz-.9,.7,.18,1.75);campaignBox(pool,stone,px+dx*(w/2+.72),.52,pz-1.4,.7,.43,.20);}
+    registerInteractable({id:site.id+'-pool',type:'activity',icon:'🏊',label:site.hotel?'Piscina do hotel':'Piscina da mansão',...approach,radius:2.5,priority:255,
+      available:()=>root.visible&&!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session&&(!site.hotel||regionalHotelBooking(site)),
+      action:()=>beginCharacterActivity('rio-pool',{target:approach,pose:{...p,y:y+.37,yaw:site.yaw,lying:true},walkSpeed:1.8,commit:()=>{
+        state.needs.fun=clamp(Number(state.needs.fun||0)+27,0,100);state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+6,0,100);rioCountVisit(site);saveState(true);updateHUD();return true;
+      }})});
+    return {...p,w,d,approach,y};
+  }
+  function regionalBuildLuxury(site){
+    const rotated=Math.abs(Math.sin(site.yaw))>.5,w=rotated?site.d:site.w,d=rotated?site.w:site.d,lw=rotated?site.lotD:site.lotW,ld=rotated?site.lotW:site.lotD;
+    const samples=[];for(let x=-lw/2;x<=lw/2+.01;x+=lw/4)for(let z=-ld/2;z<=ld/2+.01;z+=ld/4)samples.push({x:site.x+x,z:site.z+z});
+    const clear=samples.every(p=>!v704ReservedAt(p.x,p.z,.3)&&!waterAt(p.x,p.z));
+    const occupied=world.colliders.some(c=>!c.disabled&&Math.abs(c.x-site.x)<(c.w+lw)/2+.3&&Math.abs(c.z-site.z)<(c.d+ld)/2+.3);
+    if(!clear||occupied){regionalExpansion.rejected.push({id:site.id,clear,occupied});return;}
+    const y=groundHeightAt(site.x,site.z),facade=new THREE.Group(),yard=new THREE.Group(),path=new THREE.Group();
+    facade.name='REGIONAL_LUXURY_'+site.id;facade.position.set(site.x,y,site.z);facade.rotation.y=site.yaw;worldGroup.add(facade,yard,path);
+    const castle=site.architecture==='castle',hotel=site.hotel,h=hotel?12:castle?8.7:6.5;
+    const walls=campaignMaterial(castle?0xb4afa1:hotel?0xe6dac8:0xe5ddd0),trim=campaignMaterial(castle?0x6c7172:0x80634d),roof=campaignMaterial(castle?0x52616e:0x435768),glass=campaignMaterial(0x658c9e,.28),stone=campaignMaterial(0xa6a49c);
+    campaignBox(facade,stone,0,.12,0,site.w+.4,.24,site.d+.4);
+    campaignBox(facade,walls,0,h/2,0,site.w,h,site.d);
+    const levels=hotel?4:castle?3:2;
+    for(let floor=0;floor<levels;floor++){
+      const yy=1.8+floor*(h-1.5)/levels;
+      for(let i=0;i<(hotel?7:5);i++){
+        const x=(i-((hotel?7:5)-1)/2)*site.w/(hotel?8:6);
+        if(floor===0&&Math.abs(x)<1.6)continue;
+        for(const side of[-1,1]){campaignBox(facade,trim,x,yy,side*(site.d/2+.035),1.6,1.65,.08);campaignBox(facade,glass,x,yy,side*(site.d/2+.09),1.32,1.38,.07);}
+      }
+      if(floor>0)campaignBox(facade,trim,0,yy-.95,site.d/2+.3,site.w+.1,.14,.6);
+    }
+    for(const side of[-1,1])for(let j=0;j<4;j++)campaignBox(facade,glass,side*(site.w/2+.07),h*.55,(j-1.5)*site.d/5,.08,2.1,1.35);
+    campaignBox(facade,trim,0,1.5,site.d/2+.08,2.8,3,.18);
+    campaignBox(facade,stone,0,.16,site.d/2+.9,4.2,.30,1.7);
+    campaignBox(facade,roof,0,3.4,site.d/2+1.15,5.4,.3,2.8);
+    for(const side of[-1,1])campaignCylinder(facade,stone,side*2.3,1.7,site.d/2+1.8,.17,3.35);
+    if(castle){
+      for(const x of[-site.w/2+1.9,site.w/2-1.9])for(const z of[-site.d/2+1.9,site.d/2-1.9]){
+        campaignCylinder(facade,stone,x,h*.58,z,1.85,h*1.16);
+        const cone=new THREE.Mesh(new THREE.ConeGeometry(2.15,3.5,12),roof);cone.position.set(x,h*1.16+1.75,z);facade.add(cone);
+      }
+      campaignBox(facade,roof,0,h+.12,0,site.w+.3,.24,site.d+.3);
+      for(let x=-site.w/2+.7;x<site.w/2;x+=2)campaignBox(facade,stone,x,h+.6,site.d/2,.9,1,.65);
+    }else{
+      const top=new THREE.Mesh(new THREE.ConeGeometry(Math.max(site.w,site.d)*.73,hotel?3.4:2.8,4),roof);top.rotation.y=Math.PI/4;top.scale.z=site.d/site.w;top.position.y=h+(hotel?1.7:1.4);facade.add(top);
+      for(const side of[-1,1])campaignBox(facade,trim,side*site.w*.34,h+.2,-site.d*.17,.8,2.6,.8);
+    }
+    const wall={x:site.x,z:site.z,w,d,height:h,regionalHome:site.id};world.colliders.push(wall);
+    regionalWalk(path,{x:site.entry[0],z:site.entry[1]},{x:site.road[0],z:site.road[1]},3.0);
+    const sign=regionalLuxuryPoint(site,0,site.d/2+3.2);
+    citySign(yard,site.name,sign.x,y+2.6,sign.z,Math.min(site.w,10),-1,'#314e60',.62);
+    const pool=regionalLuxuryPool(site,yard,y);
+    regionalWalk(path,{x:site.entry[0],z:site.entry[1]},pool.approach,1.8);
+    const rec=registerSnowCabin(site,facade,wall);
+    mergeTrafficStatic(facade);mergeTrafficStatic(yard);
+    regionalExpansion.luxury.push({site,facade,path,yard,rec,pool});
+  }
   function regionalWalk(root,a,b,width=1.8){
     const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.1)return;
     const n=Math.max(1,Math.ceil(len/.8)),rx=dz/len*width/2,rz=-dx/len*width/2,p=[];
@@ -229,6 +327,9 @@
     }
     const wall={x:site.x,z:site.z,w,d,height:3.8,regionalHome:site.id};world.colliders.push(wall);
     regionalWalk(path,{x:site.entry[0],z:site.entry[1]},{x:site.road[0],z:site.road[1]});
+    const front={x:site.entry[0],z:site.entry[1]};
+    citySign(path,site.name,front.x,groundHeightAt(front.x,front.z)+2.1,front.z,5.5,-1,'#31566c',.45);
+    mergeTrafficStatic(facade);
     const rec=registerSnowCabin(site,facade,wall);regionalExpansion.homes.push({site,facade,path,rec});
   }
   function regionalCargoShip(color,loadingSlot=false){
@@ -298,7 +399,14 @@
     for(const s of ships){s.group.position.set(s.x,.05,s.z);s.group.rotation.y=s.heading;worldGroup.add(s.group);}
     const d={x:-100,z:500,yaw:0,width:8},entry={x:-100,z:502};
     const escuna=rioMakeBerth({id:'rio-santos-escuna',label:'Escuna · passeio pelo canal de Santos',kind:'ship',region:'santos',halfWidth:1.57,halfLength:4.42,maxSpeed:9.3,acceleration:5.4,reverseSpeed:2.1,driver:{y:1.16,z:.94},group:rioMakeTourShip()},1,32,d);
-    const port={root,entry,craft:[escuna],ships,cargo,hook,job:null,trucks:[],title:'Terminal turístico · Porto de Santos'};
+    const speedboat=SEA_CRAFT.find(s=>s.id==='sea-azul');
+    const launch=rioMakeBerth({...speedboat,id:'rio-santos-lancha',label:'Lancha esportiva · Santos',kind:'launch',region:'santos',halfWidth:1.18,halfLength:2.74,acceleration:10,driver:{x:.40,y:.49,z:.66},group:createSeaCraftModel(speedboat)},1,20,d);
+    const jet=rioMakeBerth({id:'rio-santos-jet-ski',label:'Jet ski · Santos',kind:'jet',region:'santos',halfWidth:.65,halfLength:1.60,maxSpeed:19,acceleration:10.5,reverseSpeed:2.1,driver:{y:.74,z:-.26},group:rioMakeJetSki()},-1,44,d);
+    const surf=rioMakeBerth({id:'rio-santos-surf',label:'Prancha de surfe · Santos',kind:'surf',region:'santos',halfWidth:.39,halfLength:1.30,maxSpeed:6.2,acceleration:3.1,reverseSpeed:1.1,driver:{y:.22},group:rioMakeSurfboard(0xf3b644)},-1,20,d);
+    const sup=rioMakeBerth({id:'rio-santos-sup',label:'Stand-up paddle · Santos',kind:'board',region:'santos',halfWidth:.53,halfLength:1.61,maxSpeed:4.3,acceleration:4.1,reverseSpeed:1.5,driver:{y:.20},group:rioMakeBoard(0x4e99cc)},1,44,d);
+    const port={root,entry,craft:[escuna,launch,jet,surf,sup],ships,cargo,hook,job:null,trucks:[],title:'Píer turístico de Santos · embarcações'};
+    for(const b of port.craft){const p=b.rioBerth.step;citySign(root,b.label,p.x,1.85,p.z,3.1,-1,'#285d65',.40);}
+    citySign(root,'PÍER · LANCHAS · JET SKI · SURFE',-100,3.7,497,13,-1,'#235b6f',.66);
     regionalExpansion.port=port;
     Object.assign(rioMap.coastalDock,{portCraft:port.craft,portTraffic:ships,portObstacles:[{x:-100,z:524,w:4,l:25,s:0,c:1}]});
     citySign(root,'PORTO DE SANTOS · TERMINAIS',-77,3.4,490,12,1,'#31566c',.55);
@@ -306,7 +414,7 @@
     citySign(root,'PÁTIO DE CONTÊINERES',-112,3.5,481,10,1,'#35566a',.45);
     regionalWalk(root,{x:-65,z:497},{x:-100,z:502},2.5);
     root.remove(cargo,hook);mergeTrafficStatic(root);root.add(cargo,hook);
-    registerInteractable({id:'santos-port-tour',type:'activity',icon:'⚓',label:'Embarcar na escuna de Santos',...entry,radius:3.4,priority:255,
+    registerInteractable({id:'santos-port-tour',type:'activity',icon:'⚓',label:'Píer de Santos · escolher embarcação',...entry,radius:3.4,priority:255,
       available:()=>!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session,action:()=>openRioDock(port)});
     const points=[{id:'santos-port-gate',name:'Porto de Santos · acesso',x:-65,z:496},
       {id:'santos-port-cargo',name:'Porto de Santos · pátio e guindaste',x:-137,z:495},
@@ -324,6 +432,7 @@
   }
   function regionalUpdateExpansion(focus,now,dt){
     for(const h of regionalExpansion.homes){const near=Math.hypot(focus.x-h.site.x,focus.z-h.site.z)<(qualityTier()==='low'?145:210);h.facade.visible=near&&!h.rec.inside;h.path.visible=near;}
+    for(const h of regionalExpansion.luxury){const near=Math.hypot(focus.x-h.site.x,focus.z-h.site.z)<(qualityTier()==='low'?165:245);h.facade.visible=near&&!h.rec.inside;h.path.visible=near;h.yard.visible=near;}
     const port=regionalExpansion.port;if(!port)return;
     // These trucks use the existing traffic controller and the same paved
     // graph as the regional bus. Keep the original 44-model collection intact.
@@ -338,7 +447,7 @@
       }
     }
     const near=Math.hypot(focus.x+100,focus.z-500)<290;
-    port.root.visible=near;port.craft[0].group.visible=near||(player.boating&&world.boat===port.craft[0]);
+    port.root.visible=near;for(const b of port.craft)b.group.visible=near||(player.boating&&world.boat===b);
     for(const s of port.ships)s.group.visible=Math.hypot(focus.x-s.x,focus.z-s.z)<310;
     if(near){
       const s=port.ships[1],phase=s.phase+dt*.025,x=-100+80*Math.cos(phase),z=620+25*Math.sin(phase),heading=Math.atan2(-80*Math.sin(phase),25*Math.cos(phase));
@@ -356,6 +465,7 @@
   function createRegionalExpansion(){
     if(typeof rioCompactWorld!=='function'||!rioCompactWorld())return;
     regionalHomeSites().forEach(regionalBuildHome);
+    regionalLuxurySites().forEach(regionalBuildLuxury);
     const site={id:'regional-campos-restaurante',key:'regional-campos-restaurante',name:'Café da Serra · Campos do Jordão',kind:'dining',style:'mountain',x:66,z:202,w:12,d:9,yaw:0,entry:[66,207.85],street:'Alameda dos Chalés'};
     if(!world.colliders.some(c=>!c.disabled&&Math.abs(c.x-site.x)<(c.w+site.w)/2+.4&&Math.abs(c.z-site.z)<(c.d+site.d)/2+.4)){
       regionalExpansion.restaurant=rioMountPlace(site,worldGroup);const path=new THREE.Group();worldGroup.add(path);regionalWalk(path,{x:66,z:207.85},{x:66,z:210.5});
@@ -364,20 +474,21 @@
   }
   function regionalExpansionDiagnostics(){
     return {homes:regionalExpansion.homes.map(h=>({id:h.site.id,x:h.site.x,z:h.site.z,y:h.facade.position.y,ground:groundHeightAt(h.site.x,h.site.z),entry:{x:h.site.entry[0],z:h.site.entry[1]},inside:h.rec.inside,exit:h.rec.room?.point(0,h.site.d*.31)})),
-      rejected:regionalExpansion.rejected,restaurant:regionalExpansion.restaurant?.site.id||null,port:regionalExpansion.port?{entry:regionalExpansion.port.entry,craft:regionalExpansion.port.craft.map(b=>b.id),ships:regionalExpansion.port.ships.map(s=>({id:s.id,x:s.x,z:s.z,heading:s.heading})),tour:regionalExpansion.tour,trucks:regionalExpansion.port.trucks.map(t=>({id:t.id,x:t.group.position.x,z:t.group.position.z,route:t.route.length})),cargo:regionalExpansion.port.cargo.position.toArray(),job:!!regionalExpansion.port.job}:null};
+      luxury:regionalExpansion.luxury.map(h=>({id:h.site.id,architecture:h.site.architecture,hotel:h.site.hotel,x:h.site.x,z:h.site.z,y:h.facade.position.y,ground:groundHeightAt(h.site.x,h.site.z),pool:h.pool,entry:h.site.entry,inside:h.rec.inside,exit:h.rec.room?.point(0,h.site.d*.31)})),rejected:regionalExpansion.rejected,restaurant:regionalExpansion.restaurant?.site.id||null,port:regionalExpansion.port?{entry:regionalExpansion.port.entry,craft:regionalExpansion.port.craft.map(b=>b.id),ships:regionalExpansion.port.ships.map(s=>({id:s.id,x:s.x,z:s.z,heading:s.heading})),tour:regionalExpansion.tour,trucks:regionalExpansion.port.trucks.map(t=>({id:t.id,x:t.group.position.x,z:t.group.position.z,route:t.route.length})),cargo:regionalExpansion.port.cargo.position.toArray(),job:!!regionalExpansion.port.job}:null};
   }
   function worldExploreLocations(){return[
     {id:'marina-costa',name:'Guarujá · marina e embarcações',label:'Guarujá · marina e embarcações',icon:'🚤',group:'Guarujá · praia e barcos',x:-220,z:502,navX:-220,navZ:502,description:'Caminhe pelo píer e escolha uma embarcação. Volte à vaga de embarque para desembarcar.',actions:['Seguir até a marina','Embarcar pelo botão AÇÃO','Pilotar, retornar e estacionar']},
     {id:'snow-lookout',name:'Campos do Jordão · mirante e chalés',label:'Campos do Jordão · mirante e chalés',icon:'❄️',group:'Natureza',x:20,z:180,navX:20,navZ:180,description:'Trecho de neve da OTTOVIAS, com acesso pela Ligação Norte. Neve no solo, pinheiros, chalés e precipitação local.',actions:['Seguir o GPS pela Ligação Norte','Chegar ao mirante']},
     ...(typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites().map(site=>({id:site.id,name:site.name,icon:'🏡',group:'Campos do Jordão',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:'Chalé visitável e comprável, com móveis e decoração próprios.'})):[]),
     ...regionalExpansion.homes.map(({site})=>({id:site.id,name:site.name,icon:'🏡',group:site.style==='snow-cabin'?'Campos do Jordão · montanha':'Guarujá · casas da orla',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:'Imóvel visitável, comprável e decorável.'})),
+    ...regionalExpansion.luxury.map(({site})=>({id:site.id,name:site.name,icon:site.hotel?'🏨':site.architecture==='castle'?'🏰':'🏡',group:'Campos do Jordão · imóveis de luxo',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:site.hotel?'Hospedagem em suíte, piscina e passeios.':'Mansão ou castelo visitável, comprável e com piscina.'})),
     ...(regionalExpansion.restaurant?[{id:regionalExpansion.restaurant.site.id,name:regionalExpansion.restaurant.site.name,icon:'☕',group:'Campos do Jordão',x:66,z:207.85,navX:66,navZ:207.85}]:[]),
     ...regionalExpansion.tour.map(p=>({...p,icon:'⚓',group:'Santos · porto',navX:p.x,navZ:p.z,description:'Visita física ao terminal portuário.'})),
-    ...(regionalExpansion.port?[{id:'santos-port-tour',name:'Porto de Santos · escuna',icon:'🛳️',group:'Santos · porto',x:-100,z:502,navX:-100,navZ:502}]:[]),
+    ...(regionalExpansion.port?[{id:'santos-port-tour',name:'Santos · píer de lanchas, jet ski e surfe',icon:'⚓',group:'Santos · porto',x:-100,z:502,navX:-100,navZ:502}]:[]),
     ...Array.from(world.boats?.values()||[]).filter(b=>b.seaGoing||b.rioBerth).map(b=>{
       const step=b.rioBerth?.step,position=b.group.position;
       return {id:'marina-'+b.id,name:b.label,label:b.label,icon:b.kind==='board'?'🏄':b.kind==='ship'?'🛳️':'🚤',
-        group:b.region==='santos'?'Santos · porto':'Guarujá · praia e barcos',x:position.x,z:position.z,navX:step?.x??-220,navZ:step?.z??clamp(position.z,513,548),
+        group:b.region==='santos'?'Santos · píer turístico':'Guarujá · praia e barcos',x:position.x,z:position.z,navX:step?.x??-220,navZ:step?.z??clamp(position.z,513,548),
         description:step?'Embarque e desembarque na vaga do píer.':'O ponto de embarque fica no píer da marina.',actions:['Caminhar pelo píer','Toque em AÇÃO para embarcar']};
     })
   ];}
@@ -387,10 +498,12 @@
       ['mountain-balloon','🎈','Balão nas montanhas','Embarque na cesta, suba, explore a serra e pouse para sair.'],
       ['campaign-plane','✈️','Avião · embarcar e pilotar','Base Aérea. Aproxime-se da aeronave e toque em AÇÃO.'],
       ['campaign-helicopter','🚁','Helicóptero · embarcar e pilotar','Pouse, pare e use SAIR DA AERONAVE. Ela fica estacionada.'],
-      ['marina-costa','🚤','Guarujá · marina e lanchas','Três lanchas no píer da praia. Pilotagem livre no mar.'],
+      ['marina-costa','🚤','Guarujá · marina e lanchas','Lanchas, jet ski, surfe e stand-up paddle. Escolha a embarcação no píer.'],
       ['coast-view','🏖️','Guarujá · praia','Orla, ondas, quiosques e acesso à marina.'],
       ['snow-lookout','❄️','Campos do Jordão · neve e chalés','Siga a OTTOVIAS pela Ligação Norte.'],
-      ...(regionalExpansion.port?[['santos-port-gate','⚓','Porto de Santos','Terminais, contêineres, guindaste e passeio de escuna.']]:[]),
+      ...(regionalExpansion.port?[['santos-port-gate','⚓','Porto de Santos','Terminais, contêineres e guindaste.'],['santos-port-tour','🚤','Santos · Píer de embarque','Lanchas, escuna, jet ski, surfe e stand-up paddle.']]:[]),
+      ...regionalExpansion.luxury.map(({site})=>[site.id,site.hotel?'🏨':site.architecture==='castle'?'🏰':'🏡',site.name,site.hotel?'Reserve diária, piscina e passeios.':'Visite, compre, decore e use a piscina.']),
+      ...Array.from(world.boats?.values()||[]).filter(b=>b.rioBerth&&['surf','jet','launch','board'].includes(b.kind)).map(b=>['marina-'+b.id,b.kind==='surf'||b.kind==='board'?'🏄':'🚤',b.label,'GPS direto à vaga no píer.']),
       ...regionalExpansion.homes.map(({site})=>[site.id,'🏡',site.name,'Visite, compre e decore o imóvel.'])
     ];
     return '<h3>Explore o mundo</h3><div class="choice-grid world-explore-directory">'+destinations.map(([id,icon,title,description])=>'<button class="choice" data-explore-nav="'+id+'"><b>'+icon+' '+title+'</b><span>'+description+'</span><small>TRAÇAR ROTA NO GPS</small></button>').join('')+'<button class="choice" data-explore-civil><b>🤝 Missões do nosso mundo</b><span>Praias, vizinhança, neve, polícia, bombeiros e passeios.</span><small>INDIVIDUAL OU COOPERATIVO</small></button></div>';
