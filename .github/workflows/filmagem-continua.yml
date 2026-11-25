@@ -1,4 +1,4 @@
-name: OTThi - Captura continua acelerada
+name: OTThi - Captura continua 540p - cobertura ampliada
 on:
   push:
     branches: ['capture/clipe-otthi-20261125']
@@ -9,12 +9,30 @@ permissions:
 jobs:
   prioridades:
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 100
     strategy:
       fail-fast: false
       max-parallel: 3
       matrix:
-        category: [pilot, priority-shops, priority-workshop]
+        include:
+          - {category: pilot, shard: 0, shards: 1}
+          - {category: priority-shops, shard: 0, shards: 4}
+          - {category: priority-shops, shard: 1, shards: 4}
+          - {category: priority-shops, shard: 2, shards: 4}
+          - {category: priority-shops, shard: 3, shards: 4}
+          - {category: priority-workshop, shard: 0, shards: 1}
+          - {category: places, shard: 0, shards: 8}
+          - {category: places, shard: 1, shards: 8}
+          - {category: places, shard: 2, shards: 8}
+          - {category: places, shard: 3, shards: 8}
+          - {category: places, shard: 4, shards: 8}
+          - {category: places, shard: 5, shards: 8}
+          - {category: places, shard: 6, shards: 8}
+          - {category: places, shard: 7, shards: 8}
+          - {category: npcs, shard: 0, shards: 4}
+          - {category: npcs, shard: 1, shards: 4}
+          - {category: npcs, shard: 2, shards: 4}
+          - {category: npcs, shard: 3, shards: 4}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,12 +48,14 @@ jobs:
       - name: Filmar cenas prioritarias sem PNG por quadro
         env:
           FILM_CATEGORY: ${{ matrix.category }}
+          FILM_SHARD: ${{ matrix.shard }}
+          FILM_SHARDS: ${{ matrix.shards }}
         run: node tools/filmagem/diretor-continuo.mjs
       - name: Salvar MP4 concluidos e cobertura mesmo com falha
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CONTINUA-${{ matrix.category }}
+          name: CONTINUA-540-${{ matrix.category }}-${{ matrix.shard }}
           path: |
             filmagem-continua/**/*.mp4
             filmagem-continua/**/*.json

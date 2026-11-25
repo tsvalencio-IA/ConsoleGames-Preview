@@ -10,8 +10,8 @@ const category=process.env.FILM_CATEGORY||'pilot';
 const shard=Number(process.env.FILM_SHARD||0),shards=Number(process.env.FILM_SHARDS||1);
 const out=resolve('filmagem-continua',category+'-'+shard);
 mkdirSync(out,{recursive:true});
-const FPS=30, W=1920,H=1080;
-const report={category,shard,shards,format:{width:W,height:H,fps:FPS,method:'continuous Chromium screencast, measured distinct frame rate'},scenes:[],errors:[],limits:['Offline profile and position between scenes.','Camera angles use the real game scene.','Menu visibility is not proof that its options were executed.','No native audio. Output 30 fps may repeat frames; actual cadence is recorded.']};
+const FPS=24, W=960,H=540;
+const report={category,shard,shards,format:{width:W,height:H,fps:FPS,method:'continuous Chromium screencast, measured distinct frame rate'},scenes:[],errors:[],limits:['Offline profile and position between scenes.','Camera angles use the real game scene.','Menu visibility is not proof that its options were executed.','No native audio. Output 24 fps may repeat frames; actual cadence is recorded.']};
 const save=()=>writeFileSync(out+'/cobertura.json',JSON.stringify(report,null,2));
 const source=readFileSync('games/otthi/app.js','utf8');
 const end=source.lastIndexOf('})();');if(end<0)throw Error('Compiled closure not found');
@@ -31,7 +31,7 @@ const hook=String.raw`
  }
  window.__FILM={
   ready:()=>running&&worldInitializationReady&&!!renderer,
-  stop:()=>{cancelAnimationFrame(raf);targetDpr=()=>1;state.settings.quality='high';applyAdaptiveRenderSettings(true);applyPendingRenderBuffer();},
+  stop:()=>{cancelAnimationFrame(raf);targetDpr=()=>1;state.settings.quality='balanced';applyAdaptiveRenderSettings(true);applyPendingRenderBuffer();},
   inventory:filmCatalog,
   move:(x,z)=>{clearMovementInputs();OTTHOS_TEST_API.teleport(x,z);playerGroup.position.set(player.x,player.y,player.z);updateWorldExpansion();updateContext(true);},
   clean:()=>{clearMovementInputs();if(!els.modal.hidden)closeModal();},
@@ -64,7 +64,7 @@ const hook=String.raw`
     const now=performance.now(),elapsed=Math.max(1/60,Math.min(.12,(now-last)/1000));last=now;
     const progress=Math.min(1,(now-start)/(seconds*1000));
     const meta=window.__FILM.frame({...options,angle:(options.angle||0)+(options.sweep||0)*progress,steps:Math.max(1,Math.round(elapsed*60))});
-    if(meta.width!==1920||meta.height!==1080)throw Error('Native buffer '+meta.width+'x'+meta.height);
+    if(meta.width!==960||meta.height!==540)throw Error('Native buffer '+meta.width+'x'+meta.height);
     count++;timer=requestAnimationFrame(tick);
    }catch(e){error=String(e.stack||e);running=false;}};
    window.__filmTake={stop:()=>{running=false;cancelAnimationFrame(timer);return {rendered:count,error};}};
@@ -87,9 +87,9 @@ let context,page;
 const safe=s=>String(s).replace(/[^a-zA-Z0-9_.-]+/g,'_').slice(0,100);
 async function boot(){
  if(context)await context.close();
- context=await browser.newContext({viewport:{width:1920,height:1080},deviceScaleFactor:1,isMobile:true,hasTouch:true,serviceWorkers:'block'});
+ context=await browser.newContext({viewport:{width:960,height:540},deviceScaleFactor:1,isMobile:true,hasTouch:true,serviceWorkers:'block'});
  await context.route(/^https?:\/\//,r=>new URL(r.request().url()).origin===server.origin?r.continue():r.abort());
- await context.addInitScript(()=>localStorage.setItem('otthos_life_world_roleplay_v700',JSON.stringify({version:705,profile:{name:'OTThi Demo',nameConfirmed:true,coins:500000,playerId:'director-local'},settings:{quality:'high',sound:false,lastWorldMap:'rio-preto'},flags:{accountPromptedV635:true},guardian:{sessionLimitMinutes:0}})));
+ await context.addInitScript(()=>localStorage.setItem('otthos_life_world_roleplay_v700',JSON.stringify({version:705,profile:{name:'OTThi Demo',nameConfirmed:true,coins:500000,playerId:'director-local'},settings:{quality:'balanced',sound:false,lastWorldMap:'rio-preto'},flags:{accountPromptedV635:true},guardian:{sessionLimitMinutes:0}})));
  page=await context.newPage();page.setDefaultTimeout(30000);page.on('pageerror',e=>report.errors.push(String(e.stack)));
  await installCityInspection(page,{appSource:app,capDuringBoot:true});
  await page.goto(server.origin+'/games/otthi/?map=rio-preto',{waitUntil:'domcontentloaded'});
@@ -115,10 +115,10 @@ async function clip(id,view,opts={},seconds=2){
  cdp.on('Page.screencastFrame',listener);
  let stats=null,start=Date.now();
  try{
-  await cdp.send('Page.startScreencast',{format:'jpeg',quality:94,maxWidth:W,maxHeight:H,everyNthFrame:1});
+  await cdp.send('Page.startScreencast',{format:'jpeg',quality:88,maxWidth:W,maxHeight:H,everyNthFrame:1});
   await page.evaluate(({opts,seconds,view})=>__FILM.startTake({...opts,view},seconds),{opts,seconds,view});
   // Capture real elapsed time, bounded; there is no per-frame screenshot roundtrip.
-  const duration=Math.max(5,seconds);
+  const duration=Math.max(4,seconds);
   await new Promise(r=>setTimeout(r,duration*1000));
   stats=await page.evaluate(()=>__FILM.stopTake());
  }finally{
@@ -127,17 +127,17 @@ async function clip(id,view,opts={},seconds=2){
  }
  if(fault)throw fault;if(stats?.error)throw Error(stats.error);
  if(!frames.length)throw Error('No compositor frames received');
- const staticMenu=/menu/.test(view),elapsed=Math.max(.001,Date.now()-start)/1000,uniqueFps=hashes.size/elapsed;
+ const staticMenu=/menu/.test(view)||!!await page.evaluate(()=>__FILM.menu()),elapsed=Math.max(.001,Date.now()-start)/1000,uniqueFps=hashes.size/elapsed;
  // A menu can legitimately stay static. Moving footage must have distinct frames.
  if(!staticMenu&&hashes.size<6)throw Error('Insufficient distinct frames: '+hashes.size);
  const list=frames.map((f,i)=>"file '"+f.file+"'\nduration "+Math.max(.001,Math.min(2,i+1<frames.length?frames[i+1].ts-f.ts:1/Math.max(1,frames.length/elapsed))).toFixed(6)).join('\n')+"\nfile '"+frames.at(-1).file+"'\n";
  writeFileSync(framesDir+'/frames.txt',list);
  const dims=JSON.parse(execFileSync('ffprobe',['-v','error','-show_entries','stream=width,height','-of','json',framesDir+'/'+frames[0].file],{encoding:'utf8'})).streams[0];
  if(dims.width!==W||dims.height!==H)throw Error('Compositor returned '+dims.width+'x'+dims.height+'; refusing upscale');
- execFileSync('ffmpeg',['-nostdin','-v','error','-y','-f','concat','-safe','0','-i',framesDir+'/frames.txt','-an','-vf','fps=30','-c:v','libx264','-preset','fast','-crf','17','-pix_fmt','yuv420p','-movflags','+faststart',tmp],{timeout:120000});
+ execFileSync('ffmpeg',['-nostdin','-v','error','-y','-f','concat','-safe','0','-i',framesDir+'/frames.txt','-an','-vf','fps='+FPS,'-c:v','libx264','-preset','veryfast','-crf','19','-pix_fmt','yuv420p','-movflags','+faststart',tmp],{timeout:120000});
  execFileSync('ffmpeg',['-nostdin','-v','error','-xerror','-i',tmp,'-f','null','-'],{timeout:120000});
  renameSync(tmp,path);
- const item={id,view,file:path.split('/').pop(),width:W,height:H,receivedFrames:frames.length,distinctFrames:hashes.size,uniqueFps:+uniqueFps.toFixed(2),rendered:stats?.rendered,seconds:elapsed,bytes:statSync(path).size,quality:staticMenu?'static-menu':uniqueFps>=20?'motion-candidate':'low-cadence-review'};
+ const item={id,view,file:path.split('/').pop(),width:W,height:H,receivedFrames:frames.length,distinctFrames:hashes.size,uniqueFps:+uniqueFps.toFixed(2),rendered:stats?.rendered,seconds:elapsed,bytes:statSync(path).size,quality:staticMenu?'static-menu':uniqueFps>=16?'motion-candidate':'low-cadence-review'};
  report.scenes.push(item);save();rmSync(framesDir,{recursive:true,force:true});console.log('CONTINUOUS_CLIP_OK',JSON.stringify(item));return item;
 }
 const subset=rows=>rows.filter((_,i)=>i%shards===shard);
@@ -148,13 +148,13 @@ async function place(p){
  await clip(p.id,'aerial',{x:p.x,z:p.z,radius:radius*1.5,angle:.8,sweep:1.1});
  await clip(p.id,'native',{},2);
 }
-async function action(a){
+async function action(a,{keepMenu=false}={}){
  const ready=await page.evaluate(id=>{__FILM.clean();return __FILM.approach(id);},a.id);
  if(!ready.ok){report.scenes.push({id:a.id,status:'not-executed',reason:ready.reason,actual:ready.actual});save();return;}
  await clip(a.id,'native',{},1);
  const invoked=await page.evaluate(id=>__FILM.invoke(id),a.id);
  if(!invoked){report.scenes.push({id:a.id,status:'not-executed',reason:'native action refused'});save();return;}
- await clip(a.id,'native-action',{},3);
+ await clip(a.id,'native-action',{},5);
  const menu=await page.evaluate(()=>__FILM.menu()),state=await page.evaluate(()=>__FILM.activity());
  report.scenes.push({id:a.id,status:'action-invoked',menu,state});save();
  // Enter or book via native UI; do not claim arbitrary menu branches executed.
@@ -169,7 +169,7 @@ async function action(a){
   await clip(a.id,'orbit-action',{followPlayer:true,radius:5,sweep:1.2},2);
   await clip(a.id,'aerial-action',{followPlayer:true,radius:9,sweep:1.0},2);
  }
- await page.evaluate(()=>__FILM.clean());
+ if(!keepMenu)await page.evaluate(()=>__FILM.clean());
 }
 async function vehicle(v){
  if(!v.dealer)throw Error('No dealer for '+v.id);
@@ -191,13 +191,13 @@ try{
  if(category==='priority-shops'){
   const rows=catalog.actions.filter(a=>/food-court-counter|construction-counter|furniture-counter|market|bakery|restaurant|shopping|loja|padaria|mercado/i.test(a.id+' '+a.label));
   writeFileSync(out+'/prioridades.json',JSON.stringify(rows,null,2));
-  for(const a of subset(rows).slice(0,12)){try{await action(a);if(await page.locator('[data-rio-food="burger"]').isVisible()){await page.locator('[data-rio-food="burger"]').click();await clip(a.id,'purchase-food',{},5);}if(await page.locator('[data-rio-construction-buy="paint"]').isVisible()){await page.locator('[data-rio-construction-buy="paint"]').click();await clip(a.id,'purchase-material',{},5);}await page.evaluate(()=>__FILM.clean());}catch(e){report.errors.push(a.id+': '+e.message);save();await boot();}}
+  for(const a of subset(rows)){try{await action(a,{keepMenu:true});if(await page.locator('[data-rio-food="burger"]').isVisible()){await page.locator('[data-rio-food="burger"]').click();await clip(a.id,'purchase-food',{},5);}if(await page.locator('[data-rio-construction-buy="paint"]').isVisible()){await page.locator('[data-rio-construction-buy="paint"]').click();await clip(a.id,'purchase-material',{},5);}await page.evaluate(()=>__FILM.clean());}catch(e){report.errors.push(a.id+': '+e.message);save();await boot();}}
  }else if(category==='priority-workshop'){
-  const a=catalog.actions.find(a=>/workshop|oficina/i.test(a.id+' '+a.label));if(a)await page.evaluate(a=>__FILM.move(a.x,a.z),a);
+  const a=catalog.actions.find(a=>a.id==='workshop-lift-control');if(a)await page.evaluate(a=>__FILM.move(a.x,a.z),a);
   const ok=await page.evaluate(()=>__FILM.workshop('stage'));if(!ok)throw Error('Workshop staging refused');
   await clip('oficina','carro-no-elevador',{},5);if(!await page.evaluate(()=>__FILM.workshop('raise')))throw Error('Lift refused');
   await clip('oficina','elevacao',{},10);report.workshop=await page.evaluate(()=>__FILM.workshopStatus());save();
-  for(const a of catalog.actions.filter(a=>/workshop|oficina|conserto|repar|mec.nico/i.test(a.id+' '+a.label)).slice(0,8)){try{await action(a);}catch(e){report.errors.push(a.id+': '+e.message);save();}}
+  for(const a of catalog.actions.filter(a=>/workshop|oficina|conserto|repar|mec.nico/i.test(a.id+' '+a.label))){try{await action(a);}catch(e){report.errors.push(a.id+': '+e.message);save();}}
  }else if(category==='pilot'){
   const p=catalog.places.find(p=>p.id==='regional-campos-mansao-1')||catalog.places.find(p=>p.id==='marina-costa');if(!p)throw Error('Pilot destination absent');
   await place(p);const a=catalog.actions.find(a=>a.id===p.id+'-door');if(a)await action(a);
