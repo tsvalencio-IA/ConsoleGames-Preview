@@ -374,7 +374,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Painel GM oculto, concessões positivas, usuários e aplicação idempotente",
-      "sha256Body": "156505e4461d2a142cc7bf04396030c64a7154cd4d894a67c09596162ce176bf"
+      "sha256Body": "adc93834bbd1c40389a0799249f0a9acde321af1e9265ac41e95c48f03c1f902"
     },
     {
       "file": "src/modules/40-world-evolution-v702.js",
@@ -748,7 +748,7 @@
       "startLine": 2,
       "endLine": 77,
       "description": "Fundação, lobby, jogo e modais",
-      "sha256Body": "60d1a22dc038bd3656954b7dee70b515f0b63a6ac0ee9388073d5465faeba73e"
+      "sha256Body": "22d5a041e0aec10de2610a039fa60df28873c2755933b6562114fdb3e6627618"
     },
     {
       "file": "src/styles/01-legacy-v607-v613.css",
@@ -867,7 +867,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Interface responsiva e isolada do painel administrativo GM",
-      "sha256Body": "24c1246f66e9610855281b8a664b9255a518a8ca87df1d81eafad3b37eeb7ae0"
+      "sha256Body": "78ce8e9df782b01cf1af399ef6e0817afd30fe2c882e44c4b2d3bbcb357890d2"
     },
     {
       "file": "src/styles/18-world-evolution-v702.css",
