@@ -1,4 +1,5 @@
 name: Filmagem OTThi - gameplay para clipe
+# Execução de captura isolada; não publica nem modifica o jogo.
 on:
   push:
     branches: ['capture/clipe-otthi-20261125']
