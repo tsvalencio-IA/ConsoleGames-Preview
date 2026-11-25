@@ -1,0 +1,44 @@
+name: OTThi - Captura continua acelerada
+on:
+  push:
+    branches: ['capture/clipe-otthi-20261125']
+    paths: ['.github/workflows/filmagem-continua.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prioridades:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        category: [pilot, priority-shops, priority-workshop]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar ambiente de captura
+        run: |
+          python3 games/otthi/tools/build_project.py
+          command -v ffprobe || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+          node --check tools/filmagem/diretor-continuo.mjs
+      - name: Filmar cenas prioritarias sem PNG por quadro
+        env:
+          FILM_CATEGORY: ${{ matrix.category }}
+        run: node tools/filmagem/diretor-continuo.mjs
+      - name: Salvar MP4 concluidos e cobertura mesmo com falha
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CONTINUA-${{ matrix.category }}
+          path: |
+            filmagem-continua/**/*.mp4
+            filmagem-continua/**/*.json
+            !filmagem-continua/**/*.tmp.mp4
+          if-no-files-found: error
+          retention-days: 14
