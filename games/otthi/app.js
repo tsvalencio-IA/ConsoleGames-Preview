@@ -2722,10 +2722,12 @@
     ],
     nodes:{
       RIO_GODOY:{x:-140,z:0},RIO_GODOY_W:{x:-170,z:0},
-      RIO_MURCHID_S:{x:205,z:-104},RIO_MURCHID_M:{x:205,z:56},RIO_MURCHID_N:{x:205,z:117},RIO_MURCHID_CONDOMINIOS:{x:300,z:230}
+      RIO_MURCHID_S:{x:205,z:-104},RIO_MURCHID_M:{x:205,z:56},RIO_MURCHID_N:{x:205,z:117},
+      // Match the two physical bends of Acesso Rios D’Italia, not a diagonal shortcut.
+      RIO_CONDOMINIOS_CURVA_O:{x:205,z:128},RIO_CONDOMINIOS_CURVA_L:{x:300,z:128},RIO_MURCHID_CONDOMINIOS:{x:300,z:230}
     },
     edges:[['HW','RIO_GODOY'],['RIO_GODOY','RIO_GODOY_W'],['RIO_GODOY_W','OV18'],['RIO_GODOY_W','OV19'],
-      ['RIO_MURCHID_S','A_LINK'],['A_LINK','RIO_MURCHID_M'],['RIO_MURCHID_M','RIO_MURCHID_N'],['RIO_MURCHID_N','RIO_MURCHID_CONDOMINIOS']],
+      ['RIO_MURCHID_S','A_LINK'],['A_LINK','RIO_MURCHID_M'],['RIO_MURCHID_M','RIO_MURCHID_N'],['RIO_MURCHID_N','RIO_CONDOMINIOS_CURVA_O'],['RIO_CONDOMINIOS_CURVA_O','RIO_CONDOMINIOS_CURVA_L'],['RIO_CONDOMINIOS_CURVA_L','RIO_MURCHID_CONDOMINIOS']],
     avenueNames:{
       'avenida-central-ew':'Avenida Bady Bassitt',
       'avenida-central-ns':'Avenida Alberto Andaló',
