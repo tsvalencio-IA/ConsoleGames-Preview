@@ -23447,7 +23447,8 @@ function precompile(T,renderer,scene,camera,timings){
   }
 
 
-  const rioFotto={stations:[],pending:null,busy:false,lastAt:-Infinity,db:null};
+  const rioFotto={stations:[],pending:null,busy:false,lastAt:-Infinity,db:null,stats:{passes:0,attempts:0,saved:0,rejected:{}}};
+  function rioFottoReject(reason){const r=rioFotto.stats.rejected;r[reason]=(r[reason]||0)+1;return null;}
   const RIO_FOTTO_PRICE=15;
   function rioFottoOwner(){const id=String(state.account?.accountId||state.profile?.playerId||'');return id?'player:'+id:'';}
   function rioFottoDB(){
@@ -23470,18 +23471,40 @@ function precompile(T,renderer,scene,camera,timings){
   }
   function rioFottoBuild(){
     if(rioFotto.stations.length)return;
-    for(const {course} of compactRio.courses.values())for(const [index,gate] of course.gates.entries()){
-      if(index!==0&&index!==3)continue;if(rioFotto.stations.some(s=>distance2D(s.gate,gate)<12))continue;
-      const prev=index?course.gates[index-1]:course.start,dx=gate.x-prev.x,dz=gate.z-prev.z,len=Math.hypot(dx,dz)||1;let pos=null;
-      for(const offset of[3.8,-3.8,5,-5,6,-6]){
-        const x=gate.x-dz/len*offset,z=gate.z+dx/len*offset;
-        if(!waterAt(x,z)&&!positionBlockedForPlayer(x,z,.65,{ignoreTraffic:true,ignoreParkedVehicles:true})){pos={x,z};break;}
+    for(const {course} of compactRio.courses.values()){
+      // Real course segments, not the chord between distant checkpoints.
+      const candidates=[];
+      for(let i=1;i<course.route.length;i++){
+        const a=course.route[i-1],b=course.route[i],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
+        if(len<7)continue;
+        for(const f of[.5,.35,.65]){
+          const gate={x:a.x+dx*f,z:a.z+dz*f};
+          if(!waterAt(gate.x,gate.z))candidates.push({gate,dx:dx/len,dz:dz/len,len});
+        }
       }
-      if(!pos)continue;
+      candidates.sort((a,b)=>b.len-a.len);
+      let covered=0;
+      for(const {gate,dx,dz} of candidates){
+        if(covered>=2)break;
+        if(rioFotto.stations.some(s=>distance2D(s.gate,gate)<16))continue;
+        let pos=null;
+        for(const offset of[5.2,-5.2,6.6,-6.6,4.3,-4.3,8,-8]){
+          const x=gate.x-dz*offset+dx*1.3,z=gate.z+dx*offset+dz*1.3;
+          if(waterAt(x,z)||positionBlockedForPlayer(x,z,.65,{ignoreTraffic:true,ignoreParkedVehicles:true}))continue;
+          let clear=true;
+          for(const f of[.25,.5,.75]){
+            const px=x+(gate.x-x)*f,pz=z+(gate.z-z)*f;
+            if(positionBlockedForPlayer(px,pz,.18,{ignoreTraffic:true,ignoreParkedVehicles:true})){clear=false;break;}
+          }
+          if(clear){pos={x,z};break;}
+        }
+        if(!pos)continue;
       const id='rio-fotto-'+rioFotto.stations.length,name=['Marina','Bruno','Helena','Rafael'][rioFotto.stations.length%4];
       const person=createNPC(id,'f_OTTO · '+name,pos.x,pos.z,0x213345,0);person.cityLifeManaged=true;person.group.position.y=groundHeightAt(pos.x,pos.z);person.group.rotation.y=Math.atan2(gate.x-pos.x,gate.z-pos.z);
       rioFotto.stations.push({id,gate:{x:gate.x,z:gate.z},pos,course:course.name,person,armed:true});
       const talk=world.interactables.find(a=>a.id==='npc-'+id);if(talk){talk.label='f_OTTO · Ver minhas fotos';talk.actionLabel='Fotos';talk.icon='📷';talk.action=openRioFottoGallery;}
+        covered++;
+      }
     }
   }
   function rioFottoObserveRun(dt,before){
@@ -23489,18 +23512,99 @@ function precompile(T,renderer,scene,camera,timings){
     const moved=Math.hypot(player.x-before.x,player.z-before.z),speed=moved/Math.max(.001,dt),now=performance.now();
     for(const s of rioFotto.stations){
       if(Math.hypot(player.x-s.gate.x,player.z-s.gate.z)>9)s.armed=true;
-      if(!s.armed||rioFotto.pending||rioFotto.busy||now-rioFotto.lastAt<12000||moved>2||speed<1.8||(!input.isSprinting&&!activeRace))continue;
-      if(rioFottoDistanceToPass(before,player,s.gate)>2.4)continue;
-      const owner=rioFottoOwner();if(!owner)continue;s.armed=false;rioFotto.lastAt=now;rioFotto.pending={owner,station:s,at:Date.now(),until:now+1800};break;
+      if(!s.armed||rioFotto.pending||rioFotto.busy||now-rioFotto.lastAt<3000||now<(s.retryAt||0)||moved>2||speed<1.8||(!input.isSprinting&&!activeRace)||player.swimming)continue;
+      if(rioFottoDistanceToPass(before,player,s.gate)>4.2)continue;
+      const owner=rioFottoOwner();if(!owner)continue;rioFotto.stats.passes++;s.retryAt=now+450;rioFotto.pending={owner,station:s,at:Date.now(),until:now+1800,motion:{x:player.x-before.x,z:player.z-before.z}};break;
     }
+  }
+  // The optical origin belongs in front of the photographer, never inside
+  // the head or its camera prop. Candidate positions stay near that station.
+  function rioFottoLensPositions(station,subject,motion){
+    const dx=subject.x-station.x,dz=subject.z-station.z,len=Math.hypot(dx,dz);
+    if(len<2.6)return [];
+    const ux=dx/len,uz=dz/len,poses=[];
+    for(const forward of[1.15,1.55,-1.15,-1.7])for(const side of[0,.7,-.7,1.6,-1.6]){
+      const x=station.x+ux*forward-uz*side,z=station.z+uz*forward+ux*side;
+      if(Math.hypot(x-subject.x,z-subject.z)<2.6)continue;
+      const front=(x-subject.x)*(motion?.x||0)+(z-subject.z)*(motion?.z||0);
+      poses.push({x,z,front});
+    }
+    return poses.sort((a,b)=>b.front-a.front);
+  }
+  function rioFottoVisibleMaterial(mesh){
+    const m=mesh.material;return Array.isArray(m)?m.some(x=>x?.visible!==false&&x?.opacity!==0):!!m&&m.visible!==false&&m.opacity!==0;
+  }
+  function rioFottoAvatarBounds(){
+    const bounds=new THREE.Box3(),one=new THREE.Box3();
+    playerGroup.updateMatrixWorld(true);
+    for(const root of[playerModel,avatarLayer]){
+      if(!root||!root.visible)continue;
+      root.traverseVisible(mesh=>{
+        if(!mesh.isMesh||!mesh.geometry||!rioFottoVisibleMaterial(mesh))return;
+        if(!mesh.geometry.boundingBox)mesh.geometry.computeBoundingBox();
+        if(mesh.geometry.boundingBox)bounds.union(one.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrixWorld));
+      });
+    }
+    return bounds;
+  }
+  function rioFottoChooseCamera(job){
+    const bounds=rioFottoAvatarBounds();if(bounds.isEmpty())return rioFottoReject('avatar-empty');
+    const centre=bounds.getCenter(new THREE.Vector3()),size=bounds.getSize(new THREE.Vector3());
+    if(!Number.isFinite(size.y)||size.y<.3||size.y>12)return rioFottoReject('avatar-bounds');
+    scene.updateMatrixWorld(true);
+    const obstacles=[],sphere=new THREE.Sphere(),reach=18;
+    // One traversal per shutter attempt, never during ordinary movement.
+    scene.traverseVisible(mesh=>{
+      if(!mesh.isMesh||!mesh.geometry||!rioFottoVisibleMaterial(mesh))return;
+      for(let p=mesh;p;p=p.parent)if(p===playerGroup||p===world.skyDome)return;
+      const g=mesh.geometry;
+      if(!mesh.isInstancedMesh||mesh.userData.otthiBoundedInstances){
+        if(!g.boundingSphere)g.computeBoundingSphere();
+        if(g.boundingSphere){
+          sphere.copy(g.boundingSphere).applyMatrix4(mesh.matrixWorld);
+          if(sphere.center.distanceTo(centre)>sphere.radius+reach)return;
+        }
+      }
+      obstacles.push(mesh);
+    });
+    const points=[.28,.55,.78].map(f=>new THREE.Vector3(centre.x,bounds.min.y+size.y*f,centre.z));
+    const ray=new THREE.Raycaster(),direction=new THREE.Vector3(),hitPoint=new THREE.Vector3();
+    const subject={x:centre.x,z:centre.z};let rejected='no-lens-position';
+    for(const pos of rioFottoLensPositions(job.station.pos,subject,job.motion)){
+      if(positionBlockedForPlayer(pos.x,pos.z,.12,{ignoreTraffic:true,ignoreParkedVehicles:true})){rejected='lens-blocked';continue;}
+      const cam=new THREE.PerspectiveCamera(48,768/512,.05,120);
+      cam.position.set(pos.x,groundHeightAt(pos.x,pos.z)+Math.max(1.6,Math.min(2.35,size.y*.63)),pos.z);
+      cam.lookAt(centre);cam.updateMatrixWorld(true);
+      let fits=false;
+      for(const fov of[42,48,54,60,66,72,78]){
+        cam.fov=fov;cam.updateProjectionMatrix();fits=true;
+        for(const x of[bounds.min.x,bounds.max.x])for(const y of[bounds.min.y,bounds.max.y])for(const z of[bounds.min.z,bounds.max.z]){
+          hitPoint.set(x,y,z).project(cam);
+          if(Math.abs(hitPoint.x)>.88||Math.abs(hitPoint.y)>.88||hitPoint.z< -1||hitPoint.z>1)fits=false;
+        }
+        if(fits)break;
+      }
+      if(!fits){rejected='framing';continue;}
+      const clear=points.every(point=>{
+        direction.subVectors(point,cam.position);const distance=direction.length();
+        ray.set(cam.position,direction.normalize());ray.near=.05;ray.far=Math.max(.05,distance-.05);
+        return !ray.intersectObjects(obstacles,false).some(hit=>{
+          const material=Array.isArray(hit.object.material)?hit.object.material[hit.face?.materialIndex||0]:hit.object.material;
+          return material?.visible!==false&&material?.opacity!==0;
+        });
+      });
+      if(clear)return cam;
+      rejected='occlusion';
+    }
+    return rioFottoReject(rejected);
   }
   function rioFottoCaptureFrame(){
     const job=rioFotto.pending;if(!job)return;rioFotto.pending=null;
-    if(job.owner!==rioFottoOwner()||performance.now()>job.until||!running||paused||Math.hypot(player.x-job.station.gate.x,player.z-job.station.gate.z)>8)return;
-    rioFotto.busy=true;let target=null;
+    if(job.owner!==rioFottoOwner()||performance.now()>job.until||!running||paused||player.vehicle||player.boating||player.swimming||player.transit.mode||Math.hypot(player.x-job.station.gate.x,player.z-job.station.gate.z)>8)return;
+    rioFotto.busy=true;rioFotto.stats.attempts++;let target=null;
     const oldTarget=renderer.getRenderTarget(),oldViewport=renderer.getViewport(new THREE.Vector4()),oldScissor=renderer.getScissor(new THREE.Vector4()),oldScissorTest=renderer.getScissorTest(),oldVisible=playerGroup.visible;
     try{
-      const w=768,h=512,at=job.station.pos,cam=new THREE.PerspectiveCamera(48,w/h,.1,120);cam.position.set(at.x,groundHeightAt(at.x,at.z)+1.85,at.z);cam.lookAt(player.x,player.y+1.05,player.z);
+      const w=768,h=512;playerGroup.visible=true;const cam=rioFottoChooseCamera(job);if(!cam){rioFotto.busy=false;return;}
       target=new THREE.WebGLRenderTarget(w,h,{depthBuffer:true,stencilBuffer:false});target.texture.encoding=renderer.outputEncoding;
       playerGroup.visible=true;renderer.setRenderTarget(target);renderer.setScissorTest(false);renderer.render(scene,cam);
       const pixels=new Uint8Array(w*h*4);renderer.readRenderTargetPixels(target,0,0,w,h,pixels);
@@ -23510,9 +23614,10 @@ function precompile(T,renderer,scene,camera,timings){
         if(!blob||job.owner!==rioFottoOwner())return;
         const id=job.owner+':'+(globalThis.crypto?.randomUUID?.()||String(job.at)+'-'+Math.random().toString(36).slice(2));
         await rioFottoPut({id,owner:job.owner,at:job.at,course:job.station.course,blob});
+        job.station.armed=false;rioFotto.lastAt=performance.now();rioFotto.stats.saved++;
         if(job.owner===rioFottoOwner())toast('📷 f_OTTO registrou sua corrida! Veja no álbum do Menu.','good',2800);
       }catch(e){toast('f_OTTO: não foi possível salvar a foto.','warn',2400);}finally{rioFotto.busy=false;}},'image/jpeg',.91);
-    }catch(e){rioFotto.busy=false;toast('f_OTTO: captura indisponível neste aparelho.','warn',2300);}
+    }catch(e){rioFottoReject('render:'+String(e?.message||e).slice(0,120));rioFotto.busy=false;toast('f_OTTO: captura indisponível neste aparelho.','warn',2300);}
     finally{renderer.setRenderTarget(oldTarget);renderer.setViewport(oldViewport);renderer.setScissor(oldScissor);renderer.setScissorTest(oldScissorTest);playerGroup.visible=oldVisible;target?.dispose();}
   }
   function rioFottoDownload(row){
