@@ -160,14 +160,48 @@
   const data={id:c.r.id,phase:c.r.phase,subject};let accepted=false;civilMissions.starting=true;try{accepted=await civilCommand('begin',data);}finally{civilMissions.starting=false;}if(!accepted){toast('Este objetivo já foi usado ou aguarda outra etapa da equipe.','info');return;}const active=civilCurrent();if(!active||active.r.id!==data.id||active.r.phase!==data.phase||!civilValidateTask(active.book,data.id,active.uid,data.phase,subject)){civilCommand('cancel-task',data).catch(()=>{});return;}closeModal();const duration=OTCivilMissionCore.difficulties[c.r.difficulty].holdMs+180;
   if(otGames.active){civilMissions.task={...data,air:true,started:airNow(),duration};return;}
   const kind=c.r.type==='rio-avenidas'?'rio-landmark':subject.startsWith('fire-training')?'civil-hose':subject.startsWith('crossing-cone')?'civil-cone':subject==='crossing-neighbor'?'civil-escort':subject.startsWith('beach-litter')?'civil-pickup':'civil-deliver',point=kind==='civil-escort'?{x:309,z:46}:{x:player.x,z:player.z},pose={x:point.x,y:groundHeightAt(point.x,point.z),z:point.z,yaw:Math.atan2(target.x-player.x,target.z-player.z)};
-  const started=beginCharacterActivity(kind,{target:point,pose,commit:()=>{civilCommand('finish',data).then(ok=>{if(!ok)toast('A etapa não foi confirmada. O progresso anterior continua salvo.','warn');});civilMissions.task=null;return true;}});
+  // Completing the local animation is not the same as committing mission progress.
+  const started=beginCharacterActivity(kind,{target:point,pose,commit:()=>{
+    const task=civilMissions.task;
+    if(task?.id===data.id&&task.phase===data.phase&&task.subject===data.subject){task.animationDone=true;task.activityKind=kind;}
+    return false;
+  }});
   if(started){characterActivities.session.duration=Math.max(duration/1000,kind==='civil-escort'?1.8:0);civilMissions.task={...data,air:false,started:airNow(),duration};}else civilCommand('cancel-task',data);
  }
  function updateCivilMissions(){
   if(!ensureCivilMissions())return;civilCheckRoom();civilApplyShared();civilPruneTransit();civilRebindSolo();const shared=civilMissions.shared.data,own=civilNetUid(),claim=shared.transit?.clients?.[own];
   if(claim&&!civilCommunity.ride){civilCommunity.ride={...claim};civilCommunity.waiting=null;clearMovementInputs();}
   const c=civilCurrent(),p=c&&c.book.progress(c.r.id,c.uid);if(c&&c.r.status==='completed'&&!state.civilWorld.rewardReceipts[c.r.id]){state.civilWorld.rewardReceipts[c.r.id]=Date.now();state.civilWorld.completedTypes[c.r.type]=(state.civilWorld.completedTypes[c.r.type]||0)+1;const amount=p.definition.reward+(c.r.difficulty==='hard'?50:0);addCoins(amount);addXP(50);awardMedal(p.definition.title);civilPersist();toast('Aventura concluída! +'+amount+' moedas.','good',4000);}
-  if(civilMissions.task){const t=civilMissions.task;if(!t.finishing){if(!c||c.r.id!==t.id||!civilTeamReady(c.r)||!civilValidateTask(c.book,t.id,c.uid,t.phase,t.subject)||!t.air&&!characterActivities.session){civilCommand('cancel-task',t).catch(()=>{});if(characterActivities.session?.kind.startsWith('civil-'))stopCharacterActivity();civilMissions.task=null;}else if(t.air&&airNow()-t.started>=t.duration){t.finishing=true;civilCommand('finish',t).then(ok=>{toast(ok?'📷 Paisagem registrada!':'A foto não foi confirmada. Tente novamente no panorama.',ok?'good':'warn',2400);}).catch(()=>{}).finally(()=>{if(civilMissions.task===t)civilMissions.task=null;});}}}
+  if(civilMissions.task){
+    const t=civilMissions.task;
+    if(!t.finishing){
+      const same=!!c&&c.r.id===t.id&&c.r.phase===t.phase;
+      const valid=same&&civilTeamReady(c.r)&&civilValidateTask(c.book,t.id,c.uid,t.phase,t.subject);
+      if(!valid||!t.air&&!t.animationDone&&!characterActivities.session){
+        if(same)civilCommand('cancel-task',t).catch(()=>{});
+        if(characterActivities.session?.kind.startsWith('civil-'))stopCharacterActivity();
+        civilMissions.task=null;
+      }else if((t.air||t.animationDone)&&airNow()-t.started>=t.duration){
+        // Use the mission authority clock as well as the completed animation.
+        // Never bypass its duration, proximity, ride or eligibility checks.
+        t.finishing=true;
+        civilCommand('finish',t).then(async ok=>{
+          if(!ok){
+            const current=civilCurrent();
+            if(current?.r.id===t.id&&current.r.phase===t.phase)await civilCommand('cancel-task',t);
+            toast(t.air?'A foto não foi confirmada. Tente novamente no panorama.':'A etapa não foi confirmada. Tente novamente; o progresso anterior está salvo.','warn',2600);
+          }else{
+            if(!t.air){characterActivities.completed++;characterActivities.lastAction=t.activityKind;}
+            toast(t.air?'📷 Paisagem registrada!':'Ação concluída.','good',1400);
+          }
+        }).catch(()=>{
+          const current=civilCurrent();
+          if(current?.r.id===t.id&&current.r.phase===t.phase)civilCommand('cancel-task',t).catch(()=>{});
+          toast('Não foi possível confirmar a etapa. Tente novamente.','warn',2600);
+        }).finally(()=>{if(civilMissions.task===t)civilMissions.task=null;});
+      }
+    }
+  }
   for(const[id,mesh]of civilCommunity.props)if(id.startsWith('beach-litter-'))mesh.visible=!(c?.r.type==='beach'&&c.r.tokens['1:team:'+id]);
   civilSyncTaskButton(c);
   updateCivilHUD();if(c?.r.status==='active')civilRoute();
