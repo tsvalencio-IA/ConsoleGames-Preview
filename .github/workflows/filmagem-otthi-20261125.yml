@@ -1,0 +1,85 @@
+name: Filmagem OTThi - gameplay para clipe
+on:
+  push:
+    branches: ['capture/clipe-otthi-20261125']
+    paths: ['.github/workflows/filmagem-otthi-20261125.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  filmar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - capitulo: 01-Ferrari-compra-interior
+            scripts: 'tests/filmagem-ferrari.mjs'
+          - capitulo: 02-Oficina-missoes-policia-bombeiros
+            scripts: 'tests/world-civil-browser.mjs tests/rio-city-services-browser.mjs'
+          - capitulo: 03-Aviao-helicoptero-balao
+            scripts: 'tests/world-airport-balloon-browser.mjs tests/vehicle-orbit-browser.mjs tests/balloon-photo-browser.mjs'
+          - capitulo: 04-Casas-comercio-mansoes-hoteis
+            scripts: 'tests/rio-regional-interiors-browser.mjs tests/rio-compact-world-browser.mjs'
+          - capitulo: 05-Fotografos-corrida-parque
+            scripts: 'tests/rio-park-integrity-browser.mjs'
+          - capitulo: 06-Kart-boxe-tenis-guerra-voo
+            scripts: 'tests/playable-smoke.mjs'
+          - capitulo: 07-Familia-danca
+            scripts: 'tests/family-playable.mjs tests/dance-console-browser.mjs'
+          - capitulo: 08-Corridas-regionais
+            scripts: 'tests/rio-regional-races-browser.mjs'
+          - capitulo: 09-Compras-entregas-garagem
+            scripts: 'tests/world-phone-orders-browser.mjs tests/world-fleet-garage-browser.mjs'
+          - capitulo: 10-Modos-OT-Games
+            scripts: 'tests/ot-games-browser.mjs'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compilar versão isolada
+        run: python3 games/otthi/tools/build_project.py
+      - name: Instalar ferramentas de gravação
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+      - name: Servir jogo local no servidor GitHub
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/filmagem-http.log 2>&1 &
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+      - name: Jogar e gravar em modo independente
+        env:
+          ARCADE_QA_LAYOUTS: landscape-844,portrait
+          ARCADE_QA_GUEST: '1'
+        run: |
+          mkdir -p filmagem
+          git rev-parse HEAD > filmagem/REVISAO.txt
+          status=0
+          for script in ${{ matrix.scripts }}; do
+            echo "Gravando $script"
+            node tools/filmagem/record.mjs "$script" || status=1
+          done
+          exit "$status"
+      - name: Converter para MP4 para edição
+        if: always()
+        run: |
+          if command -v ffmpeg >/dev/null; then
+            find filmagem -name 'cena-*.webm' -print0 | while IFS= read -r -d '' video; do
+              ffmpeg -nostdin -hide_banner -loglevel error -y -i "$video" -c:v libx264 -preset fast -crf 20 -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -pix_fmt yuv420p -movflags +faststart "${video%.webm}.mp4" || true
+            done
+          fi
+      - name: Baixar cenas e evidências mesmo se houver erro
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.capitulo }}
+          path: |
+            filmagem/
+            test-results/**/result.json
+            test-results/**/failure.json
+            test-results/**/failure.png
+          if-no-files-found: warn
+          retention-days: 14
