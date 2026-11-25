@@ -1,0 +1,44 @@
+name: OTThi - Retomada das atividades pendentes
+on:
+  push:
+    branches: ['capture/clipe-otthi-20261125']
+    paths: ['.github/workflows/filmagem-retomada.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cenas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        category: [mar-guaruja, mar-santos, voo-heli-tour, voo-balloon, voo-plane-tour, teleferico, casa, shopping, oficina]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar captura
+        run: |
+          python3 games/otthi/tools/build_project.py
+          command -v ffprobe || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+          node --check tools/filmagem/retomada.mjs
+      - name: Executar acoes e salvar quadros reais
+        env:
+          FILM_CATEGORY: ${{ matrix.category }}
+        run: node tools/filmagem/retomada.mjs
+      - name: Exportar somente videos finalizados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RETOMADA-${{ matrix.category }}
+          path: |
+            filmagem-retomada/**/*.mp4
+            filmagem-retomada/**/cobertura.json
+            !filmagem-retomada/**/*.tmp.mp4
+          if-no-files-found: error
+          retention-days: 14
