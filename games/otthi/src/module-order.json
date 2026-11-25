@@ -192,7 +192,7 @@
       "startLine": 3559,
       "endLine": 3717,
       "description": "Água, câmera e animação da pesca, barco e física náutica",
-      "sha256Body": "7f779857c48d5d5ff67a783573bae9680d5b214200c84932320ccf63c8ee6fe4"
+      "sha256Body": "cbe6a0d2f0d0da4355dc43d566384316e7835f3c1f7d910e7cf66d6f583582c6"
     },
     {
       "file": "src/modules/19-campfire-hunting-house-extensions.js",
@@ -374,7 +374,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Painel GM oculto, concessões positivas, usuários e aplicação idempotente",
-      "sha256Body": "8a35871ef0e58740860fd0bff6cd3c7bc5ab19705748cd05a5c573d31c43910d"
+      "sha256Body": "156505e4461d2a142cc7bf04396030c64a7154cd4d894a67c09596162ce176bf"
     },
     {
       "file": "src/modules/40-world-evolution-v702.js",
@@ -534,7 +534,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Destinos acessíveis, marina com lanchas pilotáveis e neve visível",
-      "sha256Body": "9642407093b2681841668c95a56020e202038d6d064520a6a1ed519bc63e3c4f"
+      "sha256Body": "cfcde8daccac34309e3ac0301bb53224ac9b760af0db65dfa86e84b5f2d87a3a"
     },
     {
       "file": "src/modules/58-character-activities.js",
@@ -581,7 +581,7 @@
     {
       "file": "src/modules/65-civil-community.js",
       "description": "Vizinhanças, praia, neve, balões e teleférico civil",
-      "sha256Body": "4167071b09ff190ed5296ce8691722970c61ec7c7fe6ea5ffdd2e4dc45f91c42",
+      "sha256Body": "9be89ad5756355f2ca6683d82ac8cdeac506fd2221284f39db21f5d15da4d1a5",
       "startLine": 0,
       "endLine": 0
     },
@@ -667,7 +667,7 @@
     },
     {
       "file": "src/modules/84-rio-v51-world.js",
-      "sha256Body": "c959089acc67e054a849392acd6003804be0946e612679a38eaf574c39a10700"
+      "sha256Body": "f4c253efe7b38044857b2e45416ad5e402be4ef32569ad4e9ef4c790b8de9248"
     },
     {
       "file": "src/modules/85-rio-city-activities.js",
@@ -683,7 +683,7 @@
     },
     {
       "file": "src/modules/88-rio-places.js",
-      "sha256Body": "9673b4ae2ca47deddb27f159cb5eef3531d551e1a978dfecff00a148c5227d89"
+      "sha256Body": "ecd1a1501467dd9fac74d67d77c39e07e6aff1d84af955e07a5944c17e968fcd"
     },
     {
       "file": "src/modules/89-rio-map-world.js",
@@ -699,7 +699,7 @@
     },
     {
       "file": "src/modules/92-rio-waterfront.js",
-      "sha256Body": "a0bff3bd974ed1abb57b11f8b1690ec974398b612293bcfc7c1bdcbaf20deffd"
+      "sha256Body": "0fa266ebc6a69f4caf80f7def82eccd495edd6cf5b6c482a796346086b2f46f3"
     },
     {
       "file": "src/modules/93-rio-city-services.js",
@@ -714,7 +714,7 @@
     {
       "file": "src/modules/95-rio-open-buildings.js",
       "description": "Playable residences, shops, bakery and oil service",
-      "sha256Body": "0fb090540b6a56079c38826457576299104179e62b47eee3edae5248e95af0d9"
+      "sha256Body": "14922a0a838e58609a886f4a4da1b179ab8f6d4332a85dd870719f6969849da7"
     },
     {
       "file": "src/modules/96-rio-airport.js",
@@ -867,7 +867,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Interface responsiva e isolada do painel administrativo GM",
-      "sha256Body": "1f9c9385a2d1a058454b98d4f459259acb0377081dc7fc43b08e48e75630025f"
+      "sha256Body": "24c1246f66e9610855281b8a664b9255a518a8ca87df1d81eafad3b37eeb7ae0"
     },
     {
       "file": "src/styles/18-world-evolution-v702.css",

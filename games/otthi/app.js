@@ -7273,12 +7273,12 @@
   }
   function updateBoatPanel(){
     const panel=ensureBoatPanel(),rioCraft=!!world.boat?.rioBerth;
-    const board=world.boat?.kind==='board';
+    const board=['board','surf'].includes(world.boat?.kind);
     panel.hidden=!player.boating||(rioCraft&&board);
     if(!player.boating)return;
     panel.querySelector('[data-boat-exit]').hidden=rioCraft;
     const passenger=!!player.boat.passengerOf,fish=panel.querySelector('[data-boat-fish]');
-    fish.hidden=['board','jet'].includes(world.boat?.kind);fish.disabled=passenger;
+    fish.hidden=['board','surf','jet'].includes(world.boat?.kind);fish.disabled=passenger;
     setControlText(fish.querySelector('span'),passenger?'Passageiro':'Pescar');
   }
   function applyBoatDriver(selected){
@@ -7308,7 +7308,7 @@
     if(separate){
       if(rioMap.compact){state.boats.activeBoatId=selected.id;state.boats.passengerOf='';}
       rioRecordBoatPose();
-      toast(selected.kind==='board'?'Use o manche para remar. Volte à mesma vaga para sair.':
+      toast(selected.kind==='surf'?'Surfe: controle a direção e aproveite as ondas perto da costa. Volte à mesma vaga para sair.':selected.kind==='board'?'Use o manche para remar. Volte à mesma vaga para sair.':
         'Use o manche para navegar. Volte à sua vaga e freie para desembarcar.','good',3000);
     }else{
       state.boats.activeBoatId=selected.id;state.boats.passengerOf='';
@@ -7359,7 +7359,7 @@
     const boat=player.boat;if(boat.passengerOf){const ghost=world.ghosts.get(boat.passengerOf),target=ghost?.userData?.target;if(!ghost||!target){boat.hostMissingAt=boat.hostMissingAt||performance.now();if(performance.now()-boat.hostMissingAt>3500){toast('O motorista saiu. Você voltou ao píer.','warn');player.x=BOAT_DOCK.exitX;player.z=54;exitBoat(true);}player.vx=player.vz=0;return;}boat.hostMissingAt=0;const tx=Number(target.x||ghost.position.x),tz=Number(target.z||ghost.position.z);player.vx=clamp((tx-player.x)*8,-18,18);player.vz=clamp((tz-player.z)*8,-18,18);boat.heading=Number(target.r||boat.heading);player.facing=boat.heading;return;}
     // V643: mesma convenção do carro — manche para a direita vira para a direita.
     const steer=Math.abs(ix)<.07?0:-ix,command=mobilityThrottleIntent(iz,boat.speed),throttle=command.throttle;
-    if(command.brake)boat.speed=approachNumber(boat.speed,0,(7.2+Math.abs(boat.speed)*.8)*dt);else{const crossing=boat.speed*throttle<-.08;boat.speed+=throttle*(world.boat?.acceleration??(world.boat?.seaGoing?11:8.5))*(crossing?1.8:1)*dt;}
+    if(command.brake)boat.speed=approachNumber(boat.speed,0,(7.2+Math.abs(boat.speed)*.8)*dt);else{const crossing=boat.speed*throttle<-.08;boat.speed+=throttle*(world.boat?.acceleration??(world.boat?.seaGoing?11:8.5))*(crossing?1.8:1)*dt;if(world.boat?.kind==='surf'&&throttle>.1&&player.z<563){const shoreward=Math.max(0,-Math.cos(boat.heading)),wave=Math.max(0,Math.sin((player.z-513)*.34-performance.now()*.0017));boat.speed+=wave*shoreward*2.7*dt;}}
     if(!throttle&&!command.brake)boat.speed*=Math.pow(.12,dt);if(Math.abs(boat.speed)<.02&&!throttle)boat.speed=0;boat.speed=clamp(boat.speed,-(world.boat?.reverseSpeed||3.4),world.boat?.maxSpeed||8.8);boat.steerVisual=lerp(boat.steerVisual||0,steer,Math.min(1,dt*6.5));const authority=Math.max(clamp(Math.abs(boat.speed)/2.8,0,1),Math.abs(throttle)>.1?.12:0);const turnRate=1.5/(1+Math.abs(boat.speed)*.075);boat.heading+=boat.steerVisual*turnRate*authority*dt*(boat.speed<-.08?-1:1);player.vx=Math.sin(boat.heading)*boat.speed;player.vz=Math.cos(boat.heading)*boat.speed;player.facing=boat.heading;updateMobilityControlLabels();
   }
   function constrainBoat(prevX,prevZ,previousHeading=player.boat.heading){
@@ -7375,7 +7375,7 @@
     if(!player.boat.passengerOf&&(!isInsideLakeNavigable(player.x,player.z)||world.boat?.seaGoing&&typeof seaNavigationBlocked==='function'&&seaNavigationBlocked(player.x,player.z,player.boat.heading))){player.x=prevX;player.z=prevZ;player.boat.speed*=-.18;player.vx=player.vz=0;}if(world.boat){world.boat.group.position.set(player.x,.1,player.z);world.boat.group.rotation.y=player.boat.heading;world.boat.heading=player.boat.heading;state.boats.parked=state.boats.parked||{};state.boats.parked[world.boat.id]={x:+player.x.toFixed(2),z:+player.z.toFixed(2),heading:+player.boat.heading.toFixed(3)};}state.boats.lastPosition={x:+player.x.toFixed(2),z:+player.z.toFixed(2),heading:+player.boat.heading.toFixed(3)};}
   function weightedFish(){let r=Math.random()*100;for(const fish of FISH_SPECIES){r-=fish.weight;if(r<=0)return fish;}return FISH_SPECIES[0];}
   function startFishing(source='shore',options={}){
-    if(fishingSession){toast('Finalize a pesca atual primeiro.','warn');return;}if((state.inventory.fishingRod||0)<1){toast('Você precisa de uma vara de pesca.','warn');return;}if((state.inventory.bait||0)<1){toast('Você ficou sem isca.','warn');return;}if(source==='boat'&&(!player.boating||world.boat?.kind==='board')){toast('Entre no barco primeiro.','warn');return;}if(source!=='boat'&&!isNearFishingArea()){toast('Pesque somente nos pontos marcados da margem.','warn');return;}const wait=Math.max(0,6500-(Date.now()-Number(state.fishing.lastAttempt||0)));if(wait>0){toast(`Aguarde ${Math.ceil(wait/1000)} s para tentar novamente.`,'warn');return;}
+    if(fishingSession){toast('Finalize a pesca atual primeiro.','warn');return;}if((state.inventory.fishingRod||0)<1){toast('Você precisa de uma vara de pesca.','warn');return;}if((state.inventory.bait||0)<1){toast('Você ficou sem isca.','warn');return;}if(source==='boat'&&(!player.boating||['board','surf','jet'].includes(world.boat?.kind))){toast('Entre no barco primeiro.','warn');return;}if(source!=='boat'&&!isNearFishingArea()){toast('Pesque somente nos pontos marcados da margem.','warn');return;}const wait=Math.max(0,6500-(Date.now()-Number(state.fishing.lastAttempt||0)));if(wait>0){toast(`Aguarde ${Math.ceil(wait/1000)} s para tentar novamente.`,'warn');return;}
     setFishingUiActive(true);const token=uid();fishingSession={token,source,options,hookTimer:0,escapeTimer:0,finishTimer:0};beginFishingVisual(source);ensureFishingModalStyle();openModal(options.cooperative?'Pesca com amigo':'Pesca',`<div class="activity-card fishing-card"><div class="fishing-compact-status" data-fishing-status>🎣 Pronto</div><div class="fishing-camera-hint">↔ Arraste a paisagem para girar a câmera</div><div class="activity-meter"><i data-fishing-meter></i></div><button class="btn primary xl" data-cast>Lançar</button><button class="btn good xl" data-pull hidden>PUXAR!</button></div>`,root=>{
       els.modal.classList.add('fishing-modal');
       const status=$('[data-fishing-status]',root),cast=$('[data-cast]',root),pull=$('[data-pull]',root),meter=$('[data-fishing-meter]',root);
@@ -11658,7 +11658,7 @@ function build(T,key,H){
 
   // ===== MODULE: 39-gm-admin-panel.js =====
   const GM_ITEM_CATALOG=Object.freeze({
-    wood:{label:'Madeira',icon:'🪵'},stone:{label:'Pedra',icon:'🪨'},goldOre:{label:'Minério de ouro',icon:'🟨'},goldBar:{label:'Barra de ouro',icon:'🏅'},food:{label:'Comida',icon:'🍎'},water:{label:'Água',icon:'💧'},crystals:{label:'Cristais',icon:'💎'},blocks:{label:'Blocos',icon:'🧱'},fences:{label:'Cercas',icon:'🪵'},keys:{label:'Chaves',icon:'🗝️'},fishingRod:{label:'Vara de pesca',icon:'🎣'},bait:{label:'Iscas',icon:'🪱'},rawFish:{label:'Peixe cru',icon:'🐟'},cookedFish:{label:'Peixe assado',icon:'🍽️'},forestResources:{label:'Recursos da floresta',icon:'🌿'},package:{label:'Pacotes',icon:'📦'}
+    wood:{label:'Madeira',icon:'🪵'},stone:{label:'Pedra',icon:'🪨'},goldOre:{label:'Minério de ouro',icon:'🟨'},goldBar:{label:'Barra de ouro',icon:'🏅'},food:{label:'Comida',icon:'🍎'},water:{label:'Água',icon:'💧'},crystals:{label:'Cristais',icon:'💎'},blocks:{label:'Blocos',icon:'🧱'},fences:{label:'Cercas',icon:'🪵'},keys:{label:'Chaves',icon:'🗝️'},fishingRod:{label:'Vara de pesca',icon:'🎣'},bait:{label:'Iscas',icon:'🪱'},rawFish:{label:'Peixe cru',icon:'🐟'},cookedFish:{label:'Peixe assado',icon:'🍽️'},forestResources:{label:'Recursos da floresta',icon:'🌿'},package:{label:'Pacotes',icon:'📦'},seeds:{label:'Sementes',icon:'🌱'},wheat:{label:'Trigo',icon:'🌾'},carrots:{label:'Cenouras',icon:'🥕'},clay:{label:'Argila',icon:'🟫'}
   });
   const GM_MAX_ADD=1000000,GM_TAP_WINDOW_MS=2600,GM_APPLIED_HISTORY_LIMIT=500;
   let gmTapTimes=[],gmTapLockedUntil=0,gmFailedAttempts=0,gmAttemptBlockedUntil=0,gmPanel=null,gmUsers=[],gmAudit=[],gmSelectedUid='',gmSelectedDetail=null,gmGrantQueue=Promise.resolve(),gmRefreshSequence=0;
@@ -11679,8 +11679,8 @@ function build(T,key,H){
     return String(value).slice(0,96);
   }
   function gmGrantSummary(grant={}){
-    const parts=[];if(gmPositiveInt(grant.coins))parts.push(`🪙 +${gmPositiveInt(grant.coins)}`);
-    for(const[key,value]of Object.entries(grant.items||{})){const amount=gmPositiveInt(value);if(!amount)continue;const meta=GM_ITEM_CATALOG[key]||{icon:'🎁',label:key};parts.push(`${meta.icon} ${meta.label} +${amount}`);}
+    const catalog=gmCatalog(),parts=[];if(gmPositiveInt(grant.coins))parts.push(`🪙 +${gmPositiveInt(grant.coins)}`);
+    for(const[key,value]of Object.entries(grant.items||{})){const amount=gmPositiveInt(value);if(!amount)continue;const meta=catalog[key]||{icon:'🎁',label:key};parts.push(`${meta.icon} ${meta.label} +${amount}`);}
     return parts.join(' • ');
   }
   function gmNormalizeIncomingGrant(detail={}){
@@ -11707,7 +11707,7 @@ function build(T,key,H){
     if(!alreadyAppliedLocally){
       if(grant.coins){state.profile.coins=Math.max(0,Number(state.profile.coins||0))+grant.coins;added+=grant.coins;}
       state.inventory=state.inventory&&typeof state.inventory==='object'?state.inventory:{};
-      for(const[key,amount]of Object.entries(grant.items)){state.inventory[key]=Math.max(0,Number(state.inventory[key]||0))+amount;added+=amount;}
+      const catalog=gmCatalog();for(const[key,amount]of Object.entries(grant.items))added+=gmApplyItem(key,amount,catalog);
       gmState.appliedGrantIds.push(grant.grantId);gmState.appliedGrantIds=[...new Set(gmState.appliedGrantIds)].slice(-GM_APPLIED_HISTORY_LIMIT);gmState.lastGrantAt=Date.now();
     }
     const localSaved=await commitState().catch(()=>false);
@@ -11730,8 +11730,84 @@ function build(T,key,H){
   }
   function gmSetBusy(busy){gmPanel?.classList.toggle('is-busy',!!busy);gmPanel?.querySelectorAll('button,input').forEach(node=>{if(node.matches('[data-gm-close]'))return;node.disabled=!!busy;});}
   function gmUserName(userRecord={}){return String(userRecord.name||userRecord.profile?.name||userRecord.username||'Jogador').slice(0,40);}
-  function gmItemMeta(key){return GM_ITEM_CATALOG[key]||{label:key.replace(/([a-z])([A-Z])/g,'$1 $2'),icon:'🎁'};}
-  function gmInventoryKeys(inventory={}){return [...new Set([...Object.keys(GM_ITEM_CATALOG),...Object.keys(inventory||{}).filter(key=>Number.isFinite(Number(inventory[key])))])].sort((a,b)=>gmItemMeta(a).label.localeCompare(gmItemMeta(b).label,'pt-BR'));}
+  function gmCatalog(){
+    const entries=Object.create(null);
+    const put=(key,label,icon,group,unique=false)=>{if(gmItemKey(key)===key&&!['__proto__','constructor','prototype'].includes(key))entries[key]={label,icon,group,max:unique?1:GM_MAX_ADD};};
+    for(const [key,meta]of Object.entries(GM_ITEM_CATALOG))put(key,meta.label,meta.icon,'Inventário',key==='fishingRod');
+    for(const item of worldShopItems()){
+      if(item.tool)put('tool-'+item.tool,item.name,item.icon,'Ferramentas pessoais',true);
+      else put(item.key,item.name,item.icon,item.group,!!item.unique);
+    }
+    for(const [key,value]of Object.entries(state.inventory||{}))if(typeof value==='number'&&!entries[key]&&!/^(tool|construction|wardrobe|furniture|vehicle)-/.test(key))put(key,key,'🎁','Outros itens existentes');
+    for(const group of Object.values(RIO_CONSTRUCTION_CATALOG))for(const item of group)put('construction-'+item.id,item.label,'🧱','Estoque geral de construção');
+    for(const choices of Object.values(RIO_WARDROBE_CATALOG))for(const item of choices)if(RIO_WARDROBE_STORE[item[0]])put('wardrobe-'+item[0],item[1],'👕','Roupas e acessórios',true);
+    for(const item of rioFurnitureCatalog({w:10,d:8}))put('furniture-'+item.id,item.name,'🛋️','Móveis para a casa principal',true);
+    for(const item of OTTHI_PLAYER_VEHICLE_CATALOG)put('vehicle-'+item.id,item.label,item.icon||'🚗','Modelos para a garagem',true);
+    return entries;
+  }
+  function gmItemMeta(key){return gmCatalog()[key]||{label:key.replace(/([a-z])([A-Z])/g,'$1 $2'),icon:'🎁',group:'Outros itens existentes',max:GM_MAX_ADD};}
+  function gmInventoryKeys(inventory={},catalog=gmCatalog()){
+    return [...new Set([...Object.keys(catalog),...Object.keys(inventory||{}).filter(key=>typeof inventory[key]==='number'&&gmItemKey(key)===key&&!['__proto__','constructor','prototype'].includes(key)&&!/^(tool|construction|wardrobe|furniture|vehicle)-/.test(key))])].sort((a,b)=>(catalog[a]?.group||'Outros').localeCompare(catalog[b]?.group||'Outros','pt-BR')||(catalog[a]?.label||a).localeCompare(catalog[b]?.label||b,'pt-BR'));
+  }
+  function gmCurrentItem(progress,key){
+    const rio=progress.cityServices?.rioMap||{};
+    if(key.startsWith('tool-'))return Number((progress.tools?.owned||[]).includes(key.slice(5)));
+    if(key.startsWith('construction-'))return Number(rio.constructionInventory?.[key.slice(13)]||0);
+    if(key.startsWith('wardrobe-'))return Number(!!rio.wardrobePurchases?.[key.slice(9)]);
+    if(key.startsWith('furniture-'))return Number((rio.properties?.home?.furniture||[]).includes(key.slice(10)));
+    if(key.startsWith('vehicle-'))return Number((progress.vehicles?.owned||[]).some(id=>(progress.vehicles?.instances?.[id]?.catalogId||id)===key.slice(8)));
+    return Number(progress.inventory?.[key]||0);
+  }
+  function gmApplyItem(key,amount,catalog){
+    const meta=catalog[key],qty=gmPositiveInt(amount,meta?.max||GM_MAX_ADD);
+    if(!qty||['__proto__','constructor','prototype'].includes(key))return 0;
+    if(key.startsWith('tool-')&&meta){
+      state.tools.owned=[...new Set([...(state.tools.owned||[]),key.slice(5)])];return qty;
+    }
+    if(key.startsWith('construction-')&&meta){
+      const save=rioConstructionSave(),id=key.slice(13);
+      save.constructionInventory[id]=Number(save.constructionInventory[id]||0)+qty;
+      save.constructionLegacyStock[id]=Number(save.constructionLegacyStock[id]||0)+qty;return qty;
+    }
+    if(key.startsWith('wardrobe-')&&meta){(rioMapSave().wardrobePurchases??={})[key.slice(9)]=true;return qty;}
+    if(key.startsWith('furniture-')&&meta){
+      const title=rioPropertyTitle('home'),id=key.slice(10);title.furniture=[...new Set([...(title.furniture||[]),id])];(title.decorLayout??={})[id]??={stored:true};return qty;
+    }
+    if(key.startsWith('vehicle-')&&meta){
+      const id=key.slice(8),garage=ensurePlayerGarageState();
+      if(!(state.vehicles.owned||[]).some(owned=>(state.vehicles.instances?.[owned]?.catalogId||owned)===id)){
+        state.vehicles.owned.push(id);garage.stored[id]=true;garage.purchasedAt[id]=Date.now();
+      }
+      return qty;
+    }
+    // Preserve compatibility with historical custom numeric inventory rewards.
+    if(/^(tool|construction|wardrobe|furniture|vehicle)-/.test(key))return 0;
+    state.inventory[key]=Math.max(0,Number(state.inventory[key]||0))+qty;return qty;
+  }
+  // A player using the immediately preceding client can receive an audited
+  // typed reward as a numeric inventory key. Upgrade those known keys once
+  // in their own account, using the native save paths, without a second grant.
+  function gmRecoverLegacyTypedItems(catalog=gmCatalog()){
+    let count=0;for(const [key,value]of Object.entries(state.inventory||{})){
+      if(!catalog[key]||!/^(tool|construction|wardrobe|furniture|vehicle)-/.test(key)||gmPositiveInt(value)===0)continue;
+      if(gmApplyItem(key,value,catalog)>0){state.inventory[key]=0;count++;}
+    }
+    return count;
+  }
+  function gmScheduleLegacyRecovery(){
+    gmGrantQueue=gmGrantQueue.catch(()=>false).then(async()=>{
+      await dbReady.catch(()=>state);if(window.__OTTHI_ACCOUNT_RECOVERING)return false;
+      if(!Object.keys(state.inventory||{}).some(k=>/^(tool|construction|wardrobe|furniture|vehicle)-/.test(k)&&Number(state.inventory[k])>0))return false;
+      if(!gmRecoverLegacyTypedItems())return false;
+      await commitState();await syncCloudProgress(true);if(accountLinked())await syncGameAccount(true);updateHUD();updateLobbyStats();return true;
+    }).catch(error=>{console.warn('[OTTHI GM] Recuperação de itens pendentes:',error);return false;});
+  }
+  function gmFillItems(form,mode){
+    const amount=gmPositiveInt(form.querySelector('[data-gm-bulk-amount]')?.value);
+    const selected=[...form.querySelectorAll('[data-gm-item]')].filter(input=>form.querySelector('[data-gm-pick="'+input.dataset.gmItem+'"]')?.checked);
+    for(const input of selected)input.value=mode==='max'?Number(input.max):mode==='clear'?0:Math.min(Number(input.max),amount);
+    if(form.querySelector('[data-gm-pick-coins]')?.checked)form.querySelector('[data-gm-coins]').value=mode==='max'?GM_MAX_ADD:mode==='clear'?0:amount;
+  }
   function gmFormatDate(value){const number=Number(value||0);return number?new Date(number).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'Aguardando';}
   function gmRenderUserList(){
     if(!gmPanel)return;const query=String(gmPanel.querySelector('[data-gm-search]')?.value||'').trim().toLocaleLowerCase('pt-BR'),list=gmPanel.querySelector('[data-gm-users]');
@@ -11748,8 +11824,13 @@ function build(T,key,H){
   function gmRenderSelected(){
     if(!gmPanel)return;const root=gmPanel.querySelector('[data-gm-detail]'),userRecord=gmUsers.find(item=>item.uid===gmSelectedUid),detail=gmSelectedDetail;
     if(!userRecord){root.innerHTML='<div class="gm-placeholder"><span>🎮</span><b>Escolha um jogador</b><p>Selecione um usuário para consultar o progresso e adicionar recompensas.</p></div>';return;}
-    const progress=detail?.user?.progress||userRecord.progress||{},profile={...(progress.profile||{}),...(detail?.user?.profile||userRecord.profile||{})},inventory=progress.inventory||userRecord.inventory||{},keys=gmInventoryKeys(inventory),moderation=detail?.moderation||userRecord.moderation||null,isBlocked=moderation?.state==='blocked';
-    root.innerHTML=`<section class="gm-player-header"><div><small>JOGADOR SELECIONADO</small><h3>${gmEscape(gmUserName({...userRecord,...profile}))}</h3><p>${userRecord.username?`@${gmEscape(userRecord.username)} • `:''}<code>${gmEscape(userRecord.uid)}</code></p></div><span class="gm-player-status ${userRecord.online?'online':''}">${userRecord.online?`● Online em ${gmEscape(userRecord.room||'um bairro')}`:'○ Offline'}</span></section><div class="gm-metrics"><div><small>Nível</small><b>${Number(profile.level||1)}</b></div><div><small>XP</small><b>${Number(profile.xp||0)}</b></div><div><small>Moedas atuais</small><b>${Number(profile.coins||0)}</b></div><div><small>Reputação</small><b>${Number(profile.reputation||0)}</b></div></div><section class="gm-moderation-card ${isBlocked?'is-blocked':''}"><header><div><h3>Administração do usuário</h3><p>${isBlocked?`Conta bloqueada${moderation?.reason?` • ${gmEscape(moderation.reason)}`:''}`:'Bloqueie o acesso ou exclua os dados deste usuário quando necessário.'}</p></div><span>${isBlocked?'🔒 Bloqueado':'🛡️ Ativo'}</span></header><label class="gm-reason"><span>Motivo administrativo</span><input maxlength="160" value="${gmEscape(moderation?.reason||'Ação administrativa do GM')}" data-gm-moderation-reason></label><div class="gm-moderation-actions">${isBlocked?'<button class="btn good" type="button" data-gm-unblock>🔓 Desbloquear usuário</button>':'<button class="btn warning" type="button" data-gm-block>🔒 Bloquear usuário</button>'}<button class="btn danger" type="button" data-gm-delete-user>🗑️ Excluir usuário e dados</button></div><small>Excluir remove o cadastro e progresso do Realtime Database e mantém um bloqueio administrativo mínimo para impedir recriação pela mesma conta. O registro do Firebase Authentication só pode ser apagado por backend com Admin SDK.</small></section><form class="gm-grant-form" data-gm-grant-form><header><div><h3>Adicionar recompensas</h3><p>Os valores abaixo são somados. O painel nunca diminui nem substitui o saldo atual.</p></div><span class="gm-positive-only">Somente +</span></header><label class="gm-coin-field"><span>🪙 Adicionar moedas</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-coins></label><div class="gm-item-grid">${keys.map(key=>{const meta=gmItemMeta(key);return`<label class="gm-item-field"><span><i>${meta.icon}</i><b>${gmEscape(meta.label)}</b><small>Atual: ${Number(inventory[key]||0)}</small></span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-item="${gmEscape(key)}" aria-label="Adicionar ${gmEscape(meta.label)}"></label>`;}).join('')}</div><details class="gm-custom-item"><summary>Adicionar outro item existente no jogo</summary><div><label><span>Chave técnica do item</span><input maxlength="48" placeholder="Ex.: ticket" data-gm-custom-key></label><label><span>Quantidade</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-custom-amount></label></div><small>Use somente a chave de um item que o jogo reconheça. Itens desconhecidos ficam salvos, mas não ganham função automaticamente.</small></details><label class="gm-reason"><span>Motivo ou observação</span><input maxlength="160" value="Recompensa do GM" data-gm-reason></label><div class="gm-form-actions"><button class="btn primary" type="submit">Adicionar ao jogador</button><button class="btn" type="button" data-gm-refresh-user>Atualizar dados</button></div></form><section class="gm-history"><header><h3>Histórico deste jogador</h3><small>Entrega imediata quando online; na próxima entrada quando offline.</small></header>${gmGrantHistoryMarkup(detail)}</section>`;
+    const progress=detail?.user?.progress||userRecord.progress||{},profile={...(progress.profile||{}),...(detail?.user?.profile||userRecord.profile||{})},inventory=progress.inventory||userRecord.inventory||{},catalog=gmCatalog(),keys=gmInventoryKeys(inventory,catalog),moderation=detail?.moderation||userRecord.moderation||null,isBlocked=moderation?.state==='blocked';
+    root.innerHTML=`<section class="gm-player-header"><div><small>JOGADOR SELECIONADO</small><h3>${gmEscape(gmUserName({...userRecord,...profile}))}</h3><p>${userRecord.username?`@${gmEscape(userRecord.username)} • `:''}<code>${gmEscape(userRecord.uid)}</code></p></div><span class="gm-player-status ${userRecord.online?'online':''}">${userRecord.online?`● Online em ${gmEscape(userRecord.room||'um bairro')}`:'○ Offline'}</span></section><div class="gm-metrics"><div><small>Nível</small><b>${Number(profile.level||1)}</b></div><div><small>XP</small><b>${Number(profile.xp||0)}</b></div><div><small>Moedas atuais</small><b>${Number(profile.coins||0)}</b></div><div><small>Reputação</small><b>${Number(profile.reputation||0)}</b></div></div><section class="gm-moderation-card ${isBlocked?'is-blocked':''}"><header><div><h3>Administração do usuário</h3><p>${isBlocked?`Conta bloqueada${moderation?.reason?` • ${gmEscape(moderation.reason)}`:''}`:'Bloqueie o acesso ou exclua os dados deste usuário quando necessário.'}</p></div><span>${isBlocked?'🔒 Bloqueado':'🛡️ Ativo'}</span></header><label class="gm-reason"><span>Motivo administrativo</span><input maxlength="160" value="${gmEscape(moderation?.reason||'Ação administrativa do GM')}" data-gm-moderation-reason></label><div class="gm-moderation-actions">${isBlocked?'<button class="btn good" type="button" data-gm-unblock>🔓 Desbloquear usuário</button>':'<button class="btn warning" type="button" data-gm-block>🔒 Bloquear usuário</button>'}<button class="btn danger" type="button" data-gm-delete-user>🗑️ Excluir usuário e dados</button></div><small>Excluir remove o cadastro e progresso do Realtime Database e mantém um bloqueio administrativo mínimo para impedir recriação pela mesma conta. O registro do Firebase Authentication só pode ser apagado por backend com Admin SDK.</small></section><form class="gm-grant-form" data-gm-grant-form><header><div><h3>Adicionar recompensas</h3><p>Os valores abaixo são somados. O painel nunca diminui nem substitui o saldo atual.</p></div><span class="gm-positive-only">Somente +</span></header><section class="gm-bulk"><b>Recompensas em massa</b><label><span>Pesquisar no catálogo por nome, código ou grupo</span><input type="search" data-gm-item-search placeholder="Ex.: madeira, paint, veículo"></label><label><input type="checkbox" data-gm-all-items> Selecionar todos os itens e moedas</label><label><span>Quantidade para os selecionados</span><input type="number" data-gm-bulk-amount min="0" max="${GM_MAX_ADD}" value="1000"></label><div class="gm-form-actions"><button type="button" class="btn" data-gm-fill>Aplicar quantidade</button><button type="button" class="btn good" data-gm-max>Máximo permitido</button><button type="button" class="btn" data-gm-clear>Zerar selecionados</button><button type="button" class="btn" data-gm-copy>Copiar códigos</button></div><label><input type="checkbox" data-gm-all-users> Enviar a TODOS os usuários ativos (${gmUsers.filter(u=>!u.blocked&&u.moderation?.state!=='blocked').length}) em vez de apenas ao jogador selecionado</label><small>Máximo: 1.000.000 por item de quantidade; roupas, ferramentas pessoais, móveis e modelos de veículos são desbloqueios únicos. Enviar exige confirmação.</small></section><label class="gm-coin-field"><span><input type="checkbox" data-gm-pick-coins> 🪙 Adicionar moedas</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-coins></label><div class="gm-item-grid">${keys.map(key=>{const meta=catalog[key]||gmItemMeta(key);return`<div class="gm-item-field"><span><label><input type="checkbox" data-gm-pick="${gmEscape(key)}"> <i>${meta.icon}</i><b>${gmEscape(meta.label)}</b></label><small>${gmEscape(meta.group)} · Atual: ${gmCurrentItem({...progress,inventory},key)}</small><code>${gmEscape(key)}</code></span><input type="number" min="0" max="${meta.max}" step="1" inputmode="numeric" value="0" data-gm-item="${gmEscape(key)}" aria-label="Adicionar ${gmEscape(meta.label)}"></div>`;}).join('')}</div><details class="gm-custom-item"><summary>Adicionar outro item existente no jogo</summary><div><label><span>Chave técnica do item</span><input maxlength="48" placeholder="Ex.: ticket" data-gm-custom-key></label><label><span>Quantidade</span><input type="number" min="0" max="${GM_MAX_ADD}" step="1" inputmode="numeric" value="0" data-gm-custom-amount></label></div><small>Use o código exibido no catálogo. O painel recusa códigos que não reconhece.</small></details><label class="gm-reason"><span>Motivo ou observação</span><input maxlength="160" value="Recompensa do GM" data-gm-reason></label><div class="gm-form-actions"><button class="btn primary" type="submit">Adicionar ao jogador</button><button class="btn" type="button" data-gm-refresh-user>Atualizar dados</button></div></form><section class="gm-history"><header><h3>Histórico deste jogador</h3><small>Entrega imediata quando online; na próxima entrada quando offline.</small></header>${gmGrantHistoryMarkup(detail)}</section>`;
+    const form=root.querySelector('[data-gm-grant-form]');
+    form.querySelector('[data-gm-item-search]').oninput=e=>{const q=e.target.value.trim().toLocaleLowerCase('pt-BR');for(const row of form.querySelectorAll('.gm-item-field'))row.hidden=!!q&&!row.textContent.toLocaleLowerCase('pt-BR').includes(q);};
+    form.querySelector('[data-gm-all-items]').onchange=e=>form.querySelectorAll('[data-gm-pick],[data-gm-pick-coins]').forEach(input=>input.checked=e.target.checked);
+    for(const mode of ['fill','max','clear'])form.querySelector('[data-gm-'+mode+']').onclick=()=>gmFillItems(form,mode);
+    form.querySelector('[data-gm-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(keys.map(key=>key+' — '+(catalog[key]?.label||key)).join('\n'));gmStatus('Códigos copiados.','success');}catch{gmStatus('Não foi possível copiar. Os códigos continuam visíveis no catálogo.','error');}};
     root.querySelector('[data-gm-grant-form]')?.addEventListener('submit',event=>gmSubmitGrant(event,userRecord));root.querySelector('[data-gm-refresh-user]')?.addEventListener('click',()=>gmSelectUser(userRecord.uid,true));
     root.querySelector('[data-gm-block]')?.addEventListener('click',()=>gmModerateSelected(userRecord,true));root.querySelector('[data-gm-unblock]')?.addEventListener('click',()=>gmModerateSelected(userRecord,false));root.querySelector('[data-gm-delete-user]')?.addEventListener('click',()=>gmDeleteSelectedUser(userRecord));
   }
@@ -11770,13 +11851,16 @@ function build(T,key,H){
   }
   async function gmSubmitGrant(event,userRecord){
     event.preventDefault();const form=event.currentTarget,coins=gmPositiveInt(form.querySelector('[data-gm-coins]')?.value),items={};
-    form.querySelectorAll('[data-gm-item]').forEach(input=>{const amount=gmPositiveInt(input.value),key=gmItemKey(input.dataset.gmItem);if(key&&amount)items[key]=(items[key]||0)+amount;});
-    const customKey=gmItemKey(form.querySelector('[data-gm-custom-key]')?.value),customAmount=gmPositiveInt(form.querySelector('[data-gm-custom-amount]')?.value);if(customKey&&customAmount)items[customKey]=(items[customKey]||0)+customAmount;
+    form.querySelectorAll('[data-gm-item]').forEach(input=>{const amount=gmPositiveInt(input.value,Number(input.max)||GM_MAX_ADD),key=gmItemKey(input.dataset.gmItem);if(key&&amount)items[key]=amount;});
+    const customKey=gmItemKey(form.querySelector('[data-gm-custom-key]')?.value),customAmount=gmPositiveInt(form.querySelector('[data-gm-custom-amount]')?.value);if(customKey&&customAmount){const meta=gmCatalog()[customKey];if(!meta&&!Object.hasOwn(state.inventory||{},customKey)){gmStatus('Código não reconhecido no catálogo do jogo.','error');return;}items[customKey]=gmPositiveInt((items[customKey]||0)+customAmount,meta?.max||GM_MAX_ADD);}
     if(!coins&&!Object.keys(items).length){gmStatus('Informe pelo menos uma quantidade positiva.','error');return;}
     const reason=String(form.querySelector('[data-gm-reason]')?.value||'Recompensa do GM').trim().slice(0,160),preview=gmGrantSummary({coins,items});
-    if(!window.confirm(`Confirmar para ${gmUserName(userRecord)}?\n\n${preview}\n\nOs valores serão somente adicionados.`))return;
+    const all=form.querySelector('[data-gm-all-users]')?.checked,targets=all?gmUsers.filter(u=>!u.blocked&&u.moderation?.state!=='blocked'):[userRecord];
+    if(!targets.length)return;
+    if(!window.confirm(`Confirmar para ${all?targets.length+' usuários ativos':gmUserName(userRecord)}?\n\n${preview}\n\nOs valores serão somente adicionados. Móveis: casa principal; veículos: coleção da garagem.`))return;
+    if(all&&String(window.prompt('Para confirmar a concessão coletiva, digite TODOS','')||'').trim()!=='TODOS')return;
     gmSetBusy(true);gmStatus('Registrando concessão segura no Firebase…');
-    try{const result=await window.OTTHOS_RTDB?.gmCreateGrant?.(userRecord.uid,{coins,items,reason,targetName:gmUserName(userRecord)});if(!result?.ok)throw new Error(result?.error||'Concessão recusada pelo Firebase.');gmStatus(`Concessão registrada: ${preview}`,'success');await gmRefreshPanel();}
+    try{const result=await window.OTTHOS_RTDB?.gmCreateGrantBatch?.(targets.map(u=>({uid:u.uid,name:gmUserName(u)})),{coins,items,reason});if(!result?.ok)throw new Error(result?.error||'Concessão recusada pelo Firebase.');gmStatus(`Concessão registrada para ${targets.length} jogador(es): ${preview}`,'success');await gmRefreshPanel();}
     catch(error){gmStatus(error?.message||'Não foi possível registrar a concessão.','error');}
     finally{gmSetBusy(false);}
   }
@@ -11801,7 +11885,7 @@ function build(T,key,H){
     signature.addEventListener('click',recordTap);signature.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();recordTap();}});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&gmPanel&&!gmPanel.hidden)closeGMPanel();});
   }
-  ensureGMState();registerGMHiddenTrigger();dbReady.then(()=>ensureGMState()).catch(()=>{});
+  ensureGMState();registerGMHiddenTrigger();dbReady.then(()=>{ensureGMState();gmScheduleLegacyRecovery();}).catch(()=>{});window.addEventListener('otthi:account-state-ready',gmScheduleLegacyRecovery);
   window.OTTHI_GM_PANEL=Object.freeze({openAccess:openGMAccessGate,close:closeGMPanel,refresh:gmRefreshPanel,queueGrant:queueGMGrant,state:()=>({users:gmUsers.length,selectedUid:gmSelectedUid,open:!!gmPanel&&!gmPanel.hidden})});
 
   // ===== MODULE: 40-world-evolution-v702.js =====
@@ -14857,7 +14941,7 @@ function precompile(T,renderer,scene,camera,timings){
     for(let z=501;z<=548;z+=.7)campaignBox(root,steel,-220,.49,z,8,.012,.025);
     for(const x of[-223.5,-216.5])for(const z of[502,515,529,545])campaignCylinder(root,steel,x,.1,z,.15,1.4);
     for(const x of[-223.8,-216.2])for(const z of[501,511,548]){campaignCylinder(root,white,x,1.05,z,.055,1.1);const lamp=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:0xf5e6b1}));lamp.position.set(x,1.62,z);root.add(lamp);}
-    citySign(root,'GUARUJÁ · MARINA',-220,3,501,8,-1,'#1c525d',.75);
+    citySign(root,'GUARUJÁ · MARINA · LANCHAS · JET SKI · SURFE',-220,3,501,14,-1,'#1c525d',.75);
     mergeTrafficStatic(root);
     for(const spec of SEA_CRAFT){
       const group=createSeaCraftModel(spec),saved=state.boats.parked?.[spec.id],bounds=v704WorldBounds();
@@ -14880,8 +14964,8 @@ function precompile(T,renderer,scene,camera,timings){
   function styleGhostBoat(ghost,target){
     const group=ghost?.userData.boatVisual;if(!group)return;
     const key=target.boatId||'lake-boat';if(group.userData.craftKey===key)return;
-    const spec=SEA_CRAFT.find(b=>b.id===(key==='rio-lancha-familia'?'sea-familia':key));
-    const model=spec?createSeaCraftModel(spec):key==='rio-prancha'?rioMakeBoard(0x35b4ad):(key==='rio-navio-passeio'||key==='rio-santos-escuna')?rioMakeTourShip():key==='rio-jet-ski'?rioMakeJetSki():null;
+    const spec=SEA_CRAFT.find(b=>b.id===(key==='rio-lancha-familia'?'sea-familia':key==='rio-santos-lancha'?'sea-azul':key));
+    const model=spec?createSeaCraftModel(spec):(key==='rio-prancha'||key==='rio-santos-sup')?rioMakeBoard(0x35b4ad):(key==='rio-surf'||key==='rio-santos-surf')?rioMakeSurfboard(0xf3b644):(key==='rio-navio-passeio'||key==='rio-santos-escuna')?rioMakeTourShip():(key==='rio-jet-ski'||key==='rio-santos-jet-ski')?rioMakeJetSki():null;
     group.userData.lakeParts??=group.children.slice();if(group.userData.seaModel){otGamesDisposeGroup(group.userData.seaModel);group.userData.seaModel=null;}
     for(const part of group.userData.lakeParts)part.visible=!model;
     if(model){group.add(model);group.userData.seaModel=model;}
@@ -14918,12 +15002,24 @@ function precompile(T,renderer,scene,camera,timings){
       street:style==='snow-cabin'?'Campos do Jordão · estrada da serra':'Guarujá · Avenida da Orla',
       entry:[x+Math.sin(yaw)*(d/2+1.35),z+Math.cos(yaw)*(d/2+1.35)],road}));
   }
+  function regionalLuxurySites(){
+    const rows=[
+      ['regional-campos-mansao-1','Mansão Vista dos Picos',-15,315,18,12,Math.PI/2,8400,'mansion',[39.3,315]],
+      ['regional-campos-castelo','Castelo da Mantiqueira',-105,350,22,16,-Math.PI/2,14800,'castle',[-156.7,350]],
+      ['regional-campos-mansao-2','Mansão Bosque Imperial',-47,378,18,12,0,9700,'mansion',[-47,410]],
+      ['regional-campos-hotel-1','Hotel Panorama Imperial',82,395,24,16,-Math.PI/2,240,'hotel',[17.5,395]],
+      ['regional-campos-hotel-2','Grand Hotel dos Pinheiros',-82,277,24,16,-Math.PI/2,190,'hotel',[-147.75,277]]
+    ];
+    return rows.map(([id,name,x,z,w,d,yaw,price,architecture,road])=>({id,key:id,propertyId:id,name,x,z,w,d,yaw,price,architecture,hotel:architecture==='hotel',style:'mountain-luxury',kind:'residence',lotW:w+10,lotD:d+26,road,street:'Campos do Jordão · Estrada dos Picos Nevados',
+      entry:[x+Math.sin(yaw)*(d/2+1.35),z+Math.cos(yaw)*(d/2+1.35)]}));
+  }
+  function regionalLuxuryPoint(site,x,z){const s=Math.sin(site.yaw),c=Math.cos(site.yaw);return{x:site.x+c*x+s*z,z:site.z-s*x+c*z};}
   function regionalNatureReserve(x,z,margin=0){
     // Reserve just the new property footprints and access paths, not whole mountains.
     if(typeof rioCompactWorld==='function'&&!rioCompactWorld())return false;
     if(v704DistanceToSegment({x,z},{x:125,z:295},{x:105,z:270}).distance<margin+3.2)return true;
-    return regionalHomeSites().some(s=>{
-      const rotated=Math.abs(Math.sin(s.yaw))>.5,w=rotated?s.d:s.w,d=rotated?s.w:s.d;
+    return [...regionalHomeSites(),...regionalLuxurySites()].some(s=>{
+      const rotated=Math.abs(Math.sin(s.yaw))>.5,w=rotated?(s.lotD||s.d):(s.lotW||s.w),d=rotated?(s.lotW||s.w):(s.lotD||s.d);
       if(Math.abs(x-s.x)<=w/2+margin+1.4&&Math.abs(z-s.z)<=d/2+margin+1.4)return true;
       return v704DistanceToSegment({x,z},{x:s.entry[0],z:s.entry[1]},{x:s.road[0],z:s.road[1]}).distance<margin+1.5;
     });
@@ -14939,7 +15035,7 @@ function precompile(T,renderer,scene,camera,timings){
       record.room=room;room.legacyResidence=true;room.legacyRecord=record;
       room.root.visible=false;
       for(const c of room.colliders)c.disabled=true;
-      room.action('chalet-exit',site.style==='beach-house'?'Sair da casa':'Sair do chalé',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:1.4,priority:260});
+      room.action('chalet-exit',site.hotel?'Sair da suíte':site.style==='mountain-luxury'?'Sair do imóvel':site.style==='beach-house'?'Sair da casa':'Sair do chalé',0,site.d*.31,leave,{inside:true,icon:'🚪',radius:1.4,priority:260});
       return room;
     }
     function move(p){
@@ -14973,9 +15069,9 @@ function precompile(T,renderer,scene,camera,timings){
     }
     record.enter=enter;record.leave=leave;
     registerInteractable({id:site.id+'-door',type:'door',icon:'🏠',
-      label:'Visitar ou comprar · '+site.name,...entrance,radius:3.2,priority:258,
+      label:(site.hotel?'Recepção e hospedagem · ':'Visitar ou comprar · ')+site.name,...entrance,radius:3.2,priority:258,
       available:()=>available()&&!player.swimming&&!characterActivities.session,
-      action:()=>rioPropertyDoor({id:site.propertyId,name:site.name,price:site.price,available,
+      action:()=>site.hotel?regionalHotelMenu(site,available,enter):rioPropertyDoor({id:site.propertyId,name:site.name,price:site.price,available,
         enter,decorate:()=>{if(enter())record.room.manageFurniture?.();}})});
     return record;
   }
@@ -15008,7 +15104,93 @@ function precompile(T,renderer,scene,camera,timings){
     const flakes=new THREE.Points(geometry,new THREE.PointsMaterial({color:0xffffff,size:.15,map:new THREE.CanvasTexture(canvas),transparent:true,opacity:.82,depthWrite:false}));flakes.name='LOCAL_SNOWFALL';flakes.frustumCulled=false;worldGroup.add(flakes);worldDestinations.flakes=flakes;
     registerInteractable({id:'snow-lookout',type:'viewpoint',icon:'❄️',label:'Mirante da Neve',x:20,z:180,radius:3,priority:120,action:()=>toast('Trecho de neve da OTTOVIAS. A pista continua liberada para viajar.','good',2600)});
   }
-  const regionalExpansion={homes:[],rejected:[],port:null,tour:[],restaurant:null};
+  const regionalExpansion={homes:[],luxury:[],rejected:[],port:null,tour:[],restaurant:null};
+  function regionalHotelBooking(site){return Number(rioMapSave().hotelStays?.[site.id]?.until||0)>Date.now();}
+  function regionalHotelMenu(site,available,enter){
+    if(!available())return false;
+    const booked=regionalHotelBooking(site);
+    openModal(site.name,'<p>Hotel de luxo · suíte mobiliada, piscina e passeios pela serra.</p><p>'+ (booked?'Hospedagem ativa por até 24 horas.':'Diária: '+site.price+' moedas do jogo.')+'</p><div class="modal-actions"><button class="btn primary" data-regional-hotel-book>'+ (booked?'Entrar na suíte':'Reservar diária e entrar')+'</button><button class="btn" data-regional-hotel-tour>Ver passeios</button></div>',root=>{
+      root.querySelector('[data-regional-hotel-book]').onclick=()=>{
+        if(!available())return;
+        if(!regionalHotelBooking(site)){
+          if(state.profile.coins<site.price){toast('Moedas insuficientes para a diária.','warn');return;}
+          addCoins(-site.price);(rioMapSave().hotelStays??={})[site.id]={until:Date.now()+86400000,paid:site.price};saveState(true);
+        }
+        closeModal();enter();
+      };
+      root.querySelector('[data-regional-hotel-tour]').onclick=()=>{closeModal();openModal('Passeios da serra','<div class="choice-grid">'+[['campos-sled-start','Trenó da serra'],['cable-base','Teleférico'],['mountain-balloon','Passeio de balão'],['snow-trail-2','Mirante da cordilheira']].map(([id,label])=>'<button class="choice" data-hotel-tour="'+id+'"><b>'+label+'</b><small>GPS</small></button>').join('')+'</div>',panel=>{
+        for(const btn of panel.querySelectorAll('[data-hotel-tour]'))btn.onclick=()=>{const id=btn.dataset.hotelTour;if(currentMapLocations().some(p=>p.id===id)){setWaypoint(id);closeModal();}else toast('Destino ainda carregando.','warn');};
+      });};
+    });return true;
+  }
+  function regionalLuxuryPool(site,root,y){
+    const px=site.w*.28,pz=site.d/2+8,w=site.hotel?8:6,d=4.4,p=regionalLuxuryPoint(site,px,pz),approach=regionalLuxuryPoint(site,px,pz+d/2+1.2);
+    const pool=new THREE.Group();pool.position.set(site.x,y,site.z);pool.rotation.y=site.yaw;root.add(pool);
+    const cream=campaignMaterial(0xe0dacf),aqua=campaignMaterial(0x278cb5,.25),stone=campaignMaterial(0xa6aba8),steel=campaignMaterial(0xc6cfcc,.35);
+    campaignBox(pool,stone,px,.08,pz,w+2,.16,d+2);
+    campaignBox(pool,cream,px,.18,pz,w+.5,.22,d+.5);
+    campaignBox(pool,aqua,px,.30,pz,w,.04,d);
+    for(const side of[-1,1]){
+      campaignBox(pool,cream,px+side*(w/2+.24),.35,pz,.48,.18,d+.5);
+      campaignBox(pool,cream,px,.35,pz+side*(d/2+.24),w+.5,.18,.48);
+    }
+    for(const dx of[-.35,.35])campaignCylinder(pool,steel,px+dx,.55,pz+d/2+.1,.035,.75);
+    for(const dx of[-1,1]){campaignBox(pool,cream,px+dx*(w/2+.72),.26,pz-.9,.7,.18,1.75);campaignBox(pool,stone,px+dx*(w/2+.72),.52,pz-1.4,.7,.43,.20);}
+    registerInteractable({id:site.id+'-pool',type:'activity',icon:'🏊',label:site.hotel?'Piscina do hotel':'Piscina da mansão',...approach,radius:2.5,priority:255,
+      available:()=>root.visible&&!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session&&(!site.hotel||regionalHotelBooking(site)),
+      action:()=>beginCharacterActivity('rio-pool',{target:approach,pose:{...p,y:y+.37,yaw:site.yaw,lying:true},walkSpeed:1.8,commit:()=>{
+        state.needs.fun=clamp(Number(state.needs.fun||0)+27,0,100);state.needs.hygiene=clamp(Number(state.needs.hygiene||0)+6,0,100);rioCountVisit(site);saveState(true);updateHUD();return true;
+      }})});
+    return {...p,w,d,approach,y};
+  }
+  function regionalBuildLuxury(site){
+    const rotated=Math.abs(Math.sin(site.yaw))>.5,w=rotated?site.d:site.w,d=rotated?site.w:site.d,lw=rotated?site.lotD:site.lotW,ld=rotated?site.lotW:site.lotD;
+    const samples=[];for(let x=-lw/2;x<=lw/2+.01;x+=lw/4)for(let z=-ld/2;z<=ld/2+.01;z+=ld/4)samples.push({x:site.x+x,z:site.z+z});
+    const clear=samples.every(p=>!v704ReservedAt(p.x,p.z,.3)&&!waterAt(p.x,p.z));
+    const occupied=world.colliders.some(c=>!c.disabled&&Math.abs(c.x-site.x)<(c.w+lw)/2+.3&&Math.abs(c.z-site.z)<(c.d+ld)/2+.3);
+    if(!clear||occupied){regionalExpansion.rejected.push({id:site.id,clear,occupied});return;}
+    const y=groundHeightAt(site.x,site.z),facade=new THREE.Group(),yard=new THREE.Group(),path=new THREE.Group();
+    facade.name='REGIONAL_LUXURY_'+site.id;facade.position.set(site.x,y,site.z);facade.rotation.y=site.yaw;worldGroup.add(facade,yard,path);
+    const castle=site.architecture==='castle',hotel=site.hotel,h=hotel?12:castle?8.7:6.5;
+    const walls=campaignMaterial(castle?0xb4afa1:hotel?0xe6dac8:0xe5ddd0),trim=campaignMaterial(castle?0x6c7172:0x80634d),roof=campaignMaterial(castle?0x52616e:0x435768),glass=campaignMaterial(0x658c9e,.28),stone=campaignMaterial(0xa6a49c);
+    campaignBox(facade,stone,0,.12,0,site.w+.4,.24,site.d+.4);
+    campaignBox(facade,walls,0,h/2,0,site.w,h,site.d);
+    const levels=hotel?4:castle?3:2;
+    for(let floor=0;floor<levels;floor++){
+      const yy=1.8+floor*(h-1.5)/levels;
+      for(let i=0;i<(hotel?7:5);i++){
+        const x=(i-((hotel?7:5)-1)/2)*site.w/(hotel?8:6);
+        if(floor===0&&Math.abs(x)<1.6)continue;
+        for(const side of[-1,1]){campaignBox(facade,trim,x,yy,side*(site.d/2+.035),1.6,1.65,.08);campaignBox(facade,glass,x,yy,side*(site.d/2+.09),1.32,1.38,.07);}
+      }
+      if(floor>0)campaignBox(facade,trim,0,yy-.95,site.d/2+.3,site.w+.1,.14,.6);
+    }
+    for(const side of[-1,1])for(let j=0;j<4;j++)campaignBox(facade,glass,side*(site.w/2+.07),h*.55,(j-1.5)*site.d/5,.08,2.1,1.35);
+    campaignBox(facade,trim,0,1.5,site.d/2+.08,2.8,3,.18);
+    campaignBox(facade,stone,0,.16,site.d/2+.9,4.2,.30,1.7);
+    campaignBox(facade,roof,0,3.4,site.d/2+1.15,5.4,.3,2.8);
+    for(const side of[-1,1])campaignCylinder(facade,stone,side*2.3,1.7,site.d/2+1.8,.17,3.35);
+    if(castle){
+      for(const x of[-site.w/2+1.9,site.w/2-1.9])for(const z of[-site.d/2+1.9,site.d/2-1.9]){
+        campaignCylinder(facade,stone,x,h*.58,z,1.85,h*1.16);
+        const cone=new THREE.Mesh(new THREE.ConeGeometry(2.15,3.5,12),roof);cone.position.set(x,h*1.16+1.75,z);facade.add(cone);
+      }
+      campaignBox(facade,roof,0,h+.12,0,site.w+.3,.24,site.d+.3);
+      for(let x=-site.w/2+.7;x<site.w/2;x+=2)campaignBox(facade,stone,x,h+.6,site.d/2,.9,1,.65);
+    }else{
+      const top=new THREE.Mesh(new THREE.ConeGeometry(Math.max(site.w,site.d)*.73,hotel?3.4:2.8,4),roof);top.rotation.y=Math.PI/4;top.scale.z=site.d/site.w;top.position.y=h+(hotel?1.7:1.4);facade.add(top);
+      for(const side of[-1,1])campaignBox(facade,trim,side*site.w*.34,h+.2,-site.d*.17,.8,2.6,.8);
+    }
+    const wall={x:site.x,z:site.z,w,d,height:h,regionalHome:site.id};world.colliders.push(wall);
+    regionalWalk(path,{x:site.entry[0],z:site.entry[1]},{x:site.road[0],z:site.road[1]},3.0);
+    const sign=regionalLuxuryPoint(site,0,site.d/2+3.2);
+    citySign(yard,site.name,sign.x,y+2.6,sign.z,Math.min(site.w,10),-1,'#314e60',.62);
+    const pool=regionalLuxuryPool(site,yard,y);
+    regionalWalk(path,{x:site.entry[0],z:site.entry[1]},pool.approach,1.8);
+    const rec=registerSnowCabin(site,facade,wall);
+    mergeTrafficStatic(facade);mergeTrafficStatic(yard);
+    regionalExpansion.luxury.push({site,facade,path,yard,rec,pool});
+  }
   function regionalWalk(root,a,b,width=1.8){
     const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.1)return;
     const n=Math.max(1,Math.ceil(len/.8)),rx=dz/len*width/2,rz=-dx/len*width/2,p=[];
@@ -15046,6 +15228,9 @@ function precompile(T,renderer,scene,camera,timings){
     }
     const wall={x:site.x,z:site.z,w,d,height:3.8,regionalHome:site.id};world.colliders.push(wall);
     regionalWalk(path,{x:site.entry[0],z:site.entry[1]},{x:site.road[0],z:site.road[1]});
+    const front={x:site.entry[0],z:site.entry[1]};
+    citySign(path,site.name,front.x,groundHeightAt(front.x,front.z)+2.1,front.z,5.5,-1,'#31566c',.45);
+    mergeTrafficStatic(facade);
     const rec=registerSnowCabin(site,facade,wall);regionalExpansion.homes.push({site,facade,path,rec});
   }
   function regionalCargoShip(color,loadingSlot=false){
@@ -15115,7 +15300,14 @@ function precompile(T,renderer,scene,camera,timings){
     for(const s of ships){s.group.position.set(s.x,.05,s.z);s.group.rotation.y=s.heading;worldGroup.add(s.group);}
     const d={x:-100,z:500,yaw:0,width:8},entry={x:-100,z:502};
     const escuna=rioMakeBerth({id:'rio-santos-escuna',label:'Escuna · passeio pelo canal de Santos',kind:'ship',region:'santos',halfWidth:1.57,halfLength:4.42,maxSpeed:9.3,acceleration:5.4,reverseSpeed:2.1,driver:{y:1.16,z:.94},group:rioMakeTourShip()},1,32,d);
-    const port={root,entry,craft:[escuna],ships,cargo,hook,job:null,trucks:[],title:'Terminal turístico · Porto de Santos'};
+    const speedboat=SEA_CRAFT.find(s=>s.id==='sea-azul');
+    const launch=rioMakeBerth({...speedboat,id:'rio-santos-lancha',label:'Lancha esportiva · Santos',kind:'launch',region:'santos',halfWidth:1.18,halfLength:2.74,acceleration:10,driver:{x:.40,y:.49,z:.66},group:createSeaCraftModel(speedboat)},1,20,d);
+    const jet=rioMakeBerth({id:'rio-santos-jet-ski',label:'Jet ski · Santos',kind:'jet',region:'santos',halfWidth:.65,halfLength:1.60,maxSpeed:19,acceleration:10.5,reverseSpeed:2.1,driver:{y:.74,z:-.26},group:rioMakeJetSki()},-1,44,d);
+    const surf=rioMakeBerth({id:'rio-santos-surf',label:'Prancha de surfe · Santos',kind:'surf',region:'santos',halfWidth:.39,halfLength:1.30,maxSpeed:6.2,acceleration:3.1,reverseSpeed:1.1,driver:{y:.22},group:rioMakeSurfboard(0xf3b644)},-1,20,d);
+    const sup=rioMakeBerth({id:'rio-santos-sup',label:'Stand-up paddle · Santos',kind:'board',region:'santos',halfWidth:.53,halfLength:1.61,maxSpeed:4.3,acceleration:4.1,reverseSpeed:1.5,driver:{y:.20},group:rioMakeBoard(0x4e99cc)},1,44,d);
+    const port={root,entry,craft:[escuna,launch,jet,surf,sup],ships,cargo,hook,job:null,trucks:[],title:'Píer turístico de Santos · embarcações'};
+    for(const b of port.craft){const p=b.rioBerth.step;citySign(root,b.label,p.x,1.85,p.z,3.1,-1,'#285d65',.40);}
+    citySign(root,'PÍER · LANCHAS · JET SKI · SURFE',-100,3.7,497,13,-1,'#235b6f',.66);
     regionalExpansion.port=port;
     Object.assign(rioMap.coastalDock,{portCraft:port.craft,portTraffic:ships,portObstacles:[{x:-100,z:524,w:4,l:25,s:0,c:1}]});
     citySign(root,'PORTO DE SANTOS · TERMINAIS',-77,3.4,490,12,1,'#31566c',.55);
@@ -15123,7 +15315,7 @@ function precompile(T,renderer,scene,camera,timings){
     citySign(root,'PÁTIO DE CONTÊINERES',-112,3.5,481,10,1,'#35566a',.45);
     regionalWalk(root,{x:-65,z:497},{x:-100,z:502},2.5);
     root.remove(cargo,hook);mergeTrafficStatic(root);root.add(cargo,hook);
-    registerInteractable({id:'santos-port-tour',type:'activity',icon:'⚓',label:'Embarcar na escuna de Santos',...entry,radius:3.4,priority:255,
+    registerInteractable({id:'santos-port-tour',type:'activity',icon:'⚓',label:'Píer de Santos · escolher embarcação',...entry,radius:3.4,priority:255,
       available:()=>!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session,action:()=>openRioDock(port)});
     const points=[{id:'santos-port-gate',name:'Porto de Santos · acesso',x:-65,z:496},
       {id:'santos-port-cargo',name:'Porto de Santos · pátio e guindaste',x:-137,z:495},
@@ -15141,6 +15333,7 @@ function precompile(T,renderer,scene,camera,timings){
   }
   function regionalUpdateExpansion(focus,now,dt){
     for(const h of regionalExpansion.homes){const near=Math.hypot(focus.x-h.site.x,focus.z-h.site.z)<(qualityTier()==='low'?145:210);h.facade.visible=near&&!h.rec.inside;h.path.visible=near;}
+    for(const h of regionalExpansion.luxury){const near=Math.hypot(focus.x-h.site.x,focus.z-h.site.z)<(qualityTier()==='low'?165:245);h.facade.visible=near&&!h.rec.inside;h.path.visible=near;h.yard.visible=near;}
     const port=regionalExpansion.port;if(!port)return;
     // These trucks use the existing traffic controller and the same paved
     // graph as the regional bus. Keep the original 44-model collection intact.
@@ -15155,7 +15348,7 @@ function precompile(T,renderer,scene,camera,timings){
       }
     }
     const near=Math.hypot(focus.x+100,focus.z-500)<290;
-    port.root.visible=near;port.craft[0].group.visible=near||(player.boating&&world.boat===port.craft[0]);
+    port.root.visible=near;for(const b of port.craft)b.group.visible=near||(player.boating&&world.boat===b);
     for(const s of port.ships)s.group.visible=Math.hypot(focus.x-s.x,focus.z-s.z)<310;
     if(near){
       const s=port.ships[1],phase=s.phase+dt*.025,x=-100+80*Math.cos(phase),z=620+25*Math.sin(phase),heading=Math.atan2(-80*Math.sin(phase),25*Math.cos(phase));
@@ -15173,6 +15366,7 @@ function precompile(T,renderer,scene,camera,timings){
   function createRegionalExpansion(){
     if(typeof rioCompactWorld!=='function'||!rioCompactWorld())return;
     regionalHomeSites().forEach(regionalBuildHome);
+    regionalLuxurySites().forEach(regionalBuildLuxury);
     const site={id:'regional-campos-restaurante',key:'regional-campos-restaurante',name:'Café da Serra · Campos do Jordão',kind:'dining',style:'mountain',x:66,z:202,w:12,d:9,yaw:0,entry:[66,207.85],street:'Alameda dos Chalés'};
     if(!world.colliders.some(c=>!c.disabled&&Math.abs(c.x-site.x)<(c.w+site.w)/2+.4&&Math.abs(c.z-site.z)<(c.d+site.d)/2+.4)){
       regionalExpansion.restaurant=rioMountPlace(site,worldGroup);const path=new THREE.Group();worldGroup.add(path);regionalWalk(path,{x:66,z:207.85},{x:66,z:210.5});
@@ -15181,20 +15375,21 @@ function precompile(T,renderer,scene,camera,timings){
   }
   function regionalExpansionDiagnostics(){
     return {homes:regionalExpansion.homes.map(h=>({id:h.site.id,x:h.site.x,z:h.site.z,y:h.facade.position.y,ground:groundHeightAt(h.site.x,h.site.z),entry:{x:h.site.entry[0],z:h.site.entry[1]},inside:h.rec.inside,exit:h.rec.room?.point(0,h.site.d*.31)})),
-      rejected:regionalExpansion.rejected,restaurant:regionalExpansion.restaurant?.site.id||null,port:regionalExpansion.port?{entry:regionalExpansion.port.entry,craft:regionalExpansion.port.craft.map(b=>b.id),ships:regionalExpansion.port.ships.map(s=>({id:s.id,x:s.x,z:s.z,heading:s.heading})),tour:regionalExpansion.tour,trucks:regionalExpansion.port.trucks.map(t=>({id:t.id,x:t.group.position.x,z:t.group.position.z,route:t.route.length})),cargo:regionalExpansion.port.cargo.position.toArray(),job:!!regionalExpansion.port.job}:null};
+      luxury:regionalExpansion.luxury.map(h=>({id:h.site.id,architecture:h.site.architecture,hotel:h.site.hotel,x:h.site.x,z:h.site.z,y:h.facade.position.y,ground:groundHeightAt(h.site.x,h.site.z),pool:h.pool,entry:h.site.entry,inside:h.rec.inside,exit:h.rec.room?.point(0,h.site.d*.31)})),rejected:regionalExpansion.rejected,restaurant:regionalExpansion.restaurant?.site.id||null,port:regionalExpansion.port?{entry:regionalExpansion.port.entry,craft:regionalExpansion.port.craft.map(b=>b.id),ships:regionalExpansion.port.ships.map(s=>({id:s.id,x:s.x,z:s.z,heading:s.heading})),tour:regionalExpansion.tour,trucks:regionalExpansion.port.trucks.map(t=>({id:t.id,x:t.group.position.x,z:t.group.position.z,route:t.route.length})),cargo:regionalExpansion.port.cargo.position.toArray(),job:!!regionalExpansion.port.job}:null};
   }
   function worldExploreLocations(){return[
     {id:'marina-costa',name:'Guarujá · marina e embarcações',label:'Guarujá · marina e embarcações',icon:'🚤',group:'Guarujá · praia e barcos',x:-220,z:502,navX:-220,navZ:502,description:'Caminhe pelo píer e escolha uma embarcação. Volte à vaga de embarque para desembarcar.',actions:['Seguir até a marina','Embarcar pelo botão AÇÃO','Pilotar, retornar e estacionar']},
     {id:'snow-lookout',name:'Campos do Jordão · mirante e chalés',label:'Campos do Jordão · mirante e chalés',icon:'❄️',group:'Natureza',x:20,z:180,navX:20,navZ:180,description:'Trecho de neve da OTTOVIAS, com acesso pela Ligação Norte. Neve no solo, pinheiros, chalés e precipitação local.',actions:['Seguir o GPS pela Ligação Norte','Chegar ao mirante']},
     ...(typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites().map(site=>({id:site.id,name:site.name,icon:'🏡',group:'Campos do Jordão',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:'Chalé visitável e comprável, com móveis e decoração próprios.'})):[]),
     ...regionalExpansion.homes.map(({site})=>({id:site.id,name:site.name,icon:'🏡',group:site.style==='snow-cabin'?'Campos do Jordão · montanha':'Guarujá · casas da orla',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:'Imóvel visitável, comprável e decorável.'})),
+    ...regionalExpansion.luxury.map(({site})=>({id:site.id,name:site.name,icon:site.hotel?'🏨':site.architecture==='castle'?'🏰':'🏡',group:'Campos do Jordão · imóveis de luxo',x:site.entry[0],z:site.entry[1],navX:site.entry[0],navZ:site.entry[1],description:site.hotel?'Hospedagem em suíte, piscina e passeios.':'Mansão ou castelo visitável, comprável e com piscina.'})),
     ...(regionalExpansion.restaurant?[{id:regionalExpansion.restaurant.site.id,name:regionalExpansion.restaurant.site.name,icon:'☕',group:'Campos do Jordão',x:66,z:207.85,navX:66,navZ:207.85}]:[]),
     ...regionalExpansion.tour.map(p=>({...p,icon:'⚓',group:'Santos · porto',navX:p.x,navZ:p.z,description:'Visita física ao terminal portuário.'})),
-    ...(regionalExpansion.port?[{id:'santos-port-tour',name:'Porto de Santos · escuna',icon:'🛳️',group:'Santos · porto',x:-100,z:502,navX:-100,navZ:502}]:[]),
+    ...(regionalExpansion.port?[{id:'santos-port-tour',name:'Santos · píer de lanchas, jet ski e surfe',icon:'⚓',group:'Santos · porto',x:-100,z:502,navX:-100,navZ:502}]:[]),
     ...Array.from(world.boats?.values()||[]).filter(b=>b.seaGoing||b.rioBerth).map(b=>{
       const step=b.rioBerth?.step,position=b.group.position;
       return {id:'marina-'+b.id,name:b.label,label:b.label,icon:b.kind==='board'?'🏄':b.kind==='ship'?'🛳️':'🚤',
-        group:b.region==='santos'?'Santos · porto':'Guarujá · praia e barcos',x:position.x,z:position.z,navX:step?.x??-220,navZ:step?.z??clamp(position.z,513,548),
+        group:b.region==='santos'?'Santos · píer turístico':'Guarujá · praia e barcos',x:position.x,z:position.z,navX:step?.x??-220,navZ:step?.z??clamp(position.z,513,548),
         description:step?'Embarque e desembarque na vaga do píer.':'O ponto de embarque fica no píer da marina.',actions:['Caminhar pelo píer','Toque em AÇÃO para embarcar']};
     })
   ];}
@@ -15204,10 +15399,12 @@ function precompile(T,renderer,scene,camera,timings){
       ['mountain-balloon','🎈','Balão nas montanhas','Embarque na cesta, suba, explore a serra e pouse para sair.'],
       ['campaign-plane','✈️','Avião · embarcar e pilotar','Base Aérea. Aproxime-se da aeronave e toque em AÇÃO.'],
       ['campaign-helicopter','🚁','Helicóptero · embarcar e pilotar','Pouse, pare e use SAIR DA AERONAVE. Ela fica estacionada.'],
-      ['marina-costa','🚤','Guarujá · marina e lanchas','Três lanchas no píer da praia. Pilotagem livre no mar.'],
+      ['marina-costa','🚤','Guarujá · marina e lanchas','Lanchas, jet ski, surfe e stand-up paddle. Escolha a embarcação no píer.'],
       ['coast-view','🏖️','Guarujá · praia','Orla, ondas, quiosques e acesso à marina.'],
       ['snow-lookout','❄️','Campos do Jordão · neve e chalés','Siga a OTTOVIAS pela Ligação Norte.'],
-      ...(regionalExpansion.port?[['santos-port-gate','⚓','Porto de Santos','Terminais, contêineres, guindaste e passeio de escuna.']]:[]),
+      ...(regionalExpansion.port?[['santos-port-gate','⚓','Porto de Santos','Terminais, contêineres e guindaste.'],['santos-port-tour','🚤','Santos · Píer de embarque','Lanchas, escuna, jet ski, surfe e stand-up paddle.']]:[]),
+      ...regionalExpansion.luxury.map(({site})=>[site.id,site.hotel?'🏨':site.architecture==='castle'?'🏰':'🏡',site.name,site.hotel?'Reserve diária, piscina e passeios.':'Visite, compre, decore e use a piscina.']),
+      ...Array.from(world.boats?.values()||[]).filter(b=>b.rioBerth&&['surf','jet','launch','board'].includes(b.kind)).map(b=>['marina-'+b.id,b.kind==='surf'||b.kind==='board'?'🏄':'🚤',b.label,'GPS direto à vaga no píer.']),
       ...regionalExpansion.homes.map(({site})=>[site.id,'🏡',site.name,'Visite, compre e decore o imóvel.'])
     ];
     return '<h3>Explore o mundo</h3><div class="choice-grid world-explore-directory">'+destinations.map(([id,icon,title,description])=>'<button class="choice" data-explore-nav="'+id+'"><b>'+icon+' '+title+'</b><span>'+description+'</span><small>TRAÇAR ROTA NO GPS</small></button>').join('')+'<button class="choice" data-explore-civil><b>🤝 Missões do nosso mundo</b><span>Praias, vizinhança, neve, polícia, bombeiros e passeios.</span><small>INDIVIDUAL OU COOPERATIVO</small></button></div>';
@@ -15979,7 +16176,13 @@ function precompile(T,renderer,scene,camera,timings){
  const civilTerrainBefore=professionalTerrainHeightAt;
  const civilTerraces=[{x:147,z:305,w:17,d:15,y:civilTerrainBefore(147,305)},{x:210,z:235,w:15,d:12,y:civilTerrainBefore(210,235)}];
  const regionalMountainTerraces=typeof regionalHomeSites==='function'?regionalHomeSites().filter(s=>s.style==='snow-cabin').map(s=>({x:s.x,z:s.z,w:s.d+2,d:s.w+2,y:civilTerrainBefore(s.road[0],s.road[1]),blend:7})):[];
- professionalTerrainHeightAt=function(x,z,roadbedClearance=0){let y=civilTerrainBefore(x,z);for(const p of civilTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<4)y=lerp(p.y,y,clamp(distance/4,0,1));}for(const p of regionalMountainTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<p.blend&&!v704RoadAt(x,z,.1,true))y=lerp(p.y,y,clamp(distance/p.blend,0,1));}return y;};
+ const regionalLuxuryTerraces=regionalLuxurySites().map(s=>({x:s.x,z:s.z,w:Math.abs(Math.sin(s.yaw))>.5?s.lotD:s.lotW,d:Math.abs(Math.sin(s.yaw))>.5?s.lotW:s.lotD,y:civilTerrainBefore(s.road[0],s.road[1]),entry:{x:s.entry[0],z:s.entry[1]},road:{x:s.road[0],z:s.road[1]},blend:12}));
+ professionalTerrainHeightAt=function(x,z,roadbedClearance=0){let y=civilTerrainBefore(x,z);for(const p of civilTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<4)y=lerp(p.y,y,clamp(distance/4,0,1));}for(const p of regionalMountainTerraces){const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),distance=Math.hypot(dx,dz);if(distance<p.blend&&!v704RoadAt(x,z,.1,true))y=lerp(p.y,y,clamp(distance/p.blend,0,1));}if(x>=-185&&x<=125&&z>=235&&z<=430)for(const p of regionalLuxuryTerraces){
+  const dx=Math.max(0,Math.abs(x-p.x)-p.w/2),dz=Math.max(0,Math.abs(z-p.z)-p.d/2),lotDistance=Math.hypot(dx,dz);
+  if(lotDistance>p.blend+Math.hypot(p.entry.x-p.road.x,p.entry.z-p.road.z))continue;
+  const pathDistance=Math.max(0,v704DistanceToSegment({x,z},p.entry,p.road).distance-2.3),distance=Math.min(lotDistance,pathDistance);
+  if(distance<p.blend&&!v704RoadAt(x,z,.1,true))y=lerp(p.y,y,clamp(distance/p.blend,0,1));
+ }return y;};
  for(const [id,x,z]of[['balloon-coast',-380,458],['balloon-snow',-83,208],['balloon-serra',250,205]])WORLD_CAMPAIGN_AIRCRAFT[id]={id,mode:'balloon',model:'balloon',label:id==='balloon-coast'?'Balão da Costa Verde':id==='balloon-snow'?'Balão dos Picos Nevados':'Balão do Festival da Serra',x,z,yaw:0,radius:5,height:1.05};
  function civilTarget(id,label,x,z,options={}){
   const p={id,label,name:label,x,z,y:groundHeightAt(x,z),radius:3.4,...options};civilCommunity.targets.set(id,p);
@@ -18489,7 +18692,7 @@ function precompile(T,renderer,scene,camera,timings){
       ?RIO_PRETO_LAYOUT.lots.filter(lot=>lot.style.startsWith('house-')).map(rioHistoricHomeSite):[];
     const available=[];
     const cabins=typeof snowCabinSites==='function'&&typeof rioCompactWorld==='function'&&rioCompactWorld()?snowCabinSites():[];
-    const newHomes=typeof regionalExpansion!=='undefined'?(regionalExpansion.homes||[]).map(h=>h.site):[];
+    const newHomes=typeof regionalExpansion!=='undefined'?[...(regionalExpansion.homes||[]),...(regionalExpansion.luxury||[])].map(h=>h.site).filter(s=>!s.hotel):[];
     for(const site of [...compact,...historic,...cabins,...newHomes]){
       if(site.kind!=='residence'||!site.propertyId)continue;
       if(site.style==='rios-ditalia'){
@@ -19794,7 +19997,7 @@ function precompile(T,renderer,scene,camera,timings){
   }
 
   function rioBuildShell(site,room){
-    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:base;
+    const base=rioPlaceStyles[site.kind],p=site.style==='damha'?{...base,wall:0xe3e2d9,trim:0x586364,roof:0x4c585a}:site.style==='snow-cabin'?{...base,wall:0xa57e59,trim:0x6a4b37,roof:0xecf3f0,floor:0xbd9872}:site.style==='mountain-luxury'?{...base,wall:0xe7ded0,trim:0x66594a,roof:0x526270,floor:0xd4cbbb,height:4.1}:base;
     const {w,d}=site,{box,object}=room;
     const h=p.height,edge=.27,entry=site.kind==='market'?4.8:Math.min(3.1,w*.4);
     const front=d/2-edge,length=(w-entry)/2,center=(w+entry)/4;
@@ -19871,7 +20074,7 @@ function precompile(T,renderer,scene,camera,timings){
   function rioFinishInterior(site,room){
     const {w,d,kind}=site, b=room.box, edgeX=w/2-.51,edgeZ=d/2-.51;
     const theme={
-      residence:site.style==='damha'||site.style==='rios-ditalia'?[0x6d8b8a,0xe8dfd0]:site.style==='snow-cabin'?[0x896748,0xd4bf97]:[0x9d7659,0xe6d6bb],
+      residence:site.style==='damha'||site.style==='rios-ditalia'?[0x6d8b8a,0xe8dfd0]:site.style==='snow-cabin'?[0x896748,0xd4bf97]:site.style==='mountain-luxury'?[0x526d75,0xe8dfcf]:[0x9d7659,0xe6d6bb],
       mall:[0x467579,0xe4ddd0],market:[0xa46a43,0xe8dbbb],dining:[0x9c6249,0xe8c6a4],
       bakery:[0xaa7950,0xf0dfbe],construction:[0x516b61,0xd2c7a8],church:[0x9a7954,0xe1cfac],
       station:[0x4d6b7b,0xd7dfe0],airport:[0x486c80,0xd4e0e4],reception:[0x61847c,0xe1e9e3],
@@ -21584,6 +21787,13 @@ function precompile(T,renderer,scene,camera,timings){
     return root;
   }
 
+  function rioMakeSurfboard(color){
+    const root=new THREE.Group();root.name='RIO_SURFBOARD';
+    const board=new THREE.Mesh(new THREE.SphereGeometry(1,24,10),campaignMaterial(color,.32));board.scale.set(.36,.075,1.28);root.add(board);
+    campaignBox(root,campaignMaterial(0x183f61),0,.075,.15,.075,.015,1.60);
+    campaignBox(root,campaignMaterial(0xe9e9db),0,.075,-.48,.52,.025,.47);
+    campaignBox(root,campaignMaterial(0x29465a),0,-.12,-.88,.055,.25,.27);return root;
+  }
   function rioMakeJetSki(){
     const root=new THREE.Group();root.name='RIO_JET_SKI';
     const white=campaignMaterial(0xe9eeeb,.3),blue=campaignMaterial(0x1389be,.32),dark=campaignMaterial(0x20333d,.2),metal=campaignMaterial(0xa0b0b5,.45);
@@ -21631,8 +21841,8 @@ function precompile(T,renderer,scene,camera,timings){
     const moor={...rioDockPoint(side*(width+spec.halfLength+.38),length,d),heading:d.yaw+side*Math.PI/2};
     const boat={...spec,rioBerth:{step,moor}};
     rioSetBoatPose(boat,moor);worldGroup.add(boat.group);world.boats.set(boat.id,boat);
-    const icon=boat.kind==='board'?'🏄':boat.kind==='ship'?'🛳️':'🛶';
-    registerInteractable({id:'rio-board-'+boat.id,type:'boat',icon,label:boat.kind==='board'?'Subir na prancha':'Embarcar · '+boat.label,
+    const icon=['board','surf'].includes(boat.kind)?'🏄':boat.kind==='ship'?'🛳️':'🚤';
+    registerInteractable({id:'rio-board-'+boat.id,type:'boat',icon,label:boat.kind==='surf'?'Subir na prancha de surfe':boat.kind==='board'?'Subir na prancha':'Embarcar · '+boat.label,
       ...step,radius:1.48,priority:250,available:()=>rioCanBoard(boat),action:()=>enterBoat(boat)});
     return boat;
   }
@@ -21725,6 +21935,8 @@ function precompile(T,renderer,scene,camera,timings){
       halfWidth:1.57,halfLength:4.42,maxSpeed:9.8,acceleration:5.6,reverseSpeed:2.3,driver:{y:1.16,z:.94},group:rioMakeTourShip()},-1,20,d));
     craft.push(rioMakeBerth({id:'rio-jet-ski',label:'Jet ski · moto aquática',kind:'jet',halfWidth:.65,halfLength:1.60,
       maxSpeed:19,acceleration:10.5,reverseSpeed:2.1,driver:{y:.74,z:-.26},group:rioMakeJetSki()},-1,35,d));
+    craft.push(rioMakeBerth({id:'rio-surf',label:'Prancha de surfe · Guarujá',kind:'surf',halfWidth:.39,halfLength:1.30,maxSpeed:6.2,acceleration:3.1,reverseSpeed:1.1,driver:{y:.22},group:rioMakeSurfboard(0xf3b644)},-1,47,d));
+    for(const b of craft.filter(b=>b.rioBerth)){const p=b.rioBerth.step;citySign(group,b.label,p.x,1.85,p.z,3.2,-1,'#245b67',.40);}
     if(!player.boating)world.boat=world.boats.get('lake-boat');
     registerInteractable({id:'rio-guaruja-cais',type:'activity',icon:'⚓',label:'Escolher embarcação na marina',...entry,
       radius:3.4,priority:255,available:()=>!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session,action:openRioDock});
@@ -21802,14 +22014,20 @@ function precompile(T,renderer,scene,camera,timings){
     if(!paddle)return;
     paddle.visible=boat?.kind==='board';
     if(!boat){playerModel.position.x=0;playerModel.position.z=0;return;}
-    const p=boat.driver,board=boat.kind==='board';
-    playerModel.position.set(p.x||0,(playerModel.userData.baseY||0)+(board?0:-.47),p.z||0);
-    playerModel.rotation.x=0;
+    const p=boat.driver,board=boat.kind==='board',surf=boat.kind==='surf';
+    playerModel.position.set(p.x||0,(playerModel.userData.baseY||0)+(board||surf?0:-.47),p.z||0);
+    playerModel.rotation.x=0;playerModel.rotation.z=0;
     if(boat.kind==='jet'){
       const rig=visual?.byName,parts=playerModel.userData.parts;
       if(rig){rig.shoulder1.rotation.set(-1.12,0,-.18);rig['shoulder-1'].rotation.set(-1.12,0,.18);}
       else if(parts){parts.rightArm.rotation.set(-1.12,0,-.18);parts.leftArm.rotation.set(-1.12,0,.18);}
       return;
+    }
+    if(surf){
+      const rig=visual?.byName,parts=playerModel.userData.parts,lean=player.boat.steerVisual||0;
+      if(rig){for(const side of[-1,1]){rig['shoulder'+side].rotation.set(-.25,0,-side*.95);rig['hip'+side].rotation.x=-.28;rig['knee'+side].rotation.x=.48;}}
+      else if(parts){parts.rightArm.rotation.set(-.25,0,-.95);parts.leftArm.rotation.set(-.25,0,.95);}
+      playerModel.rotation.z=lean*.12;return;
     }
     if(!board)return;
     const stroke=Math.sin(animTime*(3.2+Math.abs(player.boat.speed)*.54))*clamp(Math.abs(player.boat.speed)/2,0,1);
@@ -22161,8 +22379,8 @@ function precompile(T,renderer,scene,camera,timings){
     if(site.style==='rios-ditalia'&&(selected===site.propertyId||(typeof selected==='string'&&selected.startsWith(site.propertyId+'-unit-')&&/^[1-5]0[1-4]$/.test(selected.slice(-3)))))room.selectedUnitId=selected;
     const rioResidencePropertyId=()=>room.selectedUnitId||site.propertyId;
     const {w,d,yaw}=site,condominium=site.style==='rios-ditalia',modern=site.style==='damha'||condominium,back=-d/2+1.04,front=d/2-.12;
-    const compactHome=d<7.2,linen=modern?0x709490:site.style==='snow-cabin'?0xb17c53:0xb8946f;
-    const cabinet=modern?0xc8c9c1:site.style==='snow-cabin'?0x8b6447:0xa17e5e;
+    const luxury=site.style==='mountain-luxury',compactHome=d<7.2,linen=luxury?0x506e80:modern?0x709490:site.style==='snow-cabin'?0xb17c53:0xb8946f;
+    const cabinet=luxury?0x725e4c:modern?0xc8c9c1:site.style==='snow-cabin'?0x8b6447:0xa17e5e;
     const kitchenX=compactHome?-w*.17:-w*.32,kitchenZ=compactHome?Math.min(1.35,d*.27):d*.27;
     const wardrobeX=compactHome?-w*.43:-w*.37,wardrobeZ=compactHome?1.02:.8;
     const bathZ=Math.min(1.85,d/2-.88);
@@ -22350,6 +22568,24 @@ function precompile(T,renderer,scene,camera,timings){
       };
       room.action('portaria','Conversar com o porteiro',0,d*.18,openCondoConcierge,
         {inside:true,icon:'🏢',radius:2.1});
+    }
+    if(luxury){
+      // Luxury fittings keep the central entry and exit clear. The suite is a
+      // real walkable interior, not just the decorative upper-floor facade.
+      room.box(0,.065,-.8,Math.min(w*.25,4.1),.035,Math.min(d*.30,3.5),0x748e96);
+      for(const side of[-1,1]){
+        room.object(side*w*.39,.38,-d*.20,.7,.76,.7,0x967c58);
+        room.box(side*w*.39,.99,-d*.20,.36,.32,.36,0xe9dfcc);
+      }
+      room.box(0,3.44,-.7,1.1,.12,.70,0xc5b28b);
+      for(const dx of[-.4,0,.4])room.part('post',dx,3.20,-.7,.17,.30,.17,0xe6d8af);
+      room.sign(site.hotel?'SUÍTE PREMIUM':'SALÃO PRINCIPAL',0,2.8,-d/2+.3,4.4,.54);
+      if(site.hotel){
+        const breakfast=room.point(-w*.17,d*.15);
+        room.action('hotel-breakfast','Tomar café da manhã',-w*.17,d*.15,()=>beginCharacterActivity('meal',{target:breakfast,pose:{...breakfast,y:room.floorY,yaw:site.yaw},commit:()=>{
+          if(!regionalHotelBooking(site))return false;state.needs.hunger=100;state.needs.energy=clamp(Number(state.needs.energy||0)+12,0,100);saveState(true);updateHUD();return true;
+        }}),{inside:true,icon:'☕',available:()=>regionalHotelBooking(site)});
+      }
     }
     room.action('rest','Descansar na sala',sx,back+.65,()=>rioSitOnBench(site,room,sx,back-.15),{inside:true,icon:'🛋️'});
     const bedApproach=room.point(bx,back+1.78),bed=room.point(bx,back+.24);
