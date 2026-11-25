@@ -171,7 +171,7 @@
       "startLine": 3087,
       "endLine": 3308,
       "description": "Ônibus, rotas viárias, paradas, metrô e painel de transporte",
-      "sha256Body": "be10aba82af9305f952bbbb7ae1f3423dcf9672bc6c14039b52d9332c6f4ad20"
+      "sha256Body": "94eefb988277fb3b083b332ed5b0e4cc4d95bd893ae1079e646727eb2f3bb056"
     },
     {
       "file": "src/modules/16-emergency-services.js",
@@ -297,7 +297,7 @@
       "startLine": 5240,
       "endLine": 5422,
       "description": "Pausa, testes de veículo, API pública de auditoria e bootstrap final",
-      "sha256Body": "95b7fa56c46e64048e906ef26714b456fca67af9133b87e835ed3210462eeba9"
+      "sha256Body": "b078eb34f9c119a5d96781e688b8e1516a7feb64b9f2c059b2c484b8777ae10e"
     },
     {
       "file": "src/modules/31-neighborhood-world-controller.js",
