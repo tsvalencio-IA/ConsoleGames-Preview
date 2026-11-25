@@ -153,7 +153,7 @@ try{
   const waterfront=await page.evaluate(()=>OTTHI_RIO_MAP.diagnostics());
   assert.equal(waterfront.reservoirCraft,0);
   assert.equal(waterfront.swimmers,2);
-  assert.deepEqual(waterfront.craft.map(boat=>boat.kind).sort(),['board','lake','launch','ship']);
+  assert.deepEqual(waterfront.craft.map(boat=>boat.kind).sort(),['board','jet','lake','launch','ship']);
   assert(waterfront.craft.every(boat=>boat.region==='guaruja'&&boat.z>513));
   await shot('represa-mirante-sem-barcos');
   await page.locator('[data-rio-praia-route]').tap();
@@ -177,6 +177,21 @@ try{
   await page.locator('#worldHomeBtn').tap();
   await page.waitForFunction(()=>!OTTHI_DESTINATIONS.diagnostics().activeBoat);
   report.guaruja={pierBoarding:true,paddled:true,returnHome:true};
+  await resumeAt('guaruja-marina');
+  await page.waitForFunction(()=>OTTHOS_TEST_API.getContext()?.id==='rio-guaruja-cais');
+  await page.locator('#actionBtn').tap();
+  await page.locator('[data-rio-dock-boat="rio-jet-ski"]').tap();
+  await page.waitForFunction(()=>OTTHI_DESTINATIONS.diagnostics().activeBoat==='rio-jet-ski',null,{timeout:45000});
+  const jetStart=(await look()).player;
+  await page.keyboard.down('KeyW');
+  try{
+    await page.waitForFunction(({x,z})=>{const p=OTTHOS_TEST_API.getGame().player;return Math.hypot(p.x-x,p.z-z)>.65;},jetStart,{timeout:18000});
+  }finally{await page.keyboard.up('KeyW');}
+  await shot('jet-ski-guaruja');
+  await menu();
+  await page.locator('#worldHomeBtn').tap();
+  await page.waitForFunction(()=>!OTTHI_DESTINATIONS.diagnostics().activeBoat);
+  report.guaruja.jetSki=true;
 
   await resumeAt('canecao_represa');
   const start=await look();

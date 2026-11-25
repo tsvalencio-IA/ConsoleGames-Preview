@@ -102,6 +102,21 @@
     return root;
   }
 
+  function rioMakeJetSki(){
+    const root=new THREE.Group();root.name='RIO_JET_SKI';
+    const white=campaignMaterial(0xe9eeeb,.3),blue=campaignMaterial(0x1389be,.32),dark=campaignMaterial(0x20333d,.2),metal=campaignMaterial(0xa0b0b5,.45);
+    const stations=[[-1.56,.37,.06,.28],[-1.27,.59,-.13,.35],[-.42,.63,-.19,.39],[.55,.56,-.13,.44],[1.22,.35,.03,.51],[1.57,.025,.22,.55]];
+    root.add(new THREE.Mesh(seaCraftHullGeometry(stations,false),white));
+    const cowl=new THREE.Mesh(new THREE.SphereGeometry(1,18,10),blue);cowl.scale.set(.46,.33,.79);cowl.position.set(0,.48,.55);root.add(cowl);
+    const seat=new THREE.Mesh(new THREE.SphereGeometry(1,16,8),dark);seat.scale.set(.26,.14,.64);seat.position.set(0,.56,-.35);root.add(seat);
+    for(const side of[-1,1])campaignBox(root,dark,side*.39,.36,-.34,.20,.075,.91);
+    campaignCylinder(root,metal,0,.79,.57,.045,.37);
+    campaignBox(root,dark,0,.99,.57,.66,.06,.07);
+    for(const side of[-1,1])campaignBox(root,dark,side*.30,.99,.57,.17,.09,.09);
+    campaignBox(root,blue,0,.22,-1.55,.39,.16,.14);
+    return root;
+  }
+
   function rioMakeTourShip(){
     const root=new THREE.Group();root.name='RIO_NAVIO_PASSEIO';
     const ivory=campaignMaterial(0xe9ece5,.30),teal=campaignMaterial(0x106c75,.36),metal=campaignMaterial(0x669097,.65);
@@ -227,6 +242,8 @@
       driver:{x:.40,y:.49,z:.66},group:createSeaCraftModel(speedboat)},1,44,d));
     craft.push(rioMakeBerth({id:'rio-navio-passeio',label:'Navio de passeio',kind:'ship',
       halfWidth:1.57,halfLength:4.42,maxSpeed:9.8,acceleration:5.6,reverseSpeed:2.3,driver:{y:1.16,z:.94},group:rioMakeTourShip()},-1,20,d));
+    craft.push(rioMakeBerth({id:'rio-jet-ski',label:'Jet ski · moto aquática',kind:'jet',halfWidth:.65,halfLength:1.60,
+      maxSpeed:19,acceleration:10.5,reverseSpeed:2.1,driver:{y:.74,z:-.26},group:rioMakeJetSki()},-1,35,d));
     if(!player.boating)world.boat=world.boats.get('lake-boat');
     registerInteractable({id:'rio-guaruja-cais',type:'activity',icon:'⚓',label:'Escolher embarcação na marina',...entry,
       radius:3.4,priority:255,available:()=>!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session,action:openRioDock});
@@ -307,6 +324,12 @@
     const p=boat.driver,board=boat.kind==='board';
     playerModel.position.set(p.x||0,(playerModel.userData.baseY||0)+(board?0:-.47),p.z||0);
     playerModel.rotation.x=0;
+    if(boat.kind==='jet'){
+      const rig=visual?.byName,parts=playerModel.userData.parts;
+      if(rig){rig.shoulder1.rotation.set(-1.12,0,-.18);rig['shoulder-1'].rotation.set(-1.12,0,.18);}
+      else if(parts){parts.rightArm.rotation.set(-1.12,0,-.18);parts.leftArm.rotation.set(-1.12,0,.18);}
+      return;
+    }
     if(!board)return;
     const stroke=Math.sin(animTime*(3.2+Math.abs(player.boat.speed)*.54))*clamp(Math.abs(player.boat.speed)/2,0,1);
     const rig=visual?.byName,parts=playerModel.userData.parts;

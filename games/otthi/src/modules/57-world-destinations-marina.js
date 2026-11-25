@@ -64,7 +64,7 @@
     const group=ghost?.userData.boatVisual;if(!group)return;
     const key=target.boatId||'lake-boat';if(group.userData.craftKey===key)return;
     const spec=SEA_CRAFT.find(b=>b.id===(key==='rio-lancha-familia'?'sea-familia':key));
-    const model=spec?createSeaCraftModel(spec):key==='rio-prancha'?rioMakeBoard(0x35b4ad):key==='rio-navio-passeio'?rioMakeTourShip():null;
+    const model=spec?createSeaCraftModel(spec):key==='rio-prancha'?rioMakeBoard(0x35b4ad):key==='rio-navio-passeio'?rioMakeTourShip():key==='rio-jet-ski'?rioMakeJetSki():null;
     group.userData.lakeParts??=group.children.slice();if(group.userData.seaModel){otGamesDisposeGroup(group.userData.seaModel);group.userData.seaModel=null;}
     for(const part of group.userData.lakeParts)part.visible=!model;
     if(model){group.add(model);group.userData.seaModel=model;}

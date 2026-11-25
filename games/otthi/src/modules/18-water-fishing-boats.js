@@ -160,7 +160,7 @@
     if(!player.boating)return;
     panel.querySelector('[data-boat-exit]').hidden=rioCraft;
     const passenger=!!player.boat.passengerOf,fish=panel.querySelector('[data-boat-fish]');
-    fish.hidden=world.boat?.kind==='board';fish.disabled=passenger;
+    fish.hidden=['board','jet'].includes(world.boat?.kind);fish.disabled=passenger;
     setControlText(fish.querySelector('span'),passenger?'Passageiro':'Pescar');
   }
   function applyBoatDriver(selected){
