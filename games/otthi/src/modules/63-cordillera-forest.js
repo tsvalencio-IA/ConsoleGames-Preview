@@ -10,12 +10,41 @@
    const color=new THREE.Color(snow?(y>28?0xe6edf0:y>9?0xc1d1d1:0xabc3b8):y>54?0x929c97:y>22?0x718376:0x6a9861).convertSRGBToLinear();const grain=.92+Math.sin(x*.53+Math.cos(z*.39))*.07;color.multiplyScalar(grain);colors.push(color.r,color.g,color.b);}
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95,side:THREE.DoubleSide});const mesh=new THREE.Mesh(geometry,mat);mesh.position.set(cx,0,cz);mesh.receiveShadow=true;mesh.name='OT_CORDILLERA_'+cx+'_'+cz;worldGroup.add(mesh);cordillera.chunks.push({mesh,x:cx,z:cz,peak});
  }
+ // Three r128 uses geometry.boundingSphere for InstancedMesh culling.
+ // Each 96-unit tile has its own geometry and conservative transformed bounds.
+ // No vegetation is removed, moved, simplified or hidden by a quality preset.
+ function cordilleraForestBatches(places,materials){
+  const cells=new Map(),out=[],o=new THREE.Object3D(),matrix=new THREE.Matrix4(),part=new THREE.Box3();
+  for(const p of places){const key=Math.floor(p.x/96)+':'+Math.floor(p.z/96);let cell=cells.get(key);if(!cell)cells.set(key,cell=[]);cell.push(p);}
+  const specs=[
+   [()=>new THREE.CylinderGeometry(.12,.20,2.0,6),materials[0],1,false],
+   [()=>new THREE.ConeGeometry(1.5,4.2,9),materials[1],3.5,false],
+   [()=>new THREE.ConeGeometry(1.0,2.4,8),materials[2],4.05,true]
+  ];
+  for(const cell of cells.values())for(const [make,material,height,snow]of specs){
+   const trees=snow?cell.filter(p=>p.snow):cell;if(!trees.length)continue;
+   const geometry=make();geometry.computeBoundingBox();const local=geometry.boundingBox.clone(),bounds=new THREE.Box3();
+   const mesh=new THREE.InstancedMesh(geometry,material,trees.length);
+   for(const [i,p]of trees.entries()){
+    o.position.set(p.x,p.y+height*p.scale,p.z);o.scale.setScalar(p.scale);o.rotation.y=p.yaw;o.updateMatrix();
+    mesh.setMatrixAt(i,o.matrix);
+    // Read the actual float32 instance transform, not the original double.
+    mesh.getMatrixAt(i,matrix);bounds.union(part.copy(local).applyMatrix4(matrix));
+   }
+   geometry.boundingSphere=bounds.getBoundingSphere(new THREE.Sphere());geometry.boundingSphere.radius+=.001;
+   mesh.name='OT_EXTENDED_FOREST';mesh.userData.otthiBoundedInstances=true;mesh.frustumCulled=true;mesh.instanceMatrix.needsUpdate=true;out.push(mesh);
+  }
+  return out;
+ }
  function createCordilleraForest(){
   const places=[];let seed=733177;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   for(let i=0;i<1300;i++){const snow=i<350,x=snow?-205+random()*410:-810+random()*340,z=snow?235+random()*245:-490+random()*960;if(v704ReservedAt(x,z,6)||waterAt(x,z)||typeof regionalNatureReserve==='function'&&regionalNatureReserve(x,z,3.5))continue;const y=professionalTerrainHeightAt(x,z);if(snow&&y>66)continue;places.push({x,z,y,scale:(snow?.8:1)+random()*1.0,snow});}
-  const trunkMat=campaignMaterial(0x665442),pineMat=campaignMaterial(0x3e6a54),snowMat=campaignMaterial(0xc9dcda),trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.12,.20,2.0,6),trunkMat,places.length),tops=new THREE.InstancedMesh(new THREE.ConeGeometry(1.5,4.2,9),pineMat,places.length),caps=new THREE.InstancedMesh(new THREE.ConeGeometry(1.0,2.4,8),snowMat,places.filter(p=>p.snow).length),o=new THREE.Object3D();let si=0;
-  for(const [i,p]of places.entries()){o.position.set(p.x,p.y+p.scale,p.z);o.scale.setScalar(p.scale);o.rotation.y=random()*Math.PI*2;o.updateMatrix();trunk.setMatrixAt(i,o.matrix);o.position.y=p.y+3.5*p.scale;o.updateMatrix();tops.setMatrixAt(i,o.matrix);if(p.snow){o.position.y=p.y+4.05*p.scale;o.updateMatrix();caps.setMatrixAt(si++,o.matrix);}}
-  for(const m of[trunk,tops,caps]){m.name='OT_EXTENDED_FOREST';m.instanceMatrix.needsUpdate=true;m.frustumCulled=false;worldGroup.add(m);}cordillera.trees=places.length;
+  const trunkMat=campaignMaterial(0x665442),pineMat=campaignMaterial(0x3e6a54),snowMat=campaignMaterial(0xc9dcda);
+  // Preserve the seeded rotation of every tree, in the original order.
+  for(const p of places)p.yaw=random()*Math.PI*2;
+  const batches=cordilleraForestBatches(places,[trunkMat,pineMat,snowMat]);
+  for(const m of batches)worldGroup.add(m);
+  cordillera.forestBatches=batches;cordillera.trees=places.length;
   for(const p of places){const key=Math.floor(p.x/16)+':'+Math.floor(p.z/16);if(!cordillera.forestCells.has(key))cordillera.forestCells.set(key,[]);cordillera.forestCells.get(key).push(p);}
  }
  const cordilleraOldBlocked=positionBlockedForPlayer;positionBlockedForPlayer=function(x,z,radius=.48,options={}){if(cordilleraOldBlocked(x,z,radius,options))return true;const cx=Math.floor(x/16),cz=Math.floor(z/16);for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(const p of cordillera.forestCells.get((cx+dx)+':'+(cz+dz))||[])if(Math.hypot(x-p.x,z-p.z)<.16*p.scale+radius)return true;return false;};

@@ -38,13 +38,25 @@
   function pointOnRoad(x,z,margin=.7){return v704RoadAt(x,z,margin,false);}
   function projectPointToPolyline(pos,points,closed=true){
     if(!points?.length)return null;let best=null;
-    for(let i=0;i<(closed?points.length:points.length-1);i++){const a=points[i],b=points[(i+1)%points.length];if(!a||!b)continue;const point=projectPointToSegment(pos,a,b),distance=Math.hypot(pos.x-point.x,pos.z-point.z);if(!best||distance<best.distance)best={point,distance,index:i,nextIndex:(i+1)%points.length};}
+    const length=points.length,limit=closed?length:length-1,px=pos.x,pz=pos.z;
+    for(let i=0;i<limit;i++){
+      const next=i+1===length?0:i+1,a=points[i],b=points[next];if(!a||!b)continue;
+      // The axis-aligned segment bounds give a conservative lower bound.
+      // Skip only segments that cannot improve the existing exact result.
+      if(best){
+        const dx=Math.max(0,Math.min(a.x,b.x)-px,px-Math.max(a.x,b.x)),dz=Math.max(0,Math.min(a.z,b.z)-pz,pz-Math.max(a.z,b.z));
+        if(Math.max(dx,dz)>best.distance+1e-9)continue;
+      }
+      const point=projectPointToSegment(pos,a,b),distance=Math.hypot(px-point.x,pz-point.z);
+      if(!best||distance<best.distance)best={point,distance,index:i,nextIndex:next};
+    }
     return best;
   }
   function snapTrafficToRoad(group,previous=null){
     if(!group)return false;
-    const guided=projectPointToPolyline(group.position,group.userData?.roadPath,group.userData?.roadPathClosed!==false),projection=guided?.point?guided:nearestRoadProjection(group.position),distance=Number(projection?.distance??Infinity),onRoad=pointOnRoad(group.position.x,group.position.z,.08),hardLimit=Number(group.userData?.trafficCorridor||1.35);
+    const onRoad=pointOnRoad(group.position.x,group.position.z,.08);
     if(onRoad&&performance.now()<Number(group.userData?.trafficSeparationUntil||0))return true;
+    const guided=projectPointToPolyline(group.position,group.userData?.roadPath,group.userData?.roadPathClosed!==false),projection=guided?.point?guided:nearestRoadProjection(group.position),distance=Number(projection?.distance??Infinity),hardLimit=Number(group.userData?.trafficCorridor||1.35);
     if(projection?.point&&pointOnRoad(projection.point.x,projection.point.z,.05)){
       if(!onRoad||distance>hardLimit){group.position.x=projection.point.x;group.position.z=projection.point.z;return true;}
       if(distance>.12){const correction=Math.min(.42,.12+distance*.16);group.position.x=lerp(group.position.x,projection.point.x,correction);group.position.z=lerp(group.position.z,projection.point.z,correction);}return true;
