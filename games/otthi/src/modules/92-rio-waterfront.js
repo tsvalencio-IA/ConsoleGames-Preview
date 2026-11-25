@@ -30,7 +30,8 @@
       if(!navigable(wx,wz))return false;
     }
     if(trafficBodiesOverlap(body,w.obstacle,.09)||trafficBodiesOverlap(body,w.swimZone,.20))return false;
-    for(const other of w.craft){
+    if((w.portObstacles||[]).some(obstacle=>trafficBodiesOverlap(body,obstacle,.09)))return false;
+    for(const other of [...w.craft,...(w.portCraft||[]),...(w.portTraffic||[])]){
       if(other===boat)continue;
       const p=other.group.position;
       if(trafficBodiesOverlap(body,rioBoatBody(other,p.x,p.z,other.heading),.12))return false;
@@ -154,11 +155,10 @@
       ...step,radius:1.48,priority:250,available:()=>rioCanBoard(boat),action:()=>enterBoat(boat)});
     return boat;
   }
-  function openRioDock(){
-    const dock=rioMap.coastalDock;
+  function openRioDock(dock=rioMap.coastalDock){
     if(!dock||player.vehicle||player.boating||player.swimming||distance2D(player,dock.entry)>3.6)return false;
     const craft=dock.craft.filter(boat=>boat.rioBerth);
-    openModal('Marina do Guarujá','<p>Escolha a embarcação. Seu personagem caminha pelo píer até a vaga.</p><div class="choice-grid">'+
+    openModal(dock.title||'Marina do Guarujá','<p>Escolha a embarcação. Seu personagem caminha pelo píer até a vaga.</p><div class="choice-grid">'+
       craft.map(boat=>'<button class="choice" data-rio-dock-boat="'+boat.id+'"><b>'+escapeHtml(boat.label)+'</b></button>').join('')+
       '</div>',root=>{
         for(const button of root.querySelectorAll('[data-rio-dock-boat]'))button.onclick=()=>{

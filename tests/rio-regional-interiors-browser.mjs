@@ -151,6 +151,27 @@ try{
   },cabinId);
   assert(receipt.owned.includes('sofa-modular')&&receipt.layout.stored&&receipt.order.status==='delivered');
   report.cases.push({id:'furniture-address-delivery',received:true,destination:cabinId});
+  const regions=await page.evaluate(()=>OTTHI_DESTINATIONS.diagnostics().regional);
+  assert.equal(regions.rejected.length,0,JSON.stringify(regions.rejected));
+  assert.equal(regions.homes.length,8);
+  assert(regions.homes.every(h=>Math.abs(h.y-h.ground)<.05));
+  assert(regions.port?.ships.length===2&&regions.port.craft.includes('rio-santos-escuna'));
+  assert(regions.restaurant);
+  for(const id of ['regional-campos-serra-2','regional-guaruja-casa-1']){
+    await approach(id+'-door');
+    await page.locator('[data-rio-property-buy]').click();
+    await page.locator('[data-rio-property-enter]').click();
+    await page.waitForFunction(id=>OTTHI_DESTINATIONS.diagnostics().regional.homes.some(h=>h.id===id&&h.inside),id);
+    assert(await page.evaluate(id=>OTTHOS_TEST_API.getState().cityServices.rioMap.properties[id]?.owned,id));
+    const floor=await verifyFloor(id);await page.screenshot({path:out+'/'+id+'.png'});
+    await approach(id+'-chalet-exit');
+    report.cases.push({id,entered:true,purchased:true,exited:true,floor});
+  }
+  await approach('santos-port-tour');
+  await page.locator('[data-rio-dock-boat="rio-santos-escuna"]').click();
+  await page.waitForFunction(()=>OTTHI_DESTINATIONS.diagnostics().activeBoat==='rio-santos-escuna',null,{timeout:45000});
+  await page.screenshot({path:out+'/santos-escuna.png'});
+  report.cases.push({id:'santos-port-tour',boarded:true,ships:regions.port.ships});
   assert.deepEqual(report.errors,[]);
   report.passed=true;
 }finally{

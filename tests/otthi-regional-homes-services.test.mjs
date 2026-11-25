@@ -29,3 +29,20 @@ test('native commercial counters retain purchases and add unique human staff',()
  assert.match(places,/rioPurchaseItems\(item\)/);
  assert.match(loop,/if\(inside\)\{[\s\S]*?rioUpdatePlaceService\(site,room,\.08\);[\s\S]*?continue;/);
 });
+
+test('new coastal and mountain houses retain historic IDs and separate property saves',()=>{
+ const code=src.slice(src.indexOf('function regionalHomeSites()'),src.indexOf('  function registerSnowCabin('));
+ const ctx=vm.createContext({Math});vm.runInContext(code,ctx);
+ const sites=JSON.parse(vm.runInContext('JSON.stringify(regionalHomeSites())',ctx));
+ assert.equal(sites.length,8);assert.equal(new Set(sites.map(s=>s.propertyId)).size,8);
+ assert.equal(sites.filter(s=>s.style==='snow-cabin').length,3);
+ assert.equal(sites.filter(s=>s.style==='beach-house').length,5);
+ for(const s of sites){assert(s.price>0);assert(Math.hypot(s.entry[0]-s.x,s.entry[1]-s.z)>s.d/2);}
+});
+test('port has a separate real berth, cargo and collision checks, not merely a map label',()=>{
+ assert.match(src,/id:'rio-santos-escuna'/);assert.match(src,/rioMakeBerth\(\{id:'rio-santos-escuna'/);
+ assert.match(src,/regionalPortVisit/);assert.match(src,/santosCargoDone/);
+ assert.match(src,/regionalCargoShip/);
+ const water=readFileSync('games/otthi/src/modules/92-rio-waterfront.js','utf8');
+ assert.match(water,/w\.portObstacles/);assert.match(water,/w\.portTraffic/);
+});

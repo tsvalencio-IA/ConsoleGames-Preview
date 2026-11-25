@@ -7,7 +7,7 @@
   // Civilian neighbourhoods and cross-region routes share the same road graph.
   const CIVIL_WORLD_LINKS=(()=>{
     const highways=[],nodes={},edges=[],at=new Map();
-    const anchors={'24,220':'EXT_SNOW_GATE','240,220':'EXT_serra-access_2','-550,100':'EXT_forest-link_2','-360,475':'COAST_W','680,190':'EXT_serra-loop_5','360,10':'A_SE','171,-216':'EXT_airport-access_3','300,10':'A_S','-240,160':'CV_SE'};
+    const anchors={'24,220':'EXT_SNOW_GATE','240,220':'EXT_serra-access_2','-550,100':'EXT_forest-link_2','-360,475':'COAST_W','-220,475':'COAST_E_END','680,190':'EXT_serra-loop_5','360,10':'A_SE','171,-216':'EXT_airport-access_3','300,10':'A_S','-240,160':'CV_SE'};
     function node(x,z,id){const key=x+','+z;if(anchors[key])return anchors[key];if(at.has(key))return at.get(key);nodes[id]={x,z};at.set(key,id);return id;}
     function path(id,name,points,width=9){const ids=points.map(([x,z],i)=>node(x,z,'CIVIL_'+id+'_'+i));for(let i=1;i<ids.length;i++)edges.push([ids[i-1],ids[i]]);highways.push({id:'ottovias-civil-'+id,name,width,shoulder:1,closed:false,points:points.map(([x,z])=>({x,z,y:0}))});return ids;}
     path('snow-serra','Ligação Neve–Cordilheira',[[24,220],[120,210],[210,220],[240,220]],10);
@@ -16,6 +16,8 @@
     const airport=path('airport-south','Ligação Sul do Aeroporto',[[171,-216],[200,-260],[200,-400]],10);edges.push([airport.at(-1),'EXT_outer-link_4'],[airport.at(-1),'EXT_outer-link_5']);
     path('cable-access','Acesso ao Teleférico',[[210,220],[210,235]],8);
     path('snow-homes','Alameda dos Chalés',[[24,220],[-74,220]],7);
+    // One continuous physical access road from Guarujá to the Santos terminals.
+    path('santos-port','Avenida do Porto de Santos',[[-220,475],[-170,475],[-115,475],[-65,475],[-65,497]],10);
     // Actual intersections, rather than disconnected visual street segments.
     const aX=[240,254,304,354,360],aZ=[42,68];
     for(const z of aZ)path('aurora-row-'+z,'Bairro Jardim Aurora',aX.map(x=>[x,z]),7);

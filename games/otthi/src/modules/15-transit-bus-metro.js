@@ -228,7 +228,7 @@
     const regional=[
       {id:'alimentadora-leste',number:'501',name:'Terminal Leste – Rios D’Italia',color:0x218a80,stops:[['A_LINK','integracao-leste','Terminal Leste'],['RIO_MURCHID_M','murchid-shopping','Murchid / Shoppings'],['RIO_MURCHID_CONDOMINIOS','rios-italia','Rios D’Italia']]},
       {id:'regional-serra',number:'502',name:'Estação Norte – Campos do Jordão / Teleférico',color:0x536f9c,stops:[['EXT_SNOW_GATE','integracao-norte','Campos do Jordão / Chalés'],['EXT_serra-access_2','serra-vale','Vale da Cordilheira']]},
-      {id:'regional-litoral',number:'503',name:'Oeste – Costa Verde / Guarujá',color:0xe18b35,stops:[['RIO_GODOY_W','integracao-oeste','Godoy / Estação Oeste'],['CV_S','costa-bairro','Jardim da Costa'],['COAST_E','guaruja-orla','Guarujá / Orla'],['COAST_E_END','guaruja-marina','Marina']]},
+      {id:'regional-litoral',number:'503',name:'Oeste – Costa Verde / Guarujá',color:0xe18b35,stops:[['RIO_GODOY_W','integracao-oeste','Godoy / Estação Oeste'],['CV_S','costa-bairro','Jardim da Costa'],['COAST_E','guaruja-orla','Guarujá / Orla'],['COAST_E_END','guaruja-marina','Marina'],['CIVIL_santos-port_4','santos-port','Porto de Santos / Terminal']]},
       {id:'alimentadora-aeroporto',number:'504',name:'Central – Aeroporto',color:0x7a579c,stops:[['CS0','central-conexao-sul','Conexão Central Sul'],['EXT_airport-access_3','aeroporto-regional','Aeroporto / Terminal']]}
     ];
     const nodes=new Map(Object.entries(NAV_BASE_NODES)),adj=new Map();
