@@ -38,7 +38,7 @@ try{
          if(++frames>2400)throw Error('Runner stopped at '+JSON.stringify({x:player.x,z:player.z,goal}));
          const dx=goal.x-player.x,dz=goal.z-player.z,len=Math.hypot(dx,dz);
          input.joyId=1;input.joyX=dx/len;input.joyZ=-dz/len;
-         const before={x:player.x,z:player.z};updatePlayer(1/60);
+         cityQaMs+=1000/60;const before={x:player.x,z:player.z};updatePlayer(1/60);
          if(!photo){
            rioFottoObserveRun(1/60,before);
            if(rioFotto.pending){
@@ -58,7 +58,7 @@ try{
        if(!activeRace)break;
      }
      clearMovementInputs();
-     return {id:course.id,gates:course.gates.length,completed:(rioStreetRecord()?.runs||0)-previous,overLake,swam,photo};
+     return {id:course.id,gates:course.gates.length,completed:(rioStreetRecord()?.runs||0)-previous,overLake,swam,photo,photoDiagnostics:{stations:rioFotto.stations.map(s=>({id:s.id,gate:s.gate,pos:s.pos,course:s.course})),...JSON.parse(JSON.stringify(rioFotto.stats))}};
    },
    photoEvidence:async()=>{const rows=await rioFottoRows(rioFottoOwner());return Promise.all(rows.map(async row=>{const image=await createImageBitmap(row.blob);const info={id:row.id,size:row.blob.size,type:row.blob.type,width:image.width,height:image.height};image.close();return info;}));},
    photoGallery:()=>openRioFottoGallery(),
