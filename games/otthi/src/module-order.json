@@ -171,7 +171,7 @@
       "startLine": 3087,
       "endLine": 3308,
       "description": "Ônibus, rotas viárias, paradas, metrô e painel de transporte",
-      "sha256Body": "eb174885d1e73bf598c1f64793abec1bcf94c2a6cbad6a1d7263b1a36875e5d9"
+      "sha256Body": "655b9d8db15f607966ce9d04e421e4ff4aac323ff6848eb539244f42769cd4ad"
     },
     {
       "file": "src/modules/16-emergency-services.js",
@@ -290,7 +290,7 @@
       "startLine": 5124,
       "endLine": 5238,
       "description": "Loop principal, controles, gamepad e início do jogo",
-      "sha256Body": "8d3b60f55f0c8ac30c00cdb2c570fdf79676d40040967eb729a142619cdf9aae"
+      "sha256Body": "3873baca7c7da1b50faf882325640516fcf763c16a061023a45384cbf39b541a"
     },
     {
       "file": "src/modules/30-pause-tests-public-api-bootstrap.js",
@@ -534,7 +534,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Destinos acessíveis, marina com lanchas pilotáveis e neve visível",
-      "sha256Body": "cfcde8daccac34309e3ac0301bb53224ac9b760af0db65dfa86e84b5f2d87a3a"
+      "sha256Body": "3d8d1a91dc0f5815295a4572e9b57aec349b938e476a3fa5542b94c6358d0fb1"
     },
     {
       "file": "src/modules/58-character-activities.js",
@@ -950,7 +950,7 @@
     {
       "file": "src/styles/29-exploration-hud.css",
       "description": "Menu de exploração e HUD compacto sem remoção de funções",
-      "sha256Body": "8d4c8735630057d3c8b22578411db231d0d676dea5cbcd64c7b5cc4c7f6fbdc6"
+      "sha256Body": "776c968d7845fe1c5d80d1b4333520093f9f8c268df7f794b08abb5546676825"
     },
     {
       "file": "src/styles/30-rio-wardrobe.css",
