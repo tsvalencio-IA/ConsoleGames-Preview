@@ -15,6 +15,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -44,6 +46,14 @@ jobs:
       - name: Validate native compact world, including jet ski
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
         run: node tests/rio-compact-world-browser.mjs
+      - name: Measure native mobile frame times against the currently published revision
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi): performance')
+        env:
+          OT_LIVE_BASELINE: 0af28d8bac14d33261b6577ec052e6600b86e55b
+          OT_LIVE_QUALITY: auto
+          OT_LIVE_SECONDS: '15'
+          OT_LIVE_OUT: test-results/world-live-performance
+        run: node tests/world-play-performance.mjs
       - name: Store evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -54,6 +64,7 @@ jobs:
             test-results/rio-regional-interiors/
             test-results/rio-park-integrity/
             test-results/rio-compact-world/
+            test-results/world-live-performance/
           if-no-files-found: ignore
       - name: Wait for both independent gameplay validations on the exact requested revision
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
@@ -112,6 +123,7 @@ jobs:
         run: |
           git fetch origin "refs/heads/main:refs/remotes/origin/main" "refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}"
           test "$(git rev-parse "refs/remotes/origin/${GITHUB_REF_NAME}")" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor origin/main HEAD
           # Non-forced push rejects any divergent main; never replace its history.
           git push origin HEAD:refs/heads/main
       - name: Dispatch existing verified Pages publisher
