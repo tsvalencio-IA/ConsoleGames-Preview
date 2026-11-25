@@ -94,7 +94,7 @@
       "startLine": 1456,
       "endLine": 1604,
       "description": "Rotas, trânsito, grafo, GPS e minimapa",
-      "sha256Body": "add4ae4df47f678146f9adc1474ddc8c3e735d9d703fc42b477428fa672fc067"
+      "sha256Body": "83213da2b0da2dad0947e3c6659465e876a0055540bc9fede4730672dd5caf7b"
     },
     {
       "file": "src/modules/08-map-parent-settings.js",
@@ -576,7 +576,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Cordilheira, neve, mata e trilha conectadas ao mundo",
-      "sha256Body": "145f451d247841b654a7735e9e5b1a41781e6a0a17caa73f7ac27c700ea7e14e"
+      "sha256Body": "2f1dc3a5d1f1081fc9c4daf8fada48ee0f9064258a3d7273c203c7a67c2cb7d3"
     },
     {
       "file": "src/modules/65-civil-community.js",
