@@ -157,6 +157,9 @@ try{
   assert(regions.homes.every(h=>Math.abs(h.y-h.ground)<.05));
   assert(regions.port?.ships.length===2&&regions.port.craft.includes('rio-santos-escuna'));
   assert(regions.restaurant);
+  await page.waitForFunction(()=>OTTHI_DESTINATIONS.diagnostics().regional.port.trucks.length===2);
+  const truckIds=await page.evaluate(()=>OTTHI_DESTINATIONS.diagnostics().regional.port.trucks.map(t=>t.id));
+  assert.deepEqual(truckIds,['santos-cargo-truck-0','santos-cargo-truck-1']);
   for(const id of ['regional-campos-serra-2','regional-guaruja-casa-1']){
     await approach(id+'-door');
     await page.locator('[data-rio-property-buy]').click();
@@ -167,9 +170,20 @@ try{
     await approach(id+'-chalet-exit');
     report.cases.push({id,entered:true,purchased:true,exited:true,floor});
   }
+  for(const p of regions.port.tour)await approach(p.id);
+  assert.equal(await page.evaluate(()=>OTTHOS_TEST_API.getState().worldExploration.santosVisit.seen.length),3);
+  await approach('santos-port-crane');
+  await page.waitForFunction(()=>OTTHI_DESTINATIONS.diagnostics().regional.port.job);
+  await page.waitForFunction(()=>OTTHOS_TEST_API.getState().worldExploration.santosCargoDone===true,null,{timeout:25000});
+  const cargo=await page.evaluate(()=>OTTHI_DESTINATIONS.diagnostics().regional.port.cargo);
+  assert(Math.abs(cargo[2]-523)<.1);
   await approach('santos-port-tour');
   await page.locator('[data-rio-dock-boat="rio-santos-escuna"]').click();
   await page.waitForFunction(()=>OTTHI_DESTINATIONS.diagnostics().activeBoat==='rio-santos-escuna',null,{timeout:45000});
+  const start=await page.evaluate(()=>OTTHOS_TEST_API.getGame().player);
+  await page.keyboard.down('KeyW');
+  try{await page.waitForFunction(p=>Math.hypot(OTTHOS_TEST_API.getGame().player.x-p.x,OTTHOS_TEST_API.getGame().player.z-p.z)>.65,start,{timeout:20000});}
+  finally{await page.keyboard.up('KeyW');}
   await page.screenshot({path:out+'/santos-escuna.png'});
   report.cases.push({id:'santos-port-tour',boarded:true,ships:regions.port.ships});
   assert.deepEqual(report.errors,[]);

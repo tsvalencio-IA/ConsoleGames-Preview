@@ -71,7 +71,7 @@
     group.position.y=model?-.08:-.68;group.userData.craftKey=key;
   }
   const marinaGroundHeight=groundHeightAt;
-  groundHeightAt=function(x,z){if(!inRioMap()&&x>=MARINA_DOCK.minX&&x<=MARINA_DOCK.maxX&&z>=499&&z<=549)return .48;return Math.max(marinaGroundHeight(x,z),regionalPortSurface(x,z));};
+  groundHeightAt=function(x,z){if(!inRioMap()&&x>=MARINA_DOCK.minX&&x<=MARINA_DOCK.maxX&&z>=499&&z<=549)return .48;const original=marinaGroundHeight(x,z),portHeight=!inRioMap()?regionalPortSurface(x,z):null;return portHeight===null?original:Math.max(original,portHeight);};
   const originalFamilyBoatSeat=familyBoatSeatOffset;
   familyBoatSeatOffset=function(i=-1){return world.boat?.seaGoing?world.boat.group.userData.seats[Math.max(0,Math.min(3,i+1))]:originalFamilyBoatSeat(i);};
   // Keep the original snow scenery and give every existing chalet its own
@@ -100,6 +100,15 @@
     return rows.map(([id,name,x,z,w,d,yaw,price,style,road])=>({id,key:id,propertyId:id,name,x,z,w,d,yaw,price,style,kind:'residence',
       street:style==='snow-cabin'?'Campos do Jordão · estrada da serra':'Guarujá · Avenida da Orla',
       entry:[x+Math.sin(yaw)*(d/2+1.35),z+Math.cos(yaw)*(d/2+1.35)],road}));
+  }
+  function regionalNatureReserve(x,z,margin=0){
+    // Reserve just the new property footprints and access paths, not whole mountains.
+    if(typeof rioCompactWorld==='function'&&!rioCompactWorld())return false;
+    return regionalHomeSites().some(s=>{
+      const rotated=Math.abs(Math.sin(s.yaw))>.5,w=rotated?s.d:s.w,d=rotated?s.w:s.d;
+      if(Math.abs(x-s.x)<=w/2+margin+1.4&&Math.abs(z-s.z)<=d/2+margin+1.4)return true;
+      return v704DistanceToSegment({x,z},{x:s.entry[0],z:s.entry[1]},{x:s.road[0],z:s.road[1]}).distance<margin+1.5;
+    });
   }
   function registerSnowCabin(site,facade,wall){
     const entrance={x:site.entry[0],z:site.entry[1]};
@@ -221,7 +230,7 @@
     regionalWalk(path,{x:site.entry[0],z:site.entry[1]},{x:site.road[0],z:site.road[1]});
     const rec=registerSnowCabin(site,facade,wall);regionalExpansion.homes.push({site,facade,path,rec});
   }
-  function regionalCargoShip(color){
+  function regionalCargoShip(color,loadingSlot=false){
     const root=new THREE.Group();root.name='SANTOS_CONTAINER_SHIP';
     const hull=campaignMaterial(0x23485c,.35),deck=campaignMaterial(0x878f8a),white=campaignMaterial(0xe1e4dc),glass=campaignMaterial(0x557c8d,.25);
     const sections=[[-15.5,3.6,.2,1.4],[-13,4.5,-.85,1.55],[-5,4.7,-1,1.55],[6,4.7,-.9,1.65],[12,3.4,-.4,1.7],[15.6,.15,.5,1.9]];
@@ -229,6 +238,8 @@
     campaignBox(root,deck,0,1.48,0,8.5,.20,27);
     const colors=[color,0x9b5141,0xc4a14b,0x4b827a];
     for(let row=0;row<4;row++)for(let col=0;col<3;col++)for(let layer=0;layer<2;layer++){
+      // Leave the central bay open for the real quay crane delivery.
+      if(loadingSlot&&row===1&&col===1)continue;
       campaignBox(root,campaignMaterial(colors[(row+col+layer)%4]),(col-1)*2.1,2.05+layer*1.04,-6+row*4.3,1.97,1,4.0);
     }
     campaignBox(root,white,0,3.65,-11.1,6.0,4.25,4.6);
@@ -238,7 +249,7 @@
     return root;
   }
   function regionalPortSurface(x,z){
-    return regionalExpansion.port&&x>=-104&&x<=-96&&z>=499&&z<=549?.48:0;
+    return regionalExpansion.port&&x>=-104&&x<=-96&&z>=499&&z<=549?.48:null;
   }
   function regionalPortVisit(index,point){
     if(player.vehicle||player.boating||otGames.active||Math.hypot(player.x-point.x,player.z-point.z)>3.5)return false;
@@ -251,7 +262,7 @@
     if(!rioMap.coastalDock)return;
     const root=new THREE.Group();root.name='SANTOS_PORT_TERMINALS';worldGroup.add(root);
     const concrete=campaignMaterial(0xa9aca5),steel=campaignMaterial(0x4f7180,.4),yellow=campaignMaterial(0xd7ab3c),blue=campaignMaterial(0x4e6979),white=campaignMaterial(0xe4e4dc);
-    campaignBox(root,concrete,-102,.10,494,116,.20,30);
+    campaignBox(root,concrete,-120,.10,494,80,.20,30);
     campaignBox(root,concrete,-100,.38,524,8,.20,50);
     for(const x of[-103.8,-96.2])for(const z of[503,515,530,545]){
       campaignCylinder(root,steel,x,.25,z,.14,1.7);campaignCylinder(root,yellow,x,.63,z,.14,.35);
@@ -277,22 +288,23 @@
       world.colliders.push({x,z:502,w:.7,d:.8,height:8.4,portCrane:true});
     }
     campaignBox(root,yellow,-137,8.6,512,8.6,.65,.8);
-    const hook=new THREE.Group();root.add(hook);
+    const hook=new THREE.Group();root.add(hook);hook.position.set(-137,8,501);
     campaignBox(hook,steel,0,.18,0,1.4,.35,1.0);
     const cargo=new THREE.Group();root.add(cargo);
     campaignBox(cargo,campaignMaterial(0xb76b40),0,.5,0,4.0,1,1.8);cargo.position.set(-137,.22,501);
-    const ships=[{id:'santos-berthed',group:regionalCargoShip(0x497a88),x:-137,z:523,heading:Math.PI/2,halfWidth:4.8,halfLength:16},
+    const ships=[{id:'santos-berthed',group:regionalCargoShip(0x497a88,true),x:-135.3,z:523,heading:Math.PI/2,halfWidth:4.8,halfLength:16},
       {id:'santos-moving',group:regionalCargoShip(0xa76c49),x:-20,z:620,heading:0,halfWidth:4.8,halfLength:16,phase:0}];
     for(const s of ships){s.group.position.set(s.x,.05,s.z);s.group.rotation.y=s.heading;worldGroup.add(s.group);}
     const d={x:-100,z:500,yaw:0,width:8},entry={x:-100,z:502};
     const escuna=rioMakeBerth({id:'rio-santos-escuna',label:'Escuna · passeio pelo canal de Santos',kind:'ship',region:'santos',halfWidth:1.57,halfLength:4.42,maxSpeed:9.3,acceleration:5.4,reverseSpeed:2.1,driver:{y:1.16,z:.94},group:rioMakeTourShip()},1,32,d);
-    const port={root,entry,craft:[escuna],ships,cargo,hook,job:null,title:'Terminal turístico · Porto de Santos'};
+    const port={root,entry,craft:[escuna],ships,cargo,hook,job:null,trucks:[],title:'Terminal turístico · Porto de Santos'};
     regionalExpansion.port=port;
     Object.assign(rioMap.coastalDock,{portCraft:port.craft,portTraffic:ships,portObstacles:[{x:-100,z:524,w:4,l:25,s:0,c:1}]});
-    citySign(root,'PORTO DE SANTOS · TERMINAIS',-65,3.4,490,12,1,'#31566c',.55);
+    citySign(root,'PORTO DE SANTOS · TERMINAIS',-77,3.4,490,12,1,'#31566c',.55);
     citySign(root,'TERMINAL TURÍSTICO · ESCUNAS',-100,3.1,500,9,-1,'#285d65',.50);
     citySign(root,'PÁTIO DE CONTÊINERES',-112,3.5,481,10,1,'#35566a',.45);
     regionalWalk(root,{x:-65,z:497},{x:-100,z:502},2.5);
+    root.remove(cargo,hook);mergeTrafficStatic(root);root.add(cargo,hook);
     registerInteractable({id:'santos-port-tour',type:'activity',icon:'⚓',label:'Embarcar na escuna de Santos',...entry,radius:3.4,priority:255,
       available:()=>!player.vehicle&&!player.boating&&!player.swimming&&!characterActivities.session,action:()=>openRioDock(port)});
     const points=[{id:'santos-port-gate',name:'Porto de Santos · acesso',x:-65,z:496},
@@ -312,6 +324,18 @@
   function regionalUpdateExpansion(focus,now,dt){
     for(const h of regionalExpansion.homes){const near=Math.hypot(focus.x-h.site.x,focus.z-h.site.z)<(qualityTier()==='low'?145:210);h.facade.visible=near&&!h.rec.inside;h.path.visible=near;}
     const port=regionalExpansion.port;if(!port)return;
+    // These trucks use the existing traffic controller and the same paved
+    // graph as the regional bus. Keep the original 44-model collection intact.
+    if(!port.trucks.length&&OTTOVIAS_RUNTIME.initialized){
+      const route=buildTrafficRoute([{x:-65,z:497},{x:-65,z:475},{x:-115,z:475},{x:-170,z:475},{x:-220,z:475}],true);
+      if(route.length>3&&route.every(p=>pointOnRoad(p.x,p.z,.03))){
+        for(const [i,color]of[0x42778e,0xb67b43].entries()){
+          const actor=createOttoviasTrafficVehicle('santos-cargo-truck-'+i,route,Math.floor(i*route.length/2),color,5.7,'truck');
+          if(actor){actor.portCargo=true;port.trucks.push(actor);}
+        }
+        world.trafficSnapshot=null;
+      }
+    }
     const near=Math.hypot(focus.x+100,focus.z-500)<290;
     port.root.visible=near;port.craft[0].group.visible=near||(player.boating&&world.boat===port.craft[0]);
     for(const s of port.ships)s.group.visible=Math.hypot(focus.x-s.x,focus.z-s.z)<310;
@@ -339,7 +363,7 @@
   }
   function regionalExpansionDiagnostics(){
     return {homes:regionalExpansion.homes.map(h=>({id:h.site.id,x:h.site.x,z:h.site.z,y:h.facade.position.y,ground:groundHeightAt(h.site.x,h.site.z),entry:{x:h.site.entry[0],z:h.site.entry[1]},inside:h.rec.inside,exit:h.rec.room?.point(0,h.site.d*.31)})),
-      rejected:regionalExpansion.rejected,restaurant:regionalExpansion.restaurant?.site.id||null,port:regionalExpansion.port?{entry:regionalExpansion.port.entry,craft:regionalExpansion.port.craft.map(b=>b.id),ships:regionalExpansion.port.ships.map(s=>({id:s.id,x:s.x,z:s.z,heading:s.heading})),tour:regionalExpansion.tour,job:!!regionalExpansion.port.job}:null};
+      rejected:regionalExpansion.rejected,restaurant:regionalExpansion.restaurant?.site.id||null,port:regionalExpansion.port?{entry:regionalExpansion.port.entry,craft:regionalExpansion.port.craft.map(b=>b.id),ships:regionalExpansion.port.ships.map(s=>({id:s.id,x:s.x,z:s.z,heading:s.heading})),tour:regionalExpansion.tour,trucks:regionalExpansion.port.trucks.map(t=>({id:t.id,x:t.group.position.x,z:t.group.position.z,route:t.route.length})),cargo:regionalExpansion.port.cargo.position.toArray(),job:!!regionalExpansion.port.job}:null};
   }
   function worldExploreLocations(){return[
     {id:'marina-costa',name:'Guarujá · marina e embarcações',label:'Guarujá · marina e embarcações',icon:'🚤',group:'Guarujá · praia e barcos',x:-220,z:502,navX:-220,navZ:502,description:'Caminhe pelo píer e escolha uma embarcação. Volte à vaga de embarque para desembarcar.',actions:['Seguir até a marina','Embarcar pelo botão AÇÃO','Pilotar, retornar e estacionar']},
