@@ -9,9 +9,45 @@ permissions:
   contents: read
   actions: read
 jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar e conferir FFmpeg e FFprobe
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version
+          ffprobe -version
+      - name: Testar gravação, conversão e decodificação antes dos capítulos
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+          node --check tools/filmagem/record.mjs
+          node tools/filmagem/record.mjs tests/filmagem-preflight.mjs
+          ffmpeg -nostdin -v error -y -i filmagem/filmagem-preflight/cena-01.webm -c:v libx264 -pix_fmt yuv420p filmagem/filmagem-preflight/cena-01.mp4
+          ffmpeg -nostdin -v error -xerror -i filmagem/filmagem-preflight/cena-01.mp4 -f null -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Verificacao-gravador
+          path: filmagem/filmagem-preflight/cena-01.mp4
+          if-no-files-found: error
   recuperar:
     runs-on: ubuntu-24.04
     steps:
+      - name: Instalar e conferir FFmpeg e FFprobe
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version
+          ffprobe -version
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
@@ -40,6 +76,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   filmar:
+    needs: preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     strategy:
@@ -68,6 +105,14 @@ jobs:
           node-version: '22'
       - name: Compilar versão isolada
         run: python3 games/otthi/tools/build_project.py
+      - name: Instalar e conferir FFmpeg e FFprobe
+        run: |
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version
+          ffprobe -version
       - name: Instalar ferramentas de gravação
         run: |
           npm install --no-save --ignore-scripts playwright@1.56.1
@@ -99,11 +144,10 @@ jobs:
       - name: Converter para MP4 para edição
         if: always()
         run: |
-          if command -v ffmpeg >/dev/null; then
-            find filmagem -name 'cena-*.webm' -print0 | while IFS= read -r -d '' video; do
-              ffmpeg -nostdin -hide_banner -loglevel error -y -i "$video" -c:v libx264 -preset fast -crf 20 -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -pix_fmt yuv420p -movflags +faststart "${video%.webm}.mp4" || true
+          command -v ffmpeg >/dev/null
+          find filmagem -name 'cena-*.webm' -print0 | while IFS= read -r -d '' video; do
+              ffmpeg -nostdin -hide_banner -loglevel error -y -i "$video" -c:v libx264 -preset fast -crf 20 -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -pix_fmt yuv420p -movflags +faststart "${video%.webm}.mp4" || { echo "Falha ao converter $video"; exit 1; }
             done
-          fi
       - name: Baixar cenas e evidências mesmo se houver erro
         if: always()
         uses: actions/upload-artifact@v4
