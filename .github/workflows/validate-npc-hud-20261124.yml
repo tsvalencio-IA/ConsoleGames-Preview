@@ -47,7 +47,8 @@ jobs:
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
         run: node tests/rio-compact-world-browser.mjs
       - name: Measure native mobile frame times against the currently published revision
-        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi): performance')
+        if: >-
+          github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi): performance')
         env:
           OT_LIVE_BASELINE: 0af28d8bac14d33261b6577ec052e6600b86e55b
           OT_LIVE_QUALITY: auto
