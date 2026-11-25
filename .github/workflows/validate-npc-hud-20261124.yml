@@ -39,6 +39,9 @@ jobs:
       - name: Verify park bridge, running course and real purchases
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124'
         run: node tests/rio-park-integrity-browser.mjs
+      - name: Verify map and physical metro interchange
+        if: startsWith(github.event.head_commit.message, 'release(otthi): performance metro')
+        run: node tests/world-metro-itinerary-browser.mjs
       - name: Verify mobile menu and all eight routes
         run: node tests/pages-preview-browser.mjs
       - name: Verify real regional interiors and chalet ownership
@@ -50,7 +53,7 @@ jobs:
         if: >-
           github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi): performance')
         env:
-          OT_LIVE_BASELINE: 0af28d8bac14d33261b6577ec052e6600b86e55b
+          OT_LIVE_BASELINE: 1b7f376bdf0b7b50e9a8c662f6e485ae6a945df9
           OT_LIVE_QUALITY: auto
           OT_LIVE_SECONDS: '15'
           OT_LIVE_OUT: test-results/world-live-performance
@@ -66,6 +69,7 @@ jobs:
             test-results/rio-park-integrity/
             test-results/rio-compact-world/
             test-results/world-live-performance/
+            test-results/metro-itinerary/
           if-no-files-found: ignore
       - name: Wait for both independent gameplay validations on the exact requested revision
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')

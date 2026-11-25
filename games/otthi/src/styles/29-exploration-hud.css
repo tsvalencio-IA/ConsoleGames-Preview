@@ -113,3 +113,6 @@ body.otthi-v705-world.ui-portrait.mode-mobility-driver #game #vehicleBadge {
 body.otthi-v705-world.ui-landscape.mode-mobility-driver {
   --land-action:clamp(44px,12vh,50px);
 }
+
+/* Metro: live network and explicit station-by-station travel, phone safe. */
+.metro-planner{display:grid;gap:12px;min-width:0;max-width:100%;overflow-wrap:anywhere}.metro-network-svg{display:block;width:100%;height:auto;background:#12283b;border-radius:12px}.metro-legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.82rem}.metro-planner select,.metro-planner [data-metro-board]{width:100%;max-width:100%;min-width:0;white-space:normal}.metro-planner [data-metro-plan]{padding:8px;border:1px solid #49677d;border-radius:10px}.metro-planner ol{padding-inline-start:24px;margin:.5em 0}.metro-planner li{margin:8px 0}.metro-planner [hidden]{display:none!important}

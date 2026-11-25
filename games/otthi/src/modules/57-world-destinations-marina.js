@@ -113,15 +113,23 @@
       entry:[x+Math.sin(yaw)*(d/2+1.35),z+Math.cos(yaw)*(d/2+1.35)]}));
   }
   function regionalLuxuryPoint(site,x,z){const s=Math.sin(site.yaw),c=Math.cos(site.yaw);return{x:site.x+c*x+s*z,z:site.z-s*x+c*z};}
+  let regionalNatureFootprints=null;
+  function regionalReserveSegment(x,z,a,b,radius){
+    if(radius<=0||x<Math.min(a.x,b.x)-radius||x>Math.max(a.x,b.x)+radius||z<Math.min(a.z,b.z)-radius||z>Math.max(a.z,b.z)+radius)return false;
+    return v704DistanceToSegment({x,z},a,b).distance<radius;
+  }
   function regionalNatureReserve(x,z,margin=0){
-    // Reserve just the new property footprints and access paths, not whole mountains.
     if(typeof rioCompactWorld==='function'&&!rioCompactWorld())return false;
-    if(v704DistanceToSegment({x,z},{x:125,z:295},{x:105,z:270}).distance<margin+3.2)return true;
-    return [...regionalHomeSites(),...regionalLuxurySites()].some(s=>{
-      const rotated=Math.abs(Math.sin(s.yaw))>.5,w=rotated?(s.lotD||s.d):(s.lotW||s.w),d=rotated?(s.lotW||s.w):(s.lotD||s.d);
-      if(Math.abs(x-s.x)<=w/2+margin+1.4&&Math.abs(z-s.z)<=d/2+margin+1.4)return true;
-      return v704DistanceToSegment({x,z},{x:s.entry[0],z:s.entry[1]},{x:s.road[0],z:s.road[1]}).distance<margin+1.5;
+    if(!regionalNatureFootprints)regionalNatureFootprints=[...regionalHomeSites(),...regionalLuxurySites()].map(s=>{
+      const rotated=Math.abs(Math.sin(s.yaw))>.5;
+      return {x:s.x,z:s.z,w:rotated?(s.lotD||s.d):(s.lotW||s.w),d:rotated?(s.lotW||s.w):(s.lotD||s.d),entry:{x:s.entry[0],z:s.entry[1]},road:{x:s.road[0],z:s.road[1]}};
     });
+    if(regionalReserveSegment(x,z,{x:125,z:295},{x:105,z:270},margin+3.2))return true;
+    for(const s of regionalNatureFootprints){
+      if(Math.abs(x-s.x)<=s.w/2+margin+1.4&&Math.abs(z-s.z)<=s.d/2+margin+1.4)return true;
+      if(regionalReserveSegment(x,z,s.entry,s.road,margin+1.5))return true;
+    }
+    return false;
   }
   function registerSnowCabin(site,facade,wall){
     const entrance={x:site.entry[0],z:site.entry[1]};
