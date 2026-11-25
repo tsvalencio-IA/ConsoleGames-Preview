@@ -62,6 +62,18 @@ jobs:
           script: |
             const names = ['Validar gameplay real no Chromium','Câmera frontal e modos no mundo OT'];
             const {owner,repo}=context.repo;
+            const workflowIds=['gameplay-smoke.yml','ot-games-smoke.yml'];
+            const initial=await github.rest.actions.listWorkflowRunsForRepo({owner,repo,head_sha:context.sha,per_page:100});
+            const ref=context.ref.replace(/^refs\/heads\//,'');
+            const branch=await github.rest.git.getRef({owner,repo,ref:'heads/'+ref});
+            if(branch.data.object.sha!==context.sha)throw Error('Candidate changed before validation; publication blocked');
+            // Workflow-only fixes do not trigger the two path-filtered suites.
+            // Dispatch any missing suite against this exact branch revision.
+            for(const [i,name] of names.entries()){
+              if(!initial.data.workflow_runs.some(r=>r.name===name&&r.head_sha===context.sha)){
+                await github.rest.actions.createWorkflowDispatch({owner,repo,workflow_id:workflowIds[i],ref});
+              }
+            }
             for(let attempt=0;attempt<180;attempt++){
               const {data}=await github.rest.actions.listWorkflowRunsForRepo({owner,repo,head_sha:context.sha,per_page:100});
               const runs=names.map(name=>data.workflow_runs.filter(r=>r.name===name&&r.head_sha===context.sha).sort((a,b)=>b.id-a.id)[0]);
@@ -100,7 +112,7 @@ jobs:
         run: |
           git fetch origin "refs/heads/main:refs/remotes/origin/main" "refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/${GITHUB_REF_NAME}"
           test "$(git rev-parse "refs/remotes/origin/${GITHUB_REF_NAME}")" = "$(git rev-parse HEAD)"
-          git merge-base --is-ancestor origin/main HEAD
+          # Non-forced push rejects any divergent main; never replace its history.
           git push origin HEAD:refs/heads/main
       - name: Dispatch existing verified Pages publisher
         if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
