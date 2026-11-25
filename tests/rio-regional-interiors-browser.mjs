@@ -170,6 +170,16 @@ try{
     await approach(id+'-chalet-exit');
     report.cases.push({id,entered:true,purchased:true,exited:true,floor});
   }
+  await approach('campos-sled-start');
+  await page.waitForFunction(()=>OT_CIVIL_COMMUNITY.diagnostics().sledRide.active);
+  await page.keyboard.down('KeyW');
+  try{
+    await page.waitForFunction(()=>OT_CIVIL_COMMUNITY.diagnostics().sledRide.distance>2,null,{timeout:20000});
+    await page.screenshot({path:out+'/campos-treno.png'});
+    await page.waitForFunction(()=>!OT_CIVIL_COMMUNITY.diagnostics().sledRide.active,null,{timeout:45000});
+  }finally{await page.keyboard.up('KeyW');}
+  assert(await page.evaluate(()=>OTTHOS_TEST_API.getState().worldExploration.sled.runs>=1));
+  report.cases.push({id:'campos-sled-start',controlled:true,finished:true});
   for(const p of regions.port.tour)await approach(p.id);
   assert.equal(await page.evaluate(()=>OTTHOS_TEST_API.getState().worldExploration.santosVisit.seen.length),3);
   await approach('santos-port-crane');

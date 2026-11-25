@@ -104,6 +104,7 @@
   function regionalNatureReserve(x,z,margin=0){
     // Reserve just the new property footprints and access paths, not whole mountains.
     if(typeof rioCompactWorld==='function'&&!rioCompactWorld())return false;
+    if(v704DistanceToSegment({x,z},{x:125,z:295},{x:105,z:270}).distance<margin+3.2)return true;
     return regionalHomeSites().some(s=>{
       const rotated=Math.abs(Math.sin(s.yaw))>.5,w=rotated?s.d:s.w,d=rotated?s.w:s.d;
       if(Math.abs(x-s.x)<=w/2+margin+1.4&&Math.abs(z-s.z)<=d/2+margin+1.4)return true;

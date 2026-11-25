@@ -4,6 +4,7 @@ on:
     branches: [fix/otthi-npc-hud-20261124, fix/otthi-mapa-integridade-20261124]
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: npc-hud-candidate
   cancel-in-progress: false
@@ -11,7 +12,7 @@ jobs:
   candidate:
     if: github.repository == 'tsvalencio-IA/ConsoleGames-Preview'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,6 +41,9 @@ jobs:
         run: node tests/pages-preview-browser.mjs
       - name: Verify real regional interiors and chalet ownership
         run: node tests/rio-regional-interiors-browser.mjs
+      - name: Validate native compact world, including jet ski
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
+        run: node tests/rio-compact-world-browser.mjs
       - name: Store evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -49,7 +53,23 @@ jobs:
             test-results/pages-preview/
             test-results/rio-regional-interiors/
             test-results/rio-park-integrity/
+            test-results/rio-compact-world/
           if-no-files-found: ignore
+      - name: Wait for both independent gameplay validations on the exact requested revision
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const names = ['Validar gameplay real no Chromium','Câmera frontal e modos no mundo OT'];
+            const {owner,repo}=context.repo;
+            for(let attempt=0;attempt<180;attempt++){
+              const {data}=await github.rest.actions.listWorkflowRunsForRepo({owner,repo,head_sha:context.sha,per_page:100});
+              const runs=names.map(name=>data.workflow_runs.filter(r=>r.name===name&&r.head_sha===context.sha).sort((a,b)=>b.id-a.id)[0]);
+              if(runs.some(r=>r?.status==='completed'&&r.conclusion!=='success')) throw Error('Independent validation failed or was cancelled: '+JSON.stringify(runs.map(r=>r&&[r.name,r.conclusion])));
+              if(runs.every(r=>r?.status==='completed'&&r.conclusion==='success')) return;
+              await new Promise(resolve=>setTimeout(resolve,10000));
+            }
+            throw Error('Independent validation did not complete');
       - name: Record generated runtime after all checks
         run: |
           git config user.name 'ConsoleGames validation'
@@ -59,3 +79,31 @@ jobs:
             git commit -m 'build(otthi): synchronize validated NPC and HUD runtime'
             git push origin HEAD:"${GITHUB_REF_NAME}"
           fi
+
+      - name: Package complete validated source and website
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
+        run: |
+          mkdir -p /tmp/otthi-release
+          git archive --format=zip --output=/tmp/otthi-release/ConsoleGames-source.zip HEAD
+          (cd _pages_preview && zip -qr /tmp/otthi-release/ConsoleGames-site.zip .)
+          git rev-parse HEAD > /tmp/otthi-release/REVISION.txt
+          (cd /tmp/otthi-release && sha256sum *.zip > SHA256SUMS.txt)
+      - name: Upload complete validated downloads
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConsoleGames-release-validated
+          path: /tmp/otthi-release/
+          if-no-files-found: error
+      - name: Promote only the validated revision to the existing preview main
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
+        run: |
+          git fetch origin main "${GITHUB_REF_NAME}"
+          test "$(git rev-parse FETCH_HEAD)" = "$(git rev-parse HEAD)"
+          git merge-base --is-ancestor origin/main HEAD
+          git push origin HEAD:refs/heads/main
+      - name: Dispatch existing verified Pages publisher
+        if: github.ref_name == 'fix/otthi-mapa-integridade-20261124' && startsWith(github.event.head_commit.message, 'release(otthi):')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish-isolated-pages-preview.yml --ref main --repo "$GITHUB_REPOSITORY"

@@ -68,6 +68,77 @@
   for(const s of civilCommunity.surfers){const t=now*.17+s.phase,x=s.x+14*Math.sin(t),z=s.z+5*Math.sin(t*2),heading=Math.atan2(14*Math.cos(t),10*Math.cos(t*2)),wave=.09+Math.sin(now*1.8+s.phase)*.055,visible=Math.hypot(focus.x-x,focus.z-z)<Math.min(175,performanceDistanceRanges().npc);s.board.visible=s.npc.group.visible=visible;s.board.position.set(x,wave,z);s.npc.group.position.set(x,wave-.12,z);if(!visible)continue;s.board.rotation.set(Math.sin(t)*.045,heading,Math.sin(t*2)*.10);s.npc.group.position.set(x,wave-.12,z);s.npc.group.rotation.set(.10,heading,Math.sin(t*2)*.08);s.npc.limbs.leftLeg.rotation.x=-.28;s.npc.limbs.rightLeg.rotation.x=-.42;s.npc.limbs.leftArm.rotation.z=.70+Math.sin(t)*.15;s.npc.limbs.rightArm.rotation.z=-.70+Math.cos(t)*.15;s.npc.lifeAction='surf';}
   for(const b of civilCommunity.seaTraffic){const t=now*.065+b.phase,x=b.x+42*Math.sin(t),z=b.z+11*Math.sin(t*2);b.group.visible=Math.hypot(focus.x-x,focus.z-z)<260;if(!b.group.visible)continue;b.group.position.set(x,.12+Math.sin(now*1.5+b.phase)*.045,z);b.group.rotation.set(Math.sin(now*1.5)*.018,Math.atan2(42*Math.cos(t),22*Math.cos(t*2)),Math.sin(t)*.035);const prop=b.group.userData.seaPropeller;if(prop)prop.rotation.z=now*24;}
  }
+ const CIVIL_SLED_TRACK=Object.freeze({start:{x:125,z:295},end:{x:105,z:270},width:3.6});
+ const civilSled={model:null,ride:null,ready:false};
+ function civilSledPoint(progress,offset=0){
+  const {start:a,end:b}=CIVIL_SLED_TRACK,dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz),f=clamp(progress/length,0,1),x=lerp(a.x,b.x,f)+dz/length*offset,z=lerp(a.z,b.z,f)-dx/length*offset;
+  return {x,z,y:groundHeightAt(x,z),heading:Math.atan2(dx,dz),length};
+ }
+ function civilCreateSledRide(){
+  if(civilSled.ready)return;
+  const {start,end}=CIVIL_SLED_TRACK,root=civilRegionRoot('CAMPO_SLED_TRACK',115,282.5,185),wood=campaignMaterial(0x996b44),steel=campaignMaterial(0x56696f,.4),blue=campaignMaterial(0x397fa0),yellow=campaignMaterial(0xe4bc53);
+  // A distinct player lane alongside, not instead of, the existing NPC course.
+  const length=Math.hypot(end.x-start.x,end.z-start.z);
+  for(let d=0;d<=length;d+=4)for(const side of[-1,1]){
+   const p=civilSledPoint(d,side*2.2);campaignCylinder(root,wood,p.x,p.y+.5,p.z,.065,1);
+   campaignBox(root,d<4||d>length-4?yellow:blue,p.x,p.y+.89,p.z,.28,.20,.24);
+  }
+  const model=new THREE.Group();model.name='PLAYER_MOUNTAIN_SLED';worldGroup.add(model);
+  for(const side of[-1,1]){
+   campaignBox(model,steel,side*.34,.075,0,.07,.10,1.75);
+   campaignBox(model,wood,side*.34,.23,0,.10,.22,1.46);
+  }
+  for(let i=0;i<5;i++)campaignBox(model,wood,0,.33,-.63+i*.31,.78,.09,.27);
+  campaignBox(model,blue,0,.44,-.32,.64,.12,.58);
+  campaignBox(model,steel,0,.70,.58,.69,.07,.09);
+  campaignCylinder(model,steel,0,.49,.58,.045,.42);
+  civilSled.model=model;
+  const p=civilSledPoint(0);model.position.set(p.x,p.y,p.z);model.rotation.y=p.heading;model.visible=false;
+  citySign(root,'TRENÓ DA SERRA · LARGADA',start.x+3,p.y+2.2,start.z,5,1,'#315968',.45);
+  const finish=civilSledPoint(length);citySign(root,'CHEGADA',end.x-3,finish.y+2.2,end.z,4,1,'#315968',.45);
+  registerInteractable({id:'campos-sled-start',type:'activity',icon:'🛷',label:'Pilotar trenó da serra',actionLabel:'Embarcar',x:start.x,z:start.z,radius:2.7,priority:275,
+   available:()=>!civilSled.ride&&!civilCommunity.ride&&!civilCommunity.waiting&&!player.vehicle&&!player.boating&&!player.transit.mode&&!player.swimming&&!currentHouse&&!rioMap.indoorRoom&&!otGames.active&&!characterActivities.session&&!buildMode&&!activeRace&&!fishingSession,
+   action:civilStartSled});
+  civilSled.ready=true;mergeTrafficStatic(root);
+ }
+ function civilStartSled(){
+  if(civilSled.ride||!civilSled.ready||Math.hypot(player.x-CIVIL_SLED_TRACK.start.x,player.z-CIVIL_SLED_TRACK.start.z)>2.9)return false;
+  const p=civilSledPoint(0);
+  if(positionBlockedForPlayer(p.x,p.z,.48,{ignoreTraffic:true,ignoreParkedVehicles:true}))return false;
+  clearMovementInputs();player.x=p.x;player.z=p.z;player.y=p.y+.48;player.facing=p.heading;player.vx=player.vy=player.vz=0;player.grounded=true;
+  civilSled.ride={distance:0,offset:0,speed:0,elapsed:0,lastX:p.x,lastZ:p.z};civilSled.model.visible=true;
+  playerGroup.position.set(player.x,player.y,player.z);playerGroup.rotation.y=player.facing;
+  toast('Trenó: avance para acelerar, recue para frear e use os lados para guiar. AÇÃO desembarca.','good',4000);updateContext(true);return true;
+ }
+ function civilStopSled(finished=false){
+  const r=civilSled.ride;if(!r)return false;
+  civilSled.ride=null;civilSled.model.visible=false;player.sitUntil=0;player.vx=player.vy=player.vz=0;player.y=groundHeightAt(player.x,player.z);player.grounded=true;
+  clearMovementInputs();playerGroup.position.set(player.x,player.y,player.z);
+  if(finished){
+   state.worldExploration||={};const data=state.worldExploration.sled||={runs:0,bestSeconds:null,rewarded:false};
+   data.runs++;data.bestSeconds=data.bestSeconds===null?r.elapsed:Math.min(data.bestSeconds,r.elapsed);
+   if(!data.rewarded){data.rewarded=true;addCoins(45);addXP(25);awardMedal('Trenó da Serra');}
+   toast('Descida concluída em '+r.elapsed.toFixed(1)+' s.','good',3000);
+  }
+  rememberSafePlayerPosition(true);savePlayerPosition(true);saveState(true);updateContext(true);return true;
+ }
+ function civilUpdateSled(dt){
+  const r=civilSled.ride;if(!r)return false;
+  if(Math.hypot(player.x-r.lastX,player.z-r.lastZ)>3||player.vehicle||player.boating||player.transit.mode||otGames.active){civilStopSled(false);return false;}
+  const control=resolveMovementInput(),current=civilSledPoint(r.distance,r.offset),ahead=civilSledPoint(r.distance+.8,r.offset);
+  const slope=clamp((current.y-ahead.y)/.8,-1,1),throttle=control.z;
+  r.speed=clamp(r.speed+dt*(throttle<-.05?-11*Math.abs(throttle):Math.max(0,throttle)*5.6+Math.max(0,slope)*3.0-.65-r.speed*.12),0,9);
+  const nextDistance=Math.min(current.length,r.distance+r.speed*dt),nextOffset=clamp(r.offset+control.x*dt*Math.min(2.8,.45+r.speed*.35),-1.45,1.45);
+  const p=civilSledPoint(nextDistance,nextOffset);
+  if(positionBlockedForPlayer(p.x,p.z,.44,{ignoreTraffic:true,ignoreParkedVehicles:true})||waterAt(p.x,p.z)){r.speed=0;}
+  else{r.distance=nextDistance;r.offset=nextOffset;player.x=p.x;player.z=p.z;player.y=p.y+.48;r.lastX=p.x;r.lastZ=p.z;}
+  r.elapsed+=dt;player.vx=player.vy=player.vz=0;player.grounded=true;player.facing=p.heading;player.sitUntil=performance.now()+300;
+  civilSled.model.position.set(player.x,player.y-.48,player.z);civilSled.model.rotation.y=p.heading;
+  playerGroup.position.set(player.x,player.y,player.z);playerGroup.rotation.y=p.heading;contactShadow.position.set(player.x,player.y-.455,player.z);
+  animatePlayer(dt);updateContext();
+  if(r.distance>=current.length-.02)civilStopSled(true);
+  return true;
+ }
  function civilCreateSnowAndMountainLife(){
   const root=civilRegionRoot('CIVIL_SNOW_LIFE',-25,230,280),ice=new THREE.Mesh(new THREE.CircleGeometry(12,48),new THREE.MeshStandardMaterial({color:0xbad5df,roughness:.24,metalness:.15}));ice.rotation.x=-Math.PI/2;ice.scale.y=.50;ice.position.set(-70,.018,239);root.add(ice);
   for(let i=0;i<4;i++){const n=addResident('snow-skater-'+i,['Clara','Enzo','Malu','Otávio'][i],[{x:-77,z:237,action:'skate'},{x:-70,z:234,action:'skate'},{x:-63,z:239,action:'skate'},{x:-70,z:243,action:'skate'}],0x6689a6+i*0x0a0d06);n.civilSkater=true;}
@@ -79,7 +150,7 @@
   for(const[i,x,z]of[[0,260,255],[1,300,285],[2,355,315]])civilTarget('balloon-view-'+i,'Panorama do festival '+(i+1),x,z,{icon:'📷',vehicle:'balloon',radius:18,minAltitude:14});
   for(let i=0;i<6;i++){const coast=i<3,x=coast?-380+(i%3)*55:310+(i-3)*125,z=coast?462:280+(i%2)*45,group=createMountainBalloon();group.name='CIVIL_SCENIC_BALLOON_'+i;worldGroup.add(group);const pilot=createRoadsidePoliceOfficer(null);pilot.group.parent?.remove(pilot.group);group.add(pilot.group);pilot.group.scale.setScalar(.60);pilot.group.position.set(0,-.8,0);pilot.group.visible=true;cordillera.balloons.push({group,x,z,phase:29+i*41,ground:professionalTerrainHeightAt(x,z),cruise:coast?55+i*12:175+i*7,civil:true});}
   for(const id of['balloon-coast','balloon-snow','balloon-serra']){const p=WORLD_CAMPAIGN_AIRCRAFT[id],g=civilRegionRoot('BALLOON_PAD_'+id,p.x,p.z,240),pad=new THREE.Mesh(new THREE.CylinderGeometry(5.5,5.7,.10,32),campaignMaterial(0xc2b9a1));pad.position.set(p.x,groundHeightAt(p.x,p.z)-.03,p.z);g.add(pad);citySign(g,p.label,p.x+5,groundHeightAt(p.x,p.z)+2,p.z,6,1,'#47685b',.45);}
-  civilBench(root,-56,218);civilBench(root,-30,218);mergeTrafficStatic(root);
+  civilBench(root,-56,218);civilBench(root,-30,218);mergeTrafficStatic(root);civilCreateSledRide();
  }
  function civilCableTiming(index,now=airNow()/1000){const p=((now+index*56)%112+112)%112;if(p<8)return{t:0,docked:'base',direction:1,wait:8-p};if(p<56)return{t:(p-8)/48,docked:'',direction:1,wait:56-p};if(p<64)return{t:1,docked:'top',direction:-1,wait:64-p};return{t:1-(p-64)/48,docked:'',direction:-1,wait:112-p};}
  function civilCablePoint(t,side=0){const a=CIVIL_CABLE.base,b=CIVIL_CABLE.top,dx=b.x-a.x,dz=b.z-a.z,l=Math.hypot(dx,dz),x=lerp(a.x,b.x,t)+dz/l*side,z=lerp(a.z,b.z,t)-dx/l*side,y=lerp(groundHeightAt(a.x,a.z),groundHeightAt(b.x,b.z),t)+.03+25*Math.sin(t*Math.PI);return{x,y:Math.max(y,professionalTerrainHeightAt(x,z)+.03),z,yaw:Math.atan2(dx,dz)};}
@@ -108,7 +179,18 @@
   player.x=p.x+x*c+z*s;player.z=p.z+z*c-x*s;player.y=p.y+.18;player.facing=p.yaw+(seat<4?Math.PI/2:-Math.PI/2);player.vx=player.vy=player.vz=0;player.grounded=true;player.sitUntil=performance.now()+500;clearMovementInputs();
   let ui=document.getElementById('civil-cable-hud');if(!ui){ui=document.createElement('aside');ui.id='civil-cable-hud';ui.innerHTML='<b></b><button class="btn primary" data-cable-exit>DESEMBARCAR</button>';document.getElementById('game').append(ui);ui.querySelector('button').onclick=civilCableExit;}ui.querySelector('b').textContent=timing.docked?CIVIL_CABLE[timing.docked].label:'Teleférico · destino: '+CIVIL_CABLE[r.to].label;ui.querySelector('button').disabled=!timing.docked;
  }
- const civilPlayerBefore=updatePlayer;updatePlayer=function(dt){if(civilCommunity.ride){updateCivilCablePassenger();return;}return civilPlayerBefore(dt);};
+ const civilPlayerBefore=updatePlayer;updatePlayer=function(dt){if(civilCommunity.ride){updateCivilCablePassenger();return;}if(civilSled.ride&&civilUpdateSled(dt))return;return civilPlayerBefore(dt);};
+ const civilSledContextBefore=updateContext;updateContext=function(force=false){
+  if(!civilSled.ride)return civilSledContextBefore(force);
+  currentContext={id:'campos-sled-exit',type:'activity',icon:'🛷',label:'Trenó · '+Math.round(civilSled.ride.speed*3.6)+' km/h',radius:999,action:()=>civilStopSled(false)};
+  currentVehicleContext=null;lastContextId='campos-sled-exit';
+  els.contextPrompt.hidden=false;els.contextIcon.textContent='🛷';els.contextLabel.textContent=currentContext.label;els.contextHint.textContent='Avance, freie e guie · AÇÃO para sair';
+  const span=els.actionBtn.querySelector('span'),icon=els.actionBtn.querySelector('b');if(span)span.textContent='Sair';if(icon)icon.textContent='🛷';
+  els.actionBtn.classList.remove('pulse');
+ };
+ const civilSledJumpBefore=requestJump;requestJump=function(){if(!civilSled.ride)return civilSledJumpBefore();};
+ const civilSledHomeBefore=returnHome;returnHome=function(...args){if(civilSled.ride)civilStopSled(false);return civilSledHomeBefore(...args);};
+ const civilSledRecoverBefore=recoverPlayerToLastSafe;recoverPlayerToLastSafe=function(...args){if(civilSled.ride)civilStopSled(false);return civilSledRecoverBefore(...args);};
  const civilCameraBefore=updateCamera;updateCamera=function(dt){if(!civilCommunity.ride)return civilCameraBefore(dt);const r=civilCommunity.ride,p=civilCablePoint(civilCableTiming(r.cabin).t,r.cabin?1.3:-1.3),target=new THREE.Vector3(p.x+10,p.y+6,p.z+12);target.y=Math.max(target.y,groundHeightAt(target.x,target.z)+4);camera.position.lerp(target,1-Math.exp(-dt*4));camera.lookAt(p.x,p.y+1.1,p.z);camera.fov=62;camera.updateProjectionMatrix();};
  const civilPoseResidentBefore=poseResident;poseResident=function(n,action,time,seat){civilPoseResidentBefore(n,action,time,seat);if(n.civilSkater){n.limbs.leftLeg.rotation.x=-.1-Math.max(0,Math.sin(time*3))*.30;n.limbs.rightLeg.rotation.x=-.1-Math.max(0,-Math.sin(time*3))*.30;n.limbs.leftArm.rotation.z=.18;n.limbs.rightArm.rotation.z=-.18;}if(action==='photo'){n.limbs.leftArm.rotation.x=n.limbs.rightArm.rotation.x=-1.25;}if(action==='volley'){const swing=Math.max(0,Math.sin(time*1.7+n.phase));n.limbs.leftArm.rotation.x=n.limbs.rightArm.rotation.x=-1.5-swing*.8;}if(action==='sandcastle'){n.group.position.y-=.28;n.limbs.leftLeg.rotation.x=n.limbs.rightLeg.rotation.x=-.5;n.limbs.leftArm.rotation.x=-.8+Math.sin(time*3)*.25;n.limbs.rightArm.rotation.x=-.8-Math.sin(time*3)*.25;}};
  function civilSkyEnvironment(){
@@ -136,6 +218,6 @@
   civilCommunity.sky?.position.copy(camera.position);
  }
  const civilExpansionBefore=updateWorldExpansion;updateWorldExpansion=function(){civilExpansionBefore();updateCivilCommunity();updateCivilMissions();};
- const civilExploreBefore=worldExploreLocations;worldExploreLocations=function(){return[...civilExploreBefore(),...civilCommunity.houses.map(h=>({id:h.id,name:h.name,label:h.name,x:h.x,z:h.z,navX:h.x,navZ:h.z+5,icon:'🏡',group:'Casas e vizinhos',description:'Casa visitável com cozinha, quarto, sala, jardim e ações do personagem.'})),{id:'cable-base',name:'Teleférico · Estação Vale',x:210,z:235,navX:213.2,navZ:238.4,icon:'🚡',group:'Montanhas',description:'Embarque na cabine para subir ao mirante da cordilheira.'},{id:'cable-top',name:'Teleférico · Estação Mirante',x:147,z:305,navX:150.2,navZ:308.4,icon:'🚡',group:'Montanhas',description:'Mirante, visitantes e retorno pelo teleférico.'},...['balloon-coast','balloon-snow','balloon-serra'].map(id=>{const p=campaignAircraftPose(id);return{id:'campaign-'+id,name:p.label,label:p.label,icon:'🎈',group:'Balões',...p,navX:p.x+4,navZ:p.z};})];};
+ const civilExploreBefore=worldExploreLocations;worldExploreLocations=function(){return[...civilExploreBefore(),{id:'campos-sled-start',name:'Campos do Jordão · trenó da serra',x:125,z:295,navX:125,navZ:295,icon:'🛷',group:'Montanhas',description:'Controle aceleração, freio e direção durante a descida.'},...civilCommunity.houses.map(h=>({id:h.id,name:h.name,label:h.name,x:h.x,z:h.z,navX:h.x,navZ:h.z+5,icon:'🏡',group:'Casas e vizinhos',description:'Casa visitável com cozinha, quarto, sala, jardim e ações do personagem.'})),{id:'cable-base',name:'Teleférico · Estação Vale',x:210,z:235,navX:213.2,navZ:238.4,icon:'🚡',group:'Montanhas',description:'Embarque na cabine para subir ao mirante da cordilheira.'},{id:'cable-top',name:'Teleférico · Estação Mirante',x:147,z:305,navX:150.2,navZ:308.4,icon:'🚡',group:'Montanhas',description:'Mirante, visitantes e retorno pelo teleférico.'},...['balloon-coast','balloon-snow','balloon-serra'].map(id=>{const p=campaignAircraftPose(id);return{id:'campaign-'+id,name:p.label,label:p.label,icon:'🎈',group:'Balões',...p,navX:p.x+4,navZ:p.z};})];};
  Object.assign(CHARACTER_ACTIVITIES,{garden:['Regando o jardim',4],sandcastle:['Construindo castelo de areia',4.5],civil:['Ajudando no objetivo',2.7]});
- window.OT_CIVIL_COMMUNITY={diagnostics:()=>({ready:civilCommunity.ready,houses:civilCommunity.houses.map(h=>({id:h.id,x:h.x,z:h.z,interactive:neighborhoodHome.houses.has(h.id)})),targets:[...civilCommunity.targets.values()].map(p=>({...p})),cable:{stations:CIVIL_CABLE,cabins:civilCommunity.cabins.map(c=>({id:c.index,...civilCableTiming(c.index),position:c.group.position.toArray()})),ride:civilCommunity.ride,waiting:civilCommunity.waiting},surfers:civilCommunity.surfers.map(s=>({id:s.npc.id,position:s.npc.group.position.toArray(),visible:s.npc.group.visible,board:s.board.visible})),seaTraffic:civilCommunity.seaTraffic.map(b=>({name:b.group.name,position:b.group.position.toArray(),visible:b.group.visible,crew:b.crew.length})),balloons:cordillera.balloons.length,sky:!!civilCommunity.sky,environment:!!scene?.environment,sledders:civilCommunity.sledders.map(s=>({id:s.npc.id,position:s.npc.group.position.toArray()}))})};
+ window.OT_CIVIL_COMMUNITY={diagnostics:()=>({ready:civilCommunity.ready,houses:civilCommunity.houses.map(h=>({id:h.id,x:h.x,z:h.z,interactive:neighborhoodHome.houses.has(h.id)})),targets:[...civilCommunity.targets.values()].map(p=>({...p})),cable:{stations:CIVIL_CABLE,cabins:civilCommunity.cabins.map(c=>({id:c.index,...civilCableTiming(c.index),position:c.group.position.toArray()})),ride:civilCommunity.ride,waiting:civilCommunity.waiting},surfers:civilCommunity.surfers.map(s=>({id:s.npc.id,position:s.npc.group.position.toArray(),visible:s.npc.group.visible,board:s.board.visible})),seaTraffic:civilCommunity.seaTraffic.map(b=>({name:b.group.name,position:b.group.position.toArray(),visible:b.group.visible,crew:b.crew.length})),balloons:cordillera.balloons.length,sky:!!civilCommunity.sky,environment:!!scene?.environment,sledRide:{ready:civilSled.ready,active:!!civilSled.ride,distance:civilSled.ride?.distance||0,speed:civilSled.ride?.speed||0,track:CIVIL_SLED_TRACK},sledders:civilCommunity.sledders.map(s=>({id:s.npc.id,position:s.npc.group.position.toArray()}))})};

@@ -9,6 +9,7 @@
  */
 // @otthi-module-body
   function stopGame(){
+    if(typeof civilStopSled==='function')civilStopSled(false);
     if(typeof inRioMap==='function'&&inRioMap()||typeof rioCompactWorld==='function'&&rioCompactWorld())stopCharacterActivity();
     if(typeof worldVenues!=='undefined'&&worldVenues.session)venueClose();
     if(typeof otGames!=='undefined'&&otGames.active)otGamesLeave({preserveCampaign:true});
