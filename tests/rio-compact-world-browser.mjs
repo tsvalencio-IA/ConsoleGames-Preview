@@ -347,7 +347,16 @@ try{
   assert.equal(properties['regional-rios-italia-candelaro-unit-102'].owned,true);
   assert(!properties['regional-rios-italia-candelaro']?.owned);
   await page.locator('[data-rio-property-enter]').tap();
-  await page.waitForFunction(()=>{const p=OTTHOS_TEST_API.getGame().player;return Math.hypot(p.x-280,p.z-147)<10;});
+  // The entrance starts an actual walking activity. Merely crossing the
+  // building radius does not prove arrival: moving the test avatar during
+  // that walk leaves the entry session active and blocks outdoor actions.
+  await page.waitForFunction(()=>{
+    const p=OTTHOS_TEST_API.getGame().player;
+    const save=OTTHOS_TEST_API.getState().cityServices.rioMap;
+    return Math.hypot(p.x-280,p.z-147)<10&&
+      save.selectedApartmentBySite?.['regional-rios-italia-candelaro']==='regional-rios-italia-candelaro-unit-102'&&
+      !OT_CHARACTER_ACTIVITIES.diagnostics().session;
+  },null,{timeout:45000});
   await shot('rio-candelaro-unidade-102');
   report.apartments={units:20,independentOwnership:true,entered:'102'};
 
@@ -360,7 +369,9 @@ try{
   await page.locator('#actionBtn').tap();
   await page.waitForFunction(()=>OTTHOS_TEST_API.getLastAction()==='regional-rios-italia-candelaro-outdoor-pool',
     null,{timeout:9000});
-  report.pool={exterior:true,interactive:true};
+  await page.waitForFunction(()=>OT_CHARACTER_ACTIVITIES.diagnostics().lastAction==='rio-pool'&&
+    !OT_CHARACTER_ACTIVITIES.diagnostics().session,null,{timeout:45000});
+  report.pool={exterior:true,interactive:true,completed:true};
   await page.evaluate(()=>OTTHOS_TEST_API.teleport(50,330));
   await page.waitForFunction(()=>document.body.dataset.rioClima==='snow');
   assert((await look()).player.y>15);
