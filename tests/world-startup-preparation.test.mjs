@@ -30,15 +30,18 @@ test('cached fleet preparation keeps all models without spending a separate fram
 
 test('normal startup awaits nearby camera preparation then draws the actual view without preparing the full fleet',async()=>{
  const events=[],calls=[],perf={},worldLightBudget={};
- const c=vm.createContext({window:{OTBrazilVehicles:{catalog:{a:{},b:{}}}},running:false,performance:{now:()=>10},perf,worldLightBudget,world:{npcs:[{}]},completeTraffic:{created:new Set(['a'])},otthiBootMetrics:{startedAt:0,events},showWorldLoading(){},nextPaint:async()=>{},updateWorldExpansion(){calls.push('expand');assert(c.running);},lockStableSceneVisibility(){},freezeWorldFrustumCulling(){},updateCamera(){},updateVisualLOD(){},worldLightingPreparationPlan:()=>({pointLightBuckets:[0,16,24]}),warmWorldCameraViews:async()=>{calls.push('warm-start');await Promise.resolve();calls.push('warm-complete');return {views:12,preparedViews:9,skippedViews:3};},prepareHomeRender:()=>()=>calls.push('home-restored'),prepareWorldPointLights:()=>()=>calls.push('lights-restored'),renderer:{info:{programs:[]},render(){calls.push('draw');}},scene:{},camera:{}});
+ const c=vm.createContext({window:{OTBrazilVehicles:{catalog:{a:{},b:{}}}},running:false,performance:{now:()=>10},perf,worldLightBudget,world:{npcs:[{}]},completeTraffic:{created:new Set(['a'])},otthiBootMetrics:{startedAt:0,events},showWorldLoading(){},nextPaint:async()=>{},updateWorldExpansion(){calls.push('expand');assert(c.running);},lockStableSceneVisibility(){},freezeWorldFrustumCulling(){},updateCamera(){},updateVisualLOD(){},worldLightingPreparationPlan:()=>({pointLightBuckets:[0,16,24]}),precompileWorldLighting(options){assert.equal(options.pointLights,0);assert.equal(options.includeVehicleTemplates,false);calls.push('compile-zero');},markLightingBucketPrepared(count){assert.equal(count,0);calls.push('mark-zero');},warmWorldCameraViews:async()=>{calls.push('warm-start');await Promise.resolve();calls.push('warm-complete');return {views:12,preparedViews:9,skippedViews:3};},prepareHomeRender:()=>()=>calls.push('home-restored'),prepareWorldPointLights:()=>()=>calls.push('lights-restored'),renderer:{info:{programs:[]},render(){calls.push('draw');}},scene:{},camera:{}});
  vm.runInContext(source.slice(source.indexOf('  async function preparePlayableWorld()'),source.indexOf('  async function prepareWorldFirstFrame()')),c);
  await c.preparePlayableWorld();
  assert.equal(c.running,false);
- assert.deepEqual(calls,['expand','warm-start','warm-complete','draw','lights-restored','home-restored']);
+ assert.deepEqual(calls,['expand','compile-zero','mark-zero','warm-start','warm-complete','draw','lights-restored','home-restored']);
  assert.equal(perf.vehiclePreparation.models,2);
  assert.equal(perf.vehiclePreparation.mode,'on-demand');
  assert.equal(perf.scenePreparation.gpuWarmup.preparedViews,9);
  assert.equal(perf.scenePreparation.gpuWarmup.skippedViews,3);
+ assert.equal(perf.scenePreparation.shaderWarmup.bucket,0);
+ assert.equal(perf.scenePreparation.lightingVariants,1);
+ assert(events.some(e=>e.event==='entry-shader-warmup'));
  assert.equal(worldLightBudget.preparation.mode,'progressive');
  assert(events.some(e=>e.event==='first-world-frame'));
  assert(events.some(e=>e.event==='entry-ready'));

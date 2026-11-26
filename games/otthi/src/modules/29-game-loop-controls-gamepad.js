@@ -60,9 +60,17 @@
     perf.expandedScenePreparation=expanded;
     otthiBootMetrics.events.push({event:'entry-expansion',...expanded});
     const plan=worldLightingPreparationPlan();
-    // In normal play Three prepares only materials actually drawn. Do not
-    // call renderer.compile(scene) across hidden interiors for each bucket.
+    // The live profile showed shader linking stalls with zero point lights,
+    // even after all twelve nearby camera views. Prepare that single real
+    // lighting variant while loading owns the screen, not all light buckets.
+    // No fleet templates, material substitution or reduced visibility.
     worldLightBudget.preparation={...plan,criticalBuckets:[],mode:'progressive'};
+    showWorldLoading(90,'Preparando materiais gráficos...');await nextPaint();
+    const shaderStart=performance.now(),programsBefore=renderer.info.programs.length;
+    precompileWorldLighting({pointLights:0,includeVehicleTemplates:false});
+    markLightingBucketPrepared(0);
+    const shaderWarmup={bucket:0,ms:Math.round(performance.now()-shaderStart),programsBefore,programsAfter:renderer.info.programs.length};
+    otthiBootMetrics.events.push({event:'entry-shader-warmup',...shaderWarmup});
     // Upload nearby geometry, textures and shaders before enabling movement.
     // Reuse the existing adaptive 12-view path rather than compiling hidden interiors.
     const gpuWarmup=await warmWorldCameraViews();
@@ -71,7 +79,7 @@
     try{renderer.render(scene,camera);}finally{restoreLights?.();restoreHome?.();}
     const firstMs=Math.round(performance.now()-first);
     otthiBootMetrics.events.push({event:'first-world-frame',ms:firstMs,sinceBootMs:Math.round(performance.now()-otthiBootMetrics.startedAt)});
-    perf.scenePreparation={mode:'progressive',ms:Math.round(performance.now()-started),programs:renderer.info.programs.length,lightingVariants:0,pointLightBuckets:plan.pointLightBuckets,criticalLightBuckets:[],expanded,gpuWarmup};
+    perf.scenePreparation={mode:'progressive',ms:Math.round(performance.now()-started),programs:renderer.info.programs.length,lightingVariants:1,pointLightBuckets:plan.pointLightBuckets,criticalLightBuckets:[],expanded,gpuWarmup,shaderWarmup};
     perf.vehiclePreparation={mode:'on-demand',models:Object.keys(window.OTBrazilVehicles?.catalog||{}).length,ms:0};
     otthiBootMetrics.events.push({event:'entry-ready',mode:'progressive',ms:perf.scenePreparation.ms});
   }
