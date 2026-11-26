@@ -13,7 +13,7 @@ window.__STABILITY_QA={
  stop:()=>{cancelAnimationFrame(raf);__CITY_QA.cap();},
  inspect:()=>({ground:world.worldEvolution?.groundRecovery?.position.y,groundTop:world.worldEvolution?.groundRecovery?.position.y+world.worldEvolution?.groundRecovery?.geometry.parameters.height/2,baseMatches:world.baseGround===world.worldEvolution?.groundRecovery,depthBits:renderer.getContext().getParameter(renderer.getContext().DEPTH_BITS),critical:world.criticalSurfaces.length,npcs:world.npcs.length,vehicles:world.vehicles.length,interactables:world.interactables.length}),
  frame:(label,index)=>{
-  const lake=world.reservoir?.main,airport=worldAirport?.root;
+  const lake=world.reservoir?.main;
   let x,z,y,angle=.4+index*.012;
   if(label==='represa'){x=lake?.x??-88;z=lake?.z??54;y=8;}
   else if(label==='aeroporto'){x=91;z=-216;y=25;}
@@ -31,7 +31,7 @@ try{
   const source=ref?execFileSync('git',['show',ref+':games/otthi/app.js'],{encoding:'utf8',maxBuffer:8e6}):fs.readFileSync('games/otthi/app.js','utf8');
   const end=source.lastIndexOf('})();');assert(end>0);
   const ctx=await browser.newContext({viewport:{width:640,height:360},deviceScaleFactor:1,isMobile:true,hasTouch:true,serviceWorkers:'block'});
-  await ctx.route(/^https?:\\/\\//,r=>new URL(r.request().url()).origin===server.origin?r.continue():r.abort());
+  await ctx.route(url=>url.protocol==='https:'||url.protocol==='http:',r=>new URL(r.request().url()).origin===server.origin?r.continue():r.abort());
   await ctx.addInitScript(()=>{let seed=921;Math.random=()=>{seed=seed*16807%2147483647;return(seed-1)/2147483646;};localStorage.setItem('otthos_life_world_roleplay_v700',JSON.stringify({version:705,profile:{name:'QA stability',nameConfirmed:true,playerId:'qa-stability'},avatar:{bodyStyle:'family-thiago'},flags:{accountPromptedV635:true},settings:{quality:'low',sound:false,lastWorldMap:'rio-preto'},guardian:{sessionLimitMinutes:0}}));});
   const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e.stack)));
   await installCityInspection(page,{revision:ref||null,appSource:source.slice(0,end)+hook+source.slice(end),capDuringBoot:true});
