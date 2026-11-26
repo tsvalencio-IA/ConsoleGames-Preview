@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.52-rio-preto-recuperacao-visual',
+    build: '705.28.53-camera-multiplayer',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',

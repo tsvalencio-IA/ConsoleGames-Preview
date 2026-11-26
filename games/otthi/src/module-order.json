@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.52-rio-preto-recuperacao-visual",
+  "build": "705.28.53-camera-multiplayer",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "cfd8ed143af3aba93ab82e8ad47f51ce0759b478bd9733baa8a7f8b28522b0c6"
+      "sha256Body": "a5a018b1ae54b6d1b5602c046648c21de3fbf0d59a20cb7e92a88d7fa2cb09b7"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -262,21 +262,21 @@
       "startLine": 4767,
       "endLine": 4928,
       "description": "Sociedade NPC, inimigos, combate, câmera, contexto, ação e necessidades",
-      "sha256Body": "902e56e05c1518cc41c8be332900d5c080ab0c6e41b507719c28ee917d7932c8"
+      "sha256Body": "88f7ab36c8ed479380bddfd7bb87273835d4f45d0a7f80f1b9341e86925aeeb2"
     },
     {
       "file": "src/modules/28b-multiplayer-core-v2.js",
       "startLine": 0,
       "endLine": 0,
       "description": "Multiplayer Core V2: movimento interpolado, autoridade, eventos e partidas autoritativas",
-      "sha256Body": "218b9405f076ffaa2b1216795d08d7988bbc2df8829667934aed0c98a65852c7"
+      "sha256Body": "434fd9690b8c26a389036aeb30390a9caca52f8bf0108173d89b94d65f7ee877"
     },
     {
       "file": "src/modules/28-multiplayer-social-online.js",
       "startLine": 4930,
       "endLine": 5122,
       "description": "Desafios online, social, chat, presença, fantasmas e sincronização",
-      "sha256Body": "2f277fb17b0c602e2b8535e0fda6b9c7451c4c90b75b8ea9074b77212dc7e26a"
+      "sha256Body": "49cda602b832f2ebe99780f73d8007d5d0353d03602c887a9f5cf0c79af38eee"
     },
     {
       "file": "src/modules/28a-shared-world-multiplayer.js",
@@ -395,7 +395,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "OT Games: original map shared by peace, infantry and aircraft; separate combat body and save",
-      "sha256Body": "a34ad7a92b1e4143fdb071ca903f2d072a8907e86ef0de1ad8665de1e2a93e77"
+      "sha256Body": "9230523c58d479034984a1f07522045f3853378d530b2420a65471431ba08f67"
     },
     {
       "file": "src/modules/43-world-campaign.js",
@@ -609,7 +609,7 @@
     {
       "file": "src/modules/69-vehicle-camera-passengers.js",
       "description": "Câmera 360 de veículos, vista dos ocupantes e reações dos passageiros",
-      "sha256Body": "8ec2f194b0cbec8902f711cfff729b723e4c6d551ad1c5c1d23e81b039e22586"
+      "sha256Body": "c1136c5103f6fbd4883b703e478e4e4176f30db24f9df59b6f2293f8f8dea6d5"
     },
     {
       "file": "src/modules/70-world-query-budget.js",
