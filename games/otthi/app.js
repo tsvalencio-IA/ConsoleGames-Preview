@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.50-rio-preto-travessia';
+  const OTTHI_GAME_WEB_BUILD = '705.28.51-rio-preto-estabilidade';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -4413,8 +4413,8 @@
       if(!mesh?.parent)continue;
       if(mesh.userData?.alwaysVisible===true||Number(mesh.renderOrder||0)>=900){mesh.visible=true;visible++;continue;}
       let radius=0;
-      try{if(mesh.geometry&&!mesh.geometry.boundingSphere)mesh.geometry.computeBoundingSphere();radius=Number(mesh.geometry?.boundingSphere?.radius||0);const matrix=visualWorldMatrix(mesh,visited);distanceCullPosition.setFromMatrixPosition(matrix);distanceCullScale.setFromMatrixScale(matrix);radius*=Math.max(Math.abs(distanceCullScale.x)||1,Math.abs(distanceCullScale.y)||1,Math.abs(distanceCullScale.z)||1);}catch{mesh.visible=true;visible++;continue;}
-      const d=Math.hypot(focus.x-distanceCullPosition.x,focus.z-distanceCullPosition.z),show=!Number.isFinite(d)||!Number.isFinite(radius)||d<=range+Math.max(1,radius);
+      try{if(mesh.geometry&&!mesh.geometry.boundingSphere)mesh.geometry.computeBoundingSphere();radius=Number(mesh.geometry?.boundingSphere?.radius||0);const matrix=visualWorldMatrix(mesh,visited);distanceCullPosition.copy(mesh.geometry?.boundingSphere?.center||distanceCullPosition.set(0,0,0)).applyMatrix4(matrix);distanceCullScale.setFromMatrixScale(matrix);radius*=Math.max(Math.abs(distanceCullScale.x)||1,Math.abs(distanceCullScale.y)||1,Math.abs(distanceCullScale.z)||1);}catch{mesh.visible=true;visible++;continue;}
+      const d=Math.hypot(focus.x-distanceCullPosition.x,focus.z-distanceCullPosition.z),margin=mesh.userData.otthiDistanceCulled?0:Math.max(12,range*.15),show=!Number.isFinite(d)||!Number.isFinite(radius)||d<=range+Math.max(1,radius)+margin;
       mesh.visible=show;mesh.frustumCulled=false;mesh.userData.otthiDistanceCulled=!show;if(show)visible++;else hidden++;
     }
     perf.criticalVisible=visible;perf.criticalHidden=hidden;return{visible,hidden,range};
@@ -4452,12 +4452,12 @@
   }
   function freezeWorldFrustumCulling(){
     if(!worldGroup)return;
-    let enabled=0,bypassed=0,total=0;
+    let enabled=0,bypassed=0,total=0;const criticalSet=new Set(world.criticalSurfaces);
     worldGroup.traverse(obj=>{
       if(!(obj.isMesh||obj.isLine||obj.isLineSegments||obj.isPoints||obj.isSprite))return;
       total++;
       if(obj.geometry&&!obj.geometry.boundingSphere){try{obj.geometry.computeBoundingSphere();}catch(_){}}
-      const radius=Number(obj.geometry?.boundingSphere?.radius||0),critical=world.criticalSurfaces.includes(obj),overlay=obj.isSprite||Number(obj.renderOrder||0)>=900||obj.userData?.alwaysVisible===true;
+      const radius=Number(obj.geometry?.boundingSphere?.radius||0),critical=criticalSet.has(obj),overlay=obj.isSprite||Number(obj.renderOrder||0)>=900||obj.userData?.alwaysVisible===true;
       // Instâncias distribuídas pelo mundo não podem usar apenas a esfera da geometria-base no Three r128.
       // Superfícies críticas, overlays, lotes instanciados e objetos enormes permanecem protegidos.
       const keepAlwaysVisible=critical||overlay||obj.isInstancedMesh&&!obj.userData.otthiBoundedInstances||radius>170;
@@ -7565,7 +7565,7 @@
   }
   function buildWorld(){
     worldGroup=new THREE.Group();scene.add(worldGroup);
-    const worldSize=v704WorldSize(),ground=stableBox(worldSize.w+8,.3,worldSize.d+8,materials.grass,0,-.15,0,worldGroup,0);ground.receiveShadow=false;
+    const worldSize=v704WorldSize(),ground=stableBox(worldSize.w+8,.3,worldSize.d+8,materials.grass,0,-.15,0,worldGroup,0);ground.receiveShadow=false;ground.name='OTTHI_BASE_GROUND';ground.userData.alwaysVisible=true;world.baseGround=ground;
     createSkyDome();scene.background=new THREE.Color(0x79cfff);scene.fog=new THREE.Fog(0xbce8ff,235,560);
     const P=(id,fallback={x:0,z:0})=>worldLayoutPoint(id,fallback),L=WORLD_LAYOUT_V704;
 
@@ -12040,7 +12040,11 @@ function build(T,key,H){
   function createV702GroundRecovery(){
     if(world.worldEvolution?.groundRecovery)return false;
     const material=v702TextureMaterial('grass',0x5fae4d,{repeat:[42,42],roughness:.94,normalScale:.28});
-    const worldSize=v704WorldSize(),ground=new THREE.Mesh(new THREE.BoxGeometry(worldSize.w+7,.04,worldSize.d+7),material);ground.position.set(0,.025,0);ground.receiveShadow=true;ground.frustumCulled=false;ground.renderOrder=0;ground.userData.criticalSurface=true;ground.name='OTTHI_V702_GRASS_RECOVERY';worldGroup.add(ground);world.criticalSurfaces.push(ground);
+    // Upgrade the original ground in place. The old extra box had its top at
+    // +.045, above several beach/field surfaces, and duplicated the entire floor.
+    const ground=world.baseGround;
+    if(!ground||ground.parent!==worldGroup)throw Error('Original world ground missing');
+    ground.material=material;ground.receiveShadow=true;ground.frustumCulled=false;ground.renderOrder=0;ground.userData.criticalSurface=true;ground.userData.alwaysVisible=true;ground.name='OTTHI_V702_GRASS_RECOVERY';
     world.worldEvolution={...(world.worldEvolution||{}),groundRecovery:ground};return true;
   }
   function terrainVertexColor(height,kind){if(kind==='mountain')return new THREE.Color(height>9?0xd5d8cf:height>4?0x75825f:0x5d9949);return new THREE.Color(0xd9ae5f);}

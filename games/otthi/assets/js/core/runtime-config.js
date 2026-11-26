@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.50-rio-preto-travessia',
+    build: '705.28.51-rio-preto-estabilidade',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',

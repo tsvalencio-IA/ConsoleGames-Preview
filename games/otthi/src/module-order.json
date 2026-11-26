@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.50-rio-preto-travessia",
+  "build": "705.28.51-rio-preto-estabilidade",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "5b62d5f421983a89fc283f95bb18ccd46ebc792db11697d5cdc555388d2e9a1d"
+      "sha256Body": "7f99749625bb1495303848160cb712e16a4ddbcd87f55b28ced8efef53325442"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -115,7 +115,7 @@
       "startLine": 1808,
       "endLine": 2074,
       "description": "Responsividade, AR, modos, qualidade, LOD e diagnóstico",
-      "sha256Body": "caebf912b64a3284b15a0b27801fc2c07c03b196412ec11afb51f3812944400e"
+      "sha256Body": "27d0867198950c54063d93daceedeb41046d14ab404c0fd8c9321627dfcc0dc7"
     },
     {
       "file": "src/modules/10-player-skills.js",
@@ -206,7 +206,7 @@
       "startLine": 3805,
       "endLine": 3948,
       "description": "Construção do mundo, recursos, baús, casas em nuvem e interiores",
-      "sha256Body": "50366c9d5b687e23f9cbaef8c8041382e90870a977b0079fc4468b622bbdb261"
+      "sha256Body": "17d5ab6663aee3821a23fea5939e4ae831113a654868c1032b9c75cb4c804ca8"
     },
     {
       "file": "src/modules/21-interactions-shop-social-races.js",
@@ -381,7 +381,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Evolução integral V702: HUD, câmera, terreno, água, natação, fazenda, escavação e cidadãos temáticos",
-      "sha256Body": "99868e4885e15181ffe6a3594e8b93c49b0efa36a92994cedaaa5d4f52e54ca2"
+      "sha256Body": "e5142c94691c5e9f1d1ca1ef56369fa9f6ff679c674c2fd2544d7fecfac973db"
     },
     {
       "file": "src/modules/41-family-adventure.js",
