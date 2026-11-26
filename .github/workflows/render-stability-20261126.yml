@@ -26,7 +26,7 @@ jobs:
           npx playwright install chromium
       - name: Comparar quadros reais de represa aeroporto e serra
         env:
-          OT_RENDER_BASELINE: b1494df118346da51ce4fcb3af4cc92c6da7b891
+          OT_RENDER_BASELINE: bd351bec922788cd38006aaadbff9cab13a11838
         run: node tests/world-render-stability-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
@@ -51,10 +51,11 @@ jobs:
           node --test tests/*.test.mjs
       - name: Comparar jogo em movimento e rotacao da camera
         env:
-          OT_LIVE_BASELINE: b1494df118346da51ce4fcb3af4cc92c6da7b891
+          OT_LIVE_BASELINE: bd351bec922788cd38006aaadbff9cab13a11838
           OT_LIVE_QUALITY: auto
           OT_LIVE_SECONDS: '20'
           OT_LIVE_TURN: '1'
+          OT_LIVE_ZOOM: '1'
           OT_LIVE_PROFILE: '1'
           OT_LIVE_SHADERS: '1'
           OT_LIVE_REQUIRE_COMPARISON: '1'

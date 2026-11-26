@@ -9,9 +9,14 @@ const out='test-results/render-stability';fs.mkdirSync(out,{recursive:true});
 const server=await multiplayerServer(),browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const report={cases:[],limits:['Software WebGL, controlled camera and fixed poses, not a physical mobile FPS measurement.']};
 const hook=`
+// Visual comparison is frozen at the same controls-ready boundary in both revisions.
+// The independent live benchmark still uses the complete, uncapped game loop.
+let stabilityControlsReady=false;
+gameLoop=function(){stabilityControlsReady=true;};
 window.__STABILITY_QA={
+ ready:()=>stabilityControlsReady,
  stop:()=>{cancelAnimationFrame(raf);__CITY_QA.cap();},
- inspect:()=>({ground:world.worldEvolution?.groundRecovery?.position.y,groundTop:world.worldEvolution?.groundRecovery?.position.y+world.worldEvolution?.groundRecovery?.geometry.parameters.height/2,baseMatches:world.baseGround===world.worldEvolution?.groundRecovery,depthBits:renderer.getContext().getParameter(renderer.getContext().DEPTH_BITS),critical:world.criticalSurfaces.length,npcs:world.npcs.length,vehicles:world.vehicles.length,interactables:world.interactables.length}),
+ inspect:()=>({ground:world.worldEvolution?.groundRecovery?.position.y,groundTop:world.worldEvolution?.groundRecovery?.position.y+world.worldEvolution?.groundRecovery?.geometry.parameters.height/2,baseMatches:world.baseGround===world.worldEvolution?.groundRecovery,depthBits:renderer.getContext().getParameter(renderer.getContext().DEPTH_BITS),critical:world.criticalSurfaces.length,npcs:world.npcs.length,vehicles:world.vehicles.length,interactables:world.interactables.length,actionIds:world.interactables.map(o=>String(o.id||'')).sort(),npcIds:world.npcs.map(o=>String(o.id||o.name||'')).sort()}),
  frame:(label,index)=>{
   const lake=world.reservoir?.main;
   let x,z,y,angle=.4+index*.012;
@@ -36,7 +41,7 @@ try{
   const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e.stack)));
   await installCityInspection(page,{revision:ref||null,appSource:source.slice(0,end)+hook+source.slice(end),capDuringBoot:true});
   await page.goto(server.origin+'/games/otthi/?map=rio-preto',{waitUntil:'domcontentloaded'});await page.locator('#playBtn').click();
-  await page.waitForFunction(()=>OTTHOS_TEST_API.getGame().running&&OTTHI_FAMILY.diagnostics().ready&&__CITY_QA.cap(),null,{timeout:180000});
+  await page.waitForFunction(()=>OTTHOS_TEST_API.getGame().running&&OTTHI_FAMILY.diagnostics().ready&&__STABILITY_QA.ready()&&__CITY_QA.cap(),null,{timeout:180000});
   await page.evaluate(()=>__STABILITY_QA.stop());const row={label,world:await page.evaluate(()=>__STABILITY_QA.inspect()),frames:[]};
   for(const place of ['represa','aeroporto','serra'])for(let i=0;i<12;i++){
    const f=await page.evaluate(([p,j])=>__STABILITY_QA.frame(p,j),[place,i]);const png=Buffer.from(f.png,'base64');delete f.png;assert(png.length>2000,'nonempty native frame');fs.writeFileSync(out+'/'+label+'-'+place+'-'+String(i).padStart(2,'0')+'.png',png);row.frames.push({place,i,...f});
@@ -45,5 +50,5 @@ try{
   if(label==='after'){assert(row.world.baseMatches,'original floor reused');assert.equal(row.world.groundTop,0);}
   await ctx.close();
  }
- assert.equal(report.cases[1].world.npcs,report.cases[0].world.npcs);assert.equal(report.cases[1].world.vehicles,report.cases[0].world.vehicles);assert.equal(report.cases[1].world.interactables,report.cases[0].world.interactables);
+ assert.equal(report.cases[1].world.npcs,report.cases[0].world.npcs);assert.equal(report.cases[1].world.vehicles,report.cases[0].world.vehicles);assert.equal(report.cases[1].world.interactables,report.cases[0].world.interactables);assert.deepEqual(report.cases[1].world.actionIds,report.cases[0].world.actionIds,'all interaction identities retained');assert.deepEqual(report.cases[1].world.npcIds,report.cases[0].world.npcIds,'all NPC identities retained');
 }finally{fs.writeFileSync(out+'/report.json',JSON.stringify(report,null,2));await browser.close();await server.close();}
