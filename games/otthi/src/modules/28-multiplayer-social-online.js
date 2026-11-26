@@ -146,7 +146,7 @@
     if(!guardianMultiplayerAllowed()||!data||data.uid===window.OTTHOS_RTDB?.uid||window.OTTHOS_RTDB?.isPlayerBlocked?.(data.uid))return;
     const safeAvatar=sanitizeMultiplayerAvatar(data.avatar||{}),safeData={...data,connectionUnstable:false,avatar:safeAvatar,name:remotePlayerName(data.name,data.uid)};
     remotePresence.set(data.uid,safeData);let ghost=world.ghosts.get(data.uid);
-    if(scene&&!ghost){ghost=createGhost(multiplayerAvatarPrimaryColor(safeAvatar,data.color),safeData.name,safeAvatar);world.ghosts.set(data.uid,ghost);}
+    if(scene&&!ghost){ghost=createGhost(multiplayerAvatarPrimaryColor(safeAvatar,data.color),safeData.name,safeAvatar);world.ghosts.set(data.uid,ghost);ghost.position.set(Number(safeData.x)||0,Number(safeData.y)||0,Number(safeData.z)||0);ghost.rotation.y=Number(safeData.r)||0;}
     if(ghost){ghost.userData.connectionUnstable=false;ghost.userData.remoteUid=String(data.uid||'');updateGhostName(ghost,safeData.name);applyRemoteAvatarIfChanged(ghost,safeAvatar);ghost.userData.target=safeData;const parked=ghost.userData.parkedCarVisual;if(parked&&safeData.parkedVehicleWorkshop){const sharedPose=typeof sharedWorkshopRemoteParkedPose==='function'?sharedWorkshopRemoteParkedPose(data.uid,safeData):null;parked.position.set(Number(sharedPose?.x??safeData.parkedVehicleX??0),Number(sharedPose?.y??safeData.parkedVehicleY??0),Number(sharedPose?.z??safeData.parkedVehicleZ??0));parked.rotation.y=Number(sharedPose?.heading??safeData.parkedVehicleR??0);}if(typeof workshopQueueRemoteMechanicAction==='function')workshopQueueRemoteMechanicAction(ghost,safeData);}
     refreshOpenSocialHub();
   }

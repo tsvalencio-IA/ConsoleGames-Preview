@@ -250,6 +250,7 @@
     // Global world-space planes keep the actual furnishings and actors intact.
     renderer.clippingPlanes=h?[new THREE.Plane(new THREE.Vector3(1,0,0),-h.x+h.w/2+.18),new THREE.Plane(new THREE.Vector3(-1,0,0),h.x+h.w/2+.18),new THREE.Plane(new THREE.Vector3(0,0,1),-h.z+h.d/2+.18),new THREE.Plane(new THREE.Vector3(0,0,-1),h.z+h.d/2+.18),new THREE.Plane(new THREE.Vector3(0,-1,0),3.05)]:[];
   }
+  let cameraFollowSnap=false;
   function updateCamera(dt){
     updateInteriorClipping();if(typeof syncWorldFlightHorizon==='function')syncWorldFlightHorizon();
     if(typeof otGames!=='undefined'&&otGames.active){otGamesCamera(dt);return;}
@@ -290,7 +291,7 @@
     const compactCamera=typeof rioCompactWorld==='function'&&rioCompactWorld()&&!currentHouse&&!workshopView?.active&&
       !player.transit.mode&&!fishingVisual?.active&&!familyFrame;
     if(typeof inRioMap==='function'&&inRioMap()||compactCamera)rioAdjustCamera(desiredPos,look);
-    const t=1-Math.exp(-dt*7.5);camera.position.lerp(desiredPos,t);camera.lookAt(look);camera.updateProjectionMatrix();
+    const t=cameraFollowSnap?1:1-Math.exp(-dt*7.5);cameraFollowSnap=false;camera.position.lerp(desiredPos,t);camera.lookAt(look);camera.updateProjectionMatrix();
   }
 
   function nearestInteractable(){

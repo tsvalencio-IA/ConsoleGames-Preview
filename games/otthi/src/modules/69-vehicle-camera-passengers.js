@@ -9,7 +9,7 @@
   if(player.boating)return{key:'boat:'+(player.boat.id||'local'),x:player.x,y:player.y,z:player.z,yaw:player.boat.heading,kind:'boat',roof:1.5,front:2.2,speed:Math.abs(player.boat.speed||0)};
   return null;
  }
- function vehicleViewRestore(){if(!camera||!vehicleView.key)return;camera.near=vehicleView.near;camera.far=vehicleView.far;camera.updateProjectionMatrix();vehicleView.key='';vehicleView.manual=vehicleView.inside=false;vehicleView.pointers.clear();input.cameraDrag=null;}
+ function vehicleViewRestore(){if(!camera||!vehicleView.key)return;camera.near=vehicleView.near;camera.far=vehicleView.far;camera.updateProjectionMatrix();vehicleView.key='';vehicleView.manual=vehicleView.inside=vehicleView.snap=false;releaseVehicleViewPointers();}
  function vehicleViewSync(ride){
   if(vehicleView.key===ride.key)return;
   vehicleViewRestore();vehicleView.key=ride.key;vehicleView.near=ride.kind==='aircraft'?(otGames.entry?.near??.05):camera.near;vehicleView.far=camera.far;vehicleView.reactions.clear();vehicleView.distance=Math.max(3,Math.hypot(camera.position.x-ride.x,camera.position.z-ride.z)-cameraZoom);
