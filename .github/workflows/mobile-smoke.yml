@@ -1,7 +1,7 @@
 name: Smoke visual mobile dos sete jogos
 on:
   push:
-    branches: [main]
+    branches: [main, 'fix/otthi-visual-recovery-20261126']
     paths:
       - '.github/workflows/mobile-smoke.yml'
       - 'games/**'
@@ -29,6 +29,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Compilar runtime da revisão em teste
+        run: python3 games/otthi/tools/build_project.py
       - name: Preparar Chromium
         run: |
           npm install --no-save --ignore-scripts playwright@1.56.1

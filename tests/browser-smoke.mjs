@@ -39,9 +39,11 @@ try{
     // A instalação nova utiliza um segundo endereço, ID e manifest independentes.
     await page.goto(base+"arcade/",{waitUntil:"domcontentloaded",timeout:45000});
     await page.waitForSelector(".game-card",{timeout:15000});
-    assert.equal(await page.locator(".game-card").count(),8,"Arcade não mostra os oito jogos");
+    assert.equal(await page.locator(".game-card").count(),7,"Arcade deve mostrar sete jogos; HQ permanece acessível diretamente");
     const arcadeLinks=await page.locator("a.game-open").evaluateAll(nodes=>nodes.map(a=>new URL(a.href).pathname));
     assert(arcadeLinks.every(path=>path.startsWith("/games/") || path.startsWith("/ConsoleGames/games/")),JSON.stringify(arcadeLinks));
+    const expectedArcade=games.filter(([slug])=>slug!=="familia/3d").map(([slug])=>"/games/"+slug+"/").sort();
+    assert.deepEqual(arcadeLinks.map(path=>path.replace(/^\/ConsoleGames(?=\/games\/)/,"")).sort(),expectedArcade,"Biblioteca do Arcade perdeu, duplicou ou adicionou um jogo indevido");
     const arcadeWidth=await page.evaluate(()=>({window:window.innerWidth,scroll:document.documentElement.scrollWidth}));
     assert(arcadeWidth.scroll<=arcadeWidth.window+2,JSON.stringify({page:"arcade",size,arcadeWidth}));
     const manifestHref=await page.locator('link[rel="manifest"]').getAttribute("href");
@@ -135,7 +137,7 @@ try{
     }
     await context.close();
   }
-  console.log("Layout smoke OK: "+attempts+" checks, 8 games, 2 consoles, 4 viewports.");
+  console.log("Layout smoke OK: "+attempts+" checks, 8 direct game routes, 8 root cards, 7 Arcade cards, 4 viewports.");
 }finally{
   await browser.close();
 }
