@@ -31,12 +31,13 @@ try{
     const page=await context.newPage();
     await page.goto(base,{waitUntil:"domcontentloaded",timeout:45000});
     await page.waitForSelector(".game-card",{timeout:15000});
-    assert.equal(await page.locator(".game-card").count(),8,"Biblioteca deve conter oito jogos");
+    assert.equal(new URL(page.url()).pathname,"/arcade/","Entrada antiga deve redirecionar ao console canônico");
+    assert.equal(await page.locator(".game-card").count(),7,"Console canônico deve mostrar sete jogos");
     const firstWidth=await page.evaluate(()=>({window:window.innerWidth,scroll:document.documentElement.scrollWidth}));
     assert(firstWidth.scroll<=firstWidth.window+2,JSON.stringify({page:"console",size,firstWidth}));
     await page.screenshot({path:join("test-results/mobile","console-"+size.name+".png"),fullPage:true});
     attempts++;
-    // A instalação nova utiliza um segundo endereço, ID e manifest independentes.
+    // O endereço direto deve carregar o mesmo console canônico.
     await page.goto(base+"arcade/",{waitUntil:"domcontentloaded",timeout:45000});
     await page.waitForSelector(".game-card",{timeout:15000});
     assert.equal(await page.locator(".game-card").count(),7,"Arcade deve mostrar sete jogos; HQ permanece acessível diretamente");
@@ -137,7 +138,7 @@ try{
     }
     await context.close();
   }
-  console.log("Layout smoke OK: "+attempts+" checks, 8 direct game routes, 8 root cards, 7 Arcade cards, 4 viewports.");
+  console.log("Layout smoke OK: "+attempts+" checks, 8 direct game routes, 7 canonical cards via both entry URLs, 4 viewports.");
 }finally{
   await browser.close();
 }
