@@ -181,26 +181,58 @@
     room.box(0,.08,0,.08,.022,d-.16,0xf5efdf);
     for(const x of [-2,2])room.box(x,1.09,z,.14,2.18,.13,0xf4f3e4);
     room.box(0,2.18,z,4.13,.15,.13,0xf4f3e4);
-    const ball=v705Ball(0xf5ede0,.24),at=room.point(0,z+5.4),goal=room.point(0,z);
+    // Keep the original shooting position and all field dimensions. Add a
+    // distinct green-and-white stadium around the playable pitch.
+    if(site.key==='estadio_anisio_haddad'){
+      const white=0xf2efe6,green=0x27613c,concrete=0xc3c8bd,steel=0x3c4b48;
+      const pitchW=w-9.4,pitchD=d-3.4;
+      for(const side of [-1,1]){
+        room.box(side*pitchW/2,.084,0,.085,.024,pitchD,white);
+        room.box(0,.084,side*pitchD/2,pitchW,.024,.085,white);
+        for(let row=0;row<4;row++){
+          const x=side*(w/2-3.7+row*.82),height=.42+row*.49;
+          room.box(x,height/2,0,.82,height,d-4.4,concrete);
+          room.box(x,height+.075,0,.72,.15,d-4.6,row%2?white:green);
+        }
+        room.collider(side*(w/2-2.47),0,3.28,d-4.4,1.95);
+        room.box(side*(w/2-.46),1.57,0,.24,3.14,d-3.8,green);
+        room.box(side*(w/2-2.12),3.9,0,3.75,.19,d-3.8,steel);
+        for(const end of [-1,1]){
+          room.box(side*(w/2-.57),2.0,end*(d/2-2.4),.17,4,.17,steel);
+          room.box(side*(w/2-.65),4.15,end*(d/2-2.4),.66,.25,.35,white);
+        }
+      }
+      for(let i=0;i<32;i++){
+        const a=i*Math.PI/16,b=(i+1)*Math.PI/16,r=2.2;
+        room.box((Math.cos(a)+Math.cos(b))*r/2,.086,(Math.sin(a)+Math.sin(b))*r/2,2*r*Math.sin(Math.PI/32)+.025,.022,.07,white,-(a+b)/2-Math.PI/2);
+      }
+      for(const x of [-2,2])room.box(x,1.09,-z,.14,2.18,.13,white);
+      room.box(0,2.18,-z,4.13,.15,.13,white);
+      // The entrance stays open in the centre.
+      for(const side of [-1,1])room.box(side*(w/2-4),1.21,d/2-.25,6.1,2.42,.3,green);
+      room.sign('ESTÁDIO ANÍSIO HADDAD · RIO PRETO EC',0,2.7,d/2-.10,Math.min(12,w-12),.55,'#27613c');
+    }
+    const ball=v705Ball(0xf5ede0,.24),at=room.point(0,z+5.4),goal=room.point(0,z),ballY=room.floorY+.27;
     worldGroup.remove(ball);room.root.add(ball);
-    ball.position.set(at.x,.27,at.z);
+    ball.position.set(at.x,ballY,at.z);
     room.action('kick','Chutar ao gol',0,z+6.16,()=>{
       if(room.shot)return false;
       v705PlayerSportAnimation('kick',420);
-      room.shot={ball,at,goal,start:performance.now()};beep(350,80,'triangle');
+      room.shot={ball,at,goal,ballY,start:performance.now()};beep(350,80,'triangle');
       return true;
     },{icon:'⚽',inside:true});
   }
   function updateRioPractice(now){
-    for(const {rooms} of rioMap.tiles.values())for(const {site,room} of rooms){
-      const shot=room.shot;
+    // Both maps register their live rooms in sites; compact Rio has no tiles.
+    for(const room of rioMap.sites.values()){
+      const site=room.site,shot=room.shot;
       if(!shot)continue;
-      const t=Math.min(1,(now-shot.start)/750);
-      shot.ball.position.set(lerp(shot.at.x,shot.goal.x,t),.26+Math.sin(t*Math.PI)*.63,lerp(shot.at.z,shot.goal.z,t));
-      shot.ball.rotation.z+=.12;
+      const t=Math.max(0,Math.min(1,(now-shot.start)/750)),ballY=shot.ballY??.27;
+      shot.ball.position.set(lerp(shot.at.x,shot.goal.x,t),ballY+Math.sin(t*Math.PI)*.63,lerp(shot.at.z,shot.goal.z,t));
+      shot.ball.rotation.z=t*Math.PI*4;
       if(t<1)continue;
       rioCountVisit(site);toast('Gol no treino!','good',1500);
-      shot.ball.position.set(shot.at.x,.27,shot.at.z);room.shot=null;
+      shot.ball.position.set(shot.at.x,ballY,shot.at.z);room.shot=null;
     }
   }
 

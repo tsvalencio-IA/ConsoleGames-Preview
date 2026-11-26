@@ -62,3 +62,30 @@ test('mapped Rio roads reuse asphalt texture and world-space UVs without changin
  assert.match(continuous,/white:new THREE.MeshStandardMaterial\(\{[^}]*polygonOffset:true/);
  assert.match(continuous,/yellow:new THREE.MeshStandardMaterial\(\{[^}]*polygonOffset:true/);
 });
+
+test('sign boards avoid roads and complete building footprints, including failed normal-axis search',()=>{
+ const s=read('05a-world-layout-v704.js'),rect={id:'workshop',x:0,z:0,w:8,d:10,margin:.4};
+ const ctx=vm.createContext({console,v704WorldBounds:()=>({minX:-100,maxX:100,minZ:-100,maxZ:100}),v704ProtectedRectangles:()=>[rect],v704RoadAt:(x,z)=>Math.abs(z-8)<2,v704RectOverlap:(a,b,m)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+m&&Math.abs(a.z-b.z)<(a.d+b.d)/2+m});
+ vm.runInContext(s.slice(s.indexOf('  function v704SafeSignPoint('),s.indexOf('  function v704ZoneAt(')),ctx);
+ const safe=ctx.v704SafeSignPoint(0,0,0);
+ assert(Math.abs(safe.z)>5.78||Math.abs(safe.x)>5.86);
+ assert(Math.abs(safe.z-8)>=2);
+ const clear=ctx.v704SafeSignPoint(30,20,0);assert.equal(clear.x,30);assert.equal(clear.z,20);
+});
+test('both Rio maps finish and reset the existing goal practice without duplicate rewards',()=>{
+ const s=read('90-rio-map-activities.js'),calls=[],positions=[],site={id:'regional-estadio_anisio_haddad'},room={site,shot:{start:100,ballY:.47,at:{x:0,z:5},goal:{x:0,z:0},ball:{position:{set(...p){positions.push(p)}},rotation:{z:0}}}};
+ const ctx=vm.createContext({rioMap:{compact:true,sites:new Map([[site.id,room]])},lerp:(a,b,t)=>a+(b-a)*t,rioCountVisit:s=>calls.push(s.id),toast(){}});
+ vm.runInContext(s.slice(s.indexOf('  function updateRioPractice('),s.indexOf('  function rioPrepareWaterfrontRun(')),ctx);
+ ctx.updateRioPractice(475);assert(positions.at(-1)[1]>.47);assert(room.shot);
+ ctx.updateRioPractice(850);assert.equal(room.shot,null);assert.equal(positions.at(-1)[1],.47);assert.equal(positions.at(-1)[2],5);
+ ctx.updateRioPractice(1000);assert.equal(calls.length,1);
+});
+test('civil flight retains highway biomes that ground distance legitimately culls',()=>{
+ const s=read('14a-ottovias-highway-v7054.js'),item={cx:900,cz:0,radius:50,group:{}},segment={a:{},b:{},group:{}},OTTOVIAS_RUNTIME={cullAt:0,segments:[segment],biomeGroups:[item],tolls:new Map(),root:{}};
+ let air=0;
+ const ctx=vm.createContext({OTTOVIAS_RUNTIME,performance:{now:()=>1000},qualityTier:()=>'low',otGamesFocus:()=>({x:0,z:0}),otGames:{active:false},worldFlightHorizon:()=>air,v704DistanceToSegment:()=>({distance:900})});
+ vm.runInContext(s.slice(s.indexOf('  function updateOttoviasVisibility('),s.indexOf('  // Each bar extends')),ctx);
+ ctx.updateOttoviasVisibility(true);assert.equal(item.group.visible,false);assert.equal(segment.group.visible,false);
+ air=3000;ctx.updateOttoviasVisibility(true);assert.equal(item.group.visible,true);assert.equal(segment.group.visible,true);
+ air=0;ctx.updateOttoviasVisibility(true);assert.equal(item.group.visible,false);assert.equal(segment.group.visible,false);
+});

@@ -92,6 +92,13 @@
       }
       box(x,7.35,side*22.60,w+1.05,.28,4.6,steel);
       box(x,7.18,side*20.52,w+.85,.18,.24,white);
+      // Red-and-white upper facade rhythm and structural roof bracing.
+      box(x,5.9,side*23.23,w,.38,.22,red);
+      for(let column=0;column<Math.floor(w/2.35);column++){
+        const xx=x-w/2+1.175+column*2.35;
+        box(xx,5.92,side*23.38,.23,2.55,.24,white);
+        box(xx,7.10,side*21.9,.19,.22,3.1,steel);
+      }
       for(const edge of[-1,1]){
         box(x+edge*(w/2-.35),5.62,side*22.60,.17,3.35,.20,steel);
       }
@@ -134,6 +141,7 @@
       const mesh=v705BatchBoxes(items,renderMat(color,{roughness:.86}),root,'TEIXEIRAO_STRUCTURE');
       if(mesh.isInstancedMesh){
         mesh.geometry.boundingSphere=new THREE.Sphere(new THREE.Vector3(cx,4,cz),38);
+        mesh.userData.otthiBoundedInstances=true;
         mesh.frustumCulled=true;
       }
     }

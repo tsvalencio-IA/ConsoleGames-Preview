@@ -426,12 +426,27 @@
   }
   function v704SafeSignPoint(x,z,rotationY=0){
     const base={x:Number(x),z:Number(z)},half=1.08,alongX=Math.cos(rotationY)*half,alongZ=-Math.sin(rotationY)*half,normalX=Math.sin(rotationY),normalZ=Math.cos(rotationY);
-    const clear=point=>![{x:point.x,z:point.z},{x:point.x+alongX,z:point.z+alongZ},{x:point.x-alongX,z:point.z-alongZ}].some(sample=>v704RoadAt(sample.x,sample.z,.38,true));
+    // A sign's whole board must stay out of buildings, not only its pole.
+    const bounds=v704WorldBounds(),protectedRects=v704ProtectedRectangles().filter(r=>!r.id?.startsWith('rio-compact-track-'));
+    const clear=point=>{
+      const samples=[-1,-.5,0,.5,1].map(t=>({x:point.x+alongX*t,z:point.z+alongZ*t}));
+      if(samples.some(p=>p.x<bounds.minX+.38||p.x>bounds.maxX-.38||p.z<bounds.minZ+.38||p.z>bounds.maxZ-.38||v704RoadAt(p.x,p.z,.38,true)))return false;
+      // Conservative full-board AABB prevents crossing a wall between samples.
+      const board={x:point.x,z:point.z,w:2*Math.abs(alongX)+.76,d:2*Math.abs(alongZ)+.76};
+      return !protectedRects.some(r=>v704RectOverlap(board,r,Math.max(0,Number(r.margin)||0)));
+    };
     if(clear(base))return base;
     for(const distance of [1.5,2.4,3.4,4.6,6,7.5,9,11,14])for(const side of [1,-1]){const candidate={x:base.x+normalX*distance*side,z:base.z+normalZ*distance*side};if(clear(candidate))return candidate;}
     /* Em cruzamentos, mover somente pela normal pode cair sobre a via transversal. */
     const tangentX=Math.cos(rotationY),tangentZ=-Math.sin(rotationY);for(const distance of [4.6,6,7.5,9,11,14])for(const side of [1,-1])for(const tangentSide of [1,-1]){const candidate={x:base.x+normalX*distance*side+tangentX*distance*tangentSide,z:base.z+normalZ*distance*side+tangentZ*distance*tangentSide};if(clear(candidate))return candidate;}
-    return{x:base.x+normalX*14,z:base.z+normalZ*14};
+    // If the near verge is occupied, find the nearest clear place rather than
+    // unconditionally moving the sign into the next house.
+    for(const distance of [16,18,20,24,28,32,40,48,64])for(let i=0;i<32;i++){
+      const angle=i*Math.PI/16,candidate={x:base.x+Math.sin(angle)*distance,z:base.z+Math.cos(angle)*distance};
+      if(clear(candidate))return candidate;
+    }
+    console.warn('[OTTHI SIGN] No clear location found',base);
+    return base;
   }
   function v704ZoneAt(x,z,margin=0){return Object.values(WORLD_LAYOUT_V704.zones).filter(zone=>v704PointInRect({x,z},zone,margin)).map(zone=>zone.id);}
   function v704ConstructionAt(x,z,margin=0){return v704PointInRect({x,z},WORLD_LAYOUT_V704.zones.construction,-Math.abs(margin));}

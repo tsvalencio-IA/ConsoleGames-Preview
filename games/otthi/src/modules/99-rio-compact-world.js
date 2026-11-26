@@ -490,7 +490,8 @@
     compactRio.nextUpdate=performance.now()+80;
     rioMap.indoors=false;
     rioMap.indoorRoom=null;
-    const focus=navigationFocus();
+    const focus=navigationFocus(),flight=worldFlightHorizon(),nearRange=qualityTier()==='low'?142:195;
+    updateRioPractice(performance.now());
     for(const room of rioMap.sites.values()){
       const {site}=room;
       if(room.legacyResidence){
@@ -498,7 +499,7 @@
         // native room is visible only to the player who entered the door.
         const inside=!!room.legacyRecord?.inside;
         room.root.visible=inside;
-        if(room.poolExterior)room.poolExterior.visible=distance2D(focus,site)<(qualityTier()==='low'?142:195);
+        if(room.poolExterior)room.poolExterior.visible=distance2D(focus,site)<(flight||nearRange);
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
@@ -506,15 +507,16 @@
         }
         continue;
       }
-      room.root.visible=distance2D(focus,site)<(qualityTier()==='low'?142:195);
+      const near=distance2D(focus,site)<nearRange;
+      room.root.visible=distance2D(focus,site)<(flight||nearRange);
       if(room.poolExterior)room.poolExterior.visible=room.root.visible;
       if(!room.root.visible)continue;
       if(room.roof){
-        const inside=!currentHouse&&!player.vehicle&&room.forSite(player.x,player.z,-.22)&&!room.isOutdoorLeisurePoint?.(player.x,player.z);
+        const inside=!flight&&!currentHouse&&!player.vehicle&&room.forSite(player.x,player.z,-.22)&&!room.isOutdoorLeisurePoint?.(player.x,player.z);
         room.roof.visible=!inside;
         if(inside){rioMap.indoors=true;rioMap.indoorRoom=room;}
       }
-      if(room.server||room.door||room.npcs?.length)rioUpdatePlaceService(site,room,.08);
+      if(near&&(room.server||room.door||room.npcs?.length))rioUpdatePlaceService(site,room,.08);
       if(rioMap.order?.site===site.id&&distance2D(player,site)>Math.max(site.w,site.d)+8){
         rioClearDiningOrder(room);
       }
