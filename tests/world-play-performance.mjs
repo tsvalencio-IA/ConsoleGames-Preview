@@ -48,7 +48,7 @@ ${process.env.OT_LIVE_SHADERS?`const shaderReset=__LIVE_QA.reset,shaderRead=__LI
   assert(before&&after,'before and after evidence required');
   const metrics=['frame','work','renderMs'];
   report.comparison=metrics.map(key=>({metric:key,before:before[key].p95,after:after[key].p95,ratio:after[key].p95/Math.max(.01,before[key].p95)}));
-  report.passed=report.comparison.every(m=>m.after<=m.before*1.2+5);
+  report.passed=report.comparison.every(m=>m.after<=m.before*1.2+5)&&(!process.env.OT_LIVE_STRICT_FRAME||after.frame.p95<=before.frame.p95);
   fs.writeFileSync(out+'/result.json',JSON.stringify(report,null,2));
   assert(report.passed,'Native frame p95 regression: '+JSON.stringify(report.comparison));
  }else{report.passed=true;fs.writeFileSync(out+'/result.json',JSON.stringify(report,null,2));}

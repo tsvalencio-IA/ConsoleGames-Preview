@@ -17,11 +17,26 @@ test('critical surface culling uses transformed geometry center and hysteresis',
  const s=read('09-responsive-ar-quality-diagnostics.js');const body=s.slice(s.indexOf('  function updateCriticalSurfaceDistanceVisibility(){'),s.indexOf('  function updateDynamicEntityVisibility(){'));
  class V{constructor(x=0,y=0,z=0){this.set(x,y,z)}set(x,y,z){Object.assign(this,{x,y,z});return this}copy(v){return this.set(v.x,v.y,v.z)}applyMatrix4(m){this.x+=m.x||0;this.y+=m.y||0;this.z+=m.z||0;return this}setFromMatrixScale(){return this.set(1,1,1)}}
  const focus={x:0,z:0},mesh={parent:{},geometry:{boundingSphere:{center:new V(100,0,0),radius:2}},matrix:{x:-100},userData:{},visible:true},world={criticalSurfaces:[mesh]},perf={};
- const ctx=vm.createContext({world,perf,player:focus,performanceDistanceRanges:()=>({critical:52}),visualWorldMatrix:m=>m.matrix,distanceCullPosition:new V(),distanceCullScale:new V()});
+ const ctx=vm.createContext({world,perf,player:focus,worldFlightHorizon:()=>0,performanceDistanceRanges:()=>({critical:52}),visualWorldMatrix:m=>m.matrix,distanceCullPosition:new V(),distanceCullScale:new V()});
  vm.runInContext(body,ctx);
  ctx.updateCriticalSurfaceDistanceVisibility();assert.equal(mesh.visible,true,'actual geometry is close despite remote origin');
  focus.x=60;ctx.updateCriticalSurfaceDistanceVisibility();assert.equal(mesh.visible,true,'hysteresis retains visible surface');
  focus.x=70;ctx.updateCriticalSurfaceDistanceVisibility();assert.equal(mesh.visible,false);
  focus.x=60;ctx.updateCriticalSurfaceDistanceVisibility();assert.equal(mesh.visible,false,'no threshold oscillation');
  focus.x=50;ctx.updateCriticalSurfaceDistanceVisibility();assert.equal(mesh.visible,true);
+});
+
+test('civil flight horizon covers the map and restores the ground camera',()=>{
+ const s=read('09-responsive-ar-quality-diagnostics.js'),camera={far:1200,updates:0,updateProjectionMatrix(){this.updates++}},scene={fog:{near:210,far:520}},otGames={active:true,mode:'helicopter',body:{y:90}},rioClimate={kind:'clear'};
+ const ctx=vm.createContext({camera,scene,otGames,rioClimate,v704WorldSize:()=>({w:1700,d:1800})});
+ vm.runInContext(s.slice(s.indexOf('  function worldFlightHorizon(){'),s.indexOf('  function updateCriticalSurfaceDistanceVisibility(){')),ctx);
+ ctx.syncWorldFlightHorizon();assert(camera.far>2500);assert.equal(scene.fog.far,camera.far);const far=camera.far;otGames.body.y=100;ctx.syncWorldFlightHorizon();assert.equal(camera.far,far);assert.equal(camera.updates,1);
+ otGames.active=false;ctx.syncWorldFlightHorizon();assert.equal(camera.far,1200);assert.equal(scene.fog.near,210);assert.equal(scene.fog.far,520);
+ otGames.active=true;otGames.mode='ground';assert.equal(ctx.worldFlightHorizon(),0);
+});
+test('road and grass retain a patterned surface when texture download fails',()=>{
+ const s=read('33-otthi-world-professional-core.js');
+ const ctx=vm.createContext({document:{createElement:()=>({getContext:()=>({fillRect(){}})})},THREE:{CanvasTexture:class{},ImageLoader:class{load(path,ok,progress,fail){fail(new Error('missing'));}}},canvasTexture:(pack,colors)=>({image:{width:256,height:256},pack,colors}),OTTHI_VISUAL_ASSETS:{textures:{road:'road-original',grass:'grass-original'}},otthiWorldRuntime:{textures:new Map(),errors:[]},configureWorldTexture(){},worldPbrPath:(p,c)=>p+'-'+c,registerVisualAsset(){},updateVisualAsset(){}});
+ vm.runInContext(s.slice(s.indexOf('  function loadWorldTexture('),s.indexOf('  function ensureUv2(')),ctx);
+ for(const pack of ['road','grass']){const t=ctx.loadWorldTexture(pack,'basecolor',{color:true});assert.equal(t.pack,pack);assert.equal(t.image.width,256);assert.notEqual(t.colors[0],'#ffffff');}
 });

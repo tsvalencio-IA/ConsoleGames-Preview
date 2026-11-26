@@ -251,7 +251,7 @@
     renderer.clippingPlanes=h?[new THREE.Plane(new THREE.Vector3(1,0,0),-h.x+h.w/2+.18),new THREE.Plane(new THREE.Vector3(-1,0,0),h.x+h.w/2+.18),new THREE.Plane(new THREE.Vector3(0,0,1),-h.z+h.d/2+.18),new THREE.Plane(new THREE.Vector3(0,0,-1),h.z+h.d/2+.18),new THREE.Plane(new THREE.Vector3(0,-1,0),3.05)]:[];
   }
   function updateCamera(dt){
-    updateInteriorClipping();
+    updateInteriorClipping();if(typeof syncWorldFlightHorizon==='function')syncWorldFlightHorizon();
     if(typeof otGames!=='undefined'&&otGames.active){otGamesCamera(dt);return;}
     let desiredPos,look;
     const workshopView=world.workshopInspectionCamera,lift=world.workshopLift;if(workshopView?.active&&lift?.vehicleId){const ground=groundHeightAt(lift.x,lift.z),pitch=clamp(cameraPitch,-.55,1.35),normalized=(pitch+.55)/1.9,dist=clamp(6.2+cameraZoom,3.4,13.5),height=lerp(.48,7.35,normalized),focusY=ground+Number(lift.height||0)+.82;desiredPos=new THREE.Vector3(lift.x-Math.sin(cameraYaw)*dist,ground+height,lift.z+Math.cos(cameraYaw)*dist);look=new THREE.Vector3(lift.x,focusY,lift.z);camera.fov=lerp(60,48,normalized);}

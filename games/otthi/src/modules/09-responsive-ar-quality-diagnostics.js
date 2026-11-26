@@ -300,16 +300,39 @@
     if(tier==='high')return{critical:175,npc:130,resource:155,enemy:145,crystal:165,animal:135};
     return{critical:122,npc:96,resource:112,enemy:106,crystal:120,animal:100};
   }
+  function worldFlightHorizon(){
+    if(typeof otGames==='undefined'||!otGames.active||!['plane','helicopter','balloon'].includes(otGames.mode)||!otGames.body)return 0;
+    const bounds=v704WorldSize();
+    // Fixed projection throughout the flight; no resize/recompile on each change of altitude.
+    return Math.ceil(Math.hypot(bounds.w,bounds.d)+900);
+  }
+  let previousFlightHorizon=null;
+  function syncWorldFlightHorizon(){
+    if(!camera||!scene)return;
+    const range=worldFlightHorizon(),fog=scene.fog,weather=typeof rioClimate==='undefined'?'clear':rioClimate.kind;
+    if(range){
+      if(!previousFlightHorizon)previousFlightHorizon={cameraFar:camera.far,fog,near:fog?.near,far:fog?.far,weather};
+      if(camera.far!==range){camera.far=range;camera.updateProjectionMatrix();}
+      if(fog&&weather==='clear'){fog.near=range*.8;fog.far=range;}
+    }else if(previousFlightHorizon){
+      const old=previousFlightHorizon;previousFlightHorizon=null;
+      camera.far=old.cameraFar;camera.updateProjectionMatrix();
+      if(fog&&fog===old.fog){
+        if(weather===old.weather){fog.near=old.near;fog.far=old.far;}
+        else{fog.near=weather==='clear'?210:92;fog.far=weather==='clear'?520:315;}
+      }
+    }
+  }
   function updateCriticalSurfaceDistanceVisibility(){
     const focus=typeof otGamesFocus==='function'?otGamesFocus():player;
-    const range=performanceDistanceRanges().critical,visited=new Set();let visible=0,hidden=0;
+    const flightRange=worldFlightHorizon(),range=flightRange||performanceDistanceRanges().critical,visited=new Set();let visible=0,hidden=0;
     for(const mesh of world.criticalSurfaces||[]){
       if(!mesh?.parent)continue;
       if(mesh.userData?.alwaysVisible===true||Number(mesh.renderOrder||0)>=900){mesh.visible=true;visible++;continue;}
       let radius=0;
       try{if(mesh.geometry&&!mesh.geometry.boundingSphere)mesh.geometry.computeBoundingSphere();radius=Number(mesh.geometry?.boundingSphere?.radius||0);const matrix=visualWorldMatrix(mesh,visited);distanceCullPosition.copy(mesh.geometry?.boundingSphere?.center||distanceCullPosition.set(0,0,0)).applyMatrix4(matrix);distanceCullScale.setFromMatrixScale(matrix);radius*=Math.max(Math.abs(distanceCullScale.x)||1,Math.abs(distanceCullScale.y)||1,Math.abs(distanceCullScale.z)||1);}catch{mesh.visible=true;visible++;continue;}
       const d=Math.hypot(focus.x-distanceCullPosition.x,focus.z-distanceCullPosition.z),margin=mesh.userData.otthiDistanceCulled?0:Math.max(12,range*.15),show=!Number.isFinite(d)||!Number.isFinite(radius)||d<=range+Math.max(1,radius)+margin;
-      mesh.visible=show;mesh.frustumCulled=false;mesh.userData.otthiDistanceCulled=!show;if(show)visible++;else hidden++;
+      mesh.visible=show;mesh.frustumCulled=!!flightRange&&mesh.isMesh&&!mesh.isInstancedMesh&&!mesh.isSkinnedMesh&&Number.isFinite(radius)&&radius<=170;mesh.userData.otthiDistanceCulled=!show;if(show)visible++;else hidden++;
     }
     perf.criticalVisible=visible;perf.criticalHidden=hidden;return{visible,hidden,range};
   }

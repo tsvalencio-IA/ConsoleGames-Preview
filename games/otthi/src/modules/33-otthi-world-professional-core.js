@@ -63,11 +63,15 @@
     // neutral pixel until decoding finishes, and keep it if the request fails.
     const pixel=document.createElement('canvas');pixel.width=pixel.height=1;
     const context=pixel.getContext('2d');context.fillStyle=channel==='normal'?'rgb(128,128,255)':channel==='emissive'?'#000000':'#ffffff';context.fillRect(0,0,1,1);
-    const texture=new THREE.CanvasTexture(pixel);configureWorldTexture(texture,options);
-    new THREE.ImageLoader().load(worldPbrPath(pack,channel),image=>{
-      texture.image=image;configureWorldTexture(texture,options);texture.needsUpdate=true;registerVisualAsset(`world-texture:${key}`,texture,{type:'texture',status:'loaded',pack,channel});
-    },undefined,error=>{
+    const terrainBase=channel==='basecolor'&&['road','grass'].includes(pack);
+    // Keep the original terrain pattern during decode and on network failure.
+    const texture=terrainBase?canvasTexture(pack,pack==='road'?['#252d38','#3d4652']:['#348f32','#62c94e','#28762c','#91df63']):new THREE.CanvasTexture(pixel);configureWorldTexture(texture,options);
+    const installImage=(image,status='loaded')=>{
+      texture.image=image;configureWorldTexture(texture,options);texture.needsUpdate=true;registerVisualAsset(`world-texture:${key}`,texture,{type:'texture',status,pack,channel});
+    };
+    new THREE.ImageLoader().load(worldPbrPath(pack,channel),image=>installImage(image),undefined,error=>{
       otthiWorldRuntime.errors.push(`texture:${pack}:${channel}:${String(error?.message||'load')}`);updateVisualAsset(`world-texture:${key}`,{status:'fallback'});
+      if(terrainBase)new THREE.ImageLoader().load(OTTHI_VISUAL_ASSETS.textures[pack],image=>installImage(image,'fallback-original'),undefined,()=>{});
     });
     configureWorldTexture(texture,options);texture.name=`OTTHI_WORLD_${pack}_${channel}`;otthiWorldRuntime.textures.set(key,texture);registerVisualAsset(`world-texture:${key}`,texture,{type:'texture',status:'loading',pack,channel});return texture;
   }
