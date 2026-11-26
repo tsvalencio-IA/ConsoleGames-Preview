@@ -1,7 +1,7 @@
 # Auditoria integral — falhas parciais verificadas
 Execução: https://github.com/tsvalencio-IA/ConsoleGames-Preview/actions/runs/45896356572
 Revisão testada: c16f1789aa26b64bf02595dd0c7701f3d083d315.
-Grupos 0, 1 e 2: 31 scripts, 13 aprovados e 18 reprovados. Não é contagem de defeitos distintos. Artefatos originais: 15154307151, 15154850484, 15153693113.
+Grupos 0, 1 e 2: 32 scripts, 13 aprovados e 19 reprovados. Não é contagem de defeitos distintos. Artefatos originais: 15154307151, 15154850484, 15153693113.
 Nenhum resultado foi descartado ou convertido em aprovado.
 
 | Cenário reprovado | Evidência nos logs | Investigação necessária |
@@ -26,4 +26,4 @@ Nenhum resultado foi descartado ou convertido em aprovado.
 | world-startup-camera | inicialização excedeu 120 s | Investigar condição de entrada e desempenho |
 | world-workshop-auto | seis entregas realizadas; saldo +8 e alimento +1 inesperados | Investigar origem das alterações e contrato econômico, sem alterar saldo real |
 
-A tabela contém 19 linhas de cenários? Conferir contagem por grupo: 7 + 4 + 7 = 18. A contagem de registros é derivada dos logs, não de expectativas. Nenhum diagnóstico acima confirma causa de regressão sem reprodução e comparação com a base publicada.
+A tabela contém 19 cenários reprovados: 8 + 4 + 7. A contagem de registros é derivada dos logs, não de expectativas. Nenhum diagnóstico acima confirma causa de regressão sem reprodução e comparação com a base publicada.
