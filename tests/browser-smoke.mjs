@@ -41,10 +41,19 @@ try{
     await page.goto(base+"arcade/",{waitUntil:"domcontentloaded",timeout:45000});
     await page.waitForSelector(".game-card",{timeout:15000});
     assert.equal(await page.locator(".game-card").count(),7,"Arcade deve mostrar sete jogos; HQ permanece acessível diretamente");
-    const arcadeLinks=await page.locator("a.game-open").evaluateAll(nodes=>nodes.map(a=>new URL(a.href).pathname));
-    assert(arcadeLinks.every(path=>path.startsWith("/games/") || path.startsWith("/ConsoleGames/games/")),JSON.stringify(arcadeLinks));
-    const expectedArcade=games.filter(([slug])=>slug!=="familia/3d").map(([slug])=>"/games/"+slug+"/").sort();
-    assert.deepEqual(arcadeLinks.map(path=>path.replace(/^\/ConsoleGames(?=\/games\/)/,"")).sort(),expectedArcade,"Biblioteca do Arcade perdeu, duplicou ou adicionou um jogo indevido");
+    // The online world card intentionally goes through the version updater.
+    // Validate game identities AND actual destinations, not just card count.
+    const arcadeLinks=await page.locator("a.game-open").evaluateAll(nodes=>nodes.map(a=>({id:a.dataset.launch,url:a.href})));
+    const expectedArcade=games.filter(([slug])=>slug!=="familia/3d").map(([slug])=>({id:slug,url:new URL("games/"+(slug==="otthi"?"atualizar":slug)+"/",base).href}));
+    const byId=(a,b)=>a.id.localeCompare(b.id);
+    assert.deepEqual(arcadeLinks.sort(byId),expectedArcade.sort(byId),"Biblioteca do Arcade perdeu, duplicou ou direcionou incorretamente um jogo");
+    const canonicalWorld=await page.evaluate(()=>window.OTTHI_CANONICAL.game("otthi"));
+    assert.equal(canonicalWorld,new URL("games/otthi/",base).href,"Destino final do atualizador incorreto");
+    await context.setOffline(true);
+    try{
+      await page.waitForFunction(expected=>document.querySelector('a.game-open[data-launch="otthi"]')?.href===expected,canonicalWorld,{timeout:5000});
+    }finally{await context.setOffline(false);}
+    await page.waitForFunction(expected=>document.querySelector('a.game-open[data-launch="otthi"]')?.href===expected,new URL("games/atualizar/",base).href,{timeout:5000});
     const arcadeWidth=await page.evaluate(()=>({window:window.innerWidth,scroll:document.documentElement.scrollWidth}));
     assert(arcadeWidth.scroll<=arcadeWidth.window+2,JSON.stringify({page:"arcade",size,arcadeWidth}));
     const manifestHref=await page.locator('link[rel="manifest"]').getAttribute("href");
