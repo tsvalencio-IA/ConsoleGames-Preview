@@ -20,7 +20,9 @@
   const root=new THREE.Group();root.name='OT_CIVIL_AIRPORT';worldGroup.add(root);worldAirport.root=root;
   const pavement=campaignMaterial(0x5d6870,.03,'road'),concrete=campaignMaterial(0xc4c4b5,.03,'concrete'),white=campaignMaterial(0xf3e8cb),steel=campaignMaterial(0x2e4c5b,.35),glass=campaignMaterial(0x7faebb,.35,'city-glass'),accent=campaignMaterial(0x356b75);
   const box=(m,x,y,z,w,h,d)=>campaignBox(root,m,x,y,z,w,h,d),wall=(x,z,w,d,h,m=concrete)=>{box(m,x,h/2,z,w,h,d);world.colliders.push({x,z,w,d,height:h,airport:true});};
-  box(pavement,91,.035,-191,120,.07,58);box(steel,91,.08,-216,130,.06,12);
+  // The runway is asphalt, not the blue-grey steel used on the terminal.
+  const runway=v702TextureMaterial('road',0xffffff,{repeat:[30,3],roughness:.94,normalScale:.22});
+  box(pavement,91,.035,-191,120,.07,58);box(runway,91,.08,-216,130,.06,12);
   for(const z of[-221.7,-210.3])box(white,91,.12,z,129,.02,.14);for(let x=31;x<151;x+=10)box(white,x,.12,-216,5,.02,.24);
   for(const x of[31,150])for(let z=-220;z<-212;z+=1.2)box(white,x,.12,z,5,.02,.5);
   // Taxiway joins the apron and runway; the public entrance stays below the highway.

@@ -1,7 +1,7 @@
 /** Progressive urban scenery using the same terrain, GPS and commerce as the other districts. */
 // @otthi-module-body
   const rioPreto = {tiles:null, material:null, traffic:false, actors:0, shops:0, visits:0, visible:0, nextTileAt:0,
-    homes:new Map(),nextHomeAt:0,insideHome:null};
+    homes:new Map(),aerialFacades:new Map(),nextHomeAt:0,insideHome:null};
   const rioTileSize = 72;
   const rioDistrictStyles = {
     bady: {accent:0xad6744, facade:[0xe9dbba,0xbc7555,0xe5cba2,0xbc9e72,0x9aaf95], paving:0xc5b3a0, greenery:0x63875a},
@@ -389,14 +389,23 @@
       x:lot.x,z:lot.z,w:lot.w,d:lot.d,yaw:lot.yaw,
       entry:[door.x,door.z],road:[door.x+forward.x*2.1,door.z+forward.z*2.1]};
   }
-  function rioMakeHistoricHome(lot){
-    const site=rioHistoricHomeSite(lot);
+  function rioMountHistoricFacade(lot){
+    // Exactly the same approved exterior, not a distant replacement box.
+    const cached=rioPreto.aerialFacades.get(lot.id);
+    if(cached)return cached;
     const root=new THREE.Group();root.name='RIO_HISTORIC_FACADE_'+lot.id;worldGroup.add(root);
     const batch=rioCreateBatch(root),before=world.colliders.length;
     rioDrawHouse(batch,lot,rioDistrictStyles[lot.district]);
     batch.commit();
-    const outsideColliders=world.colliders.slice(before);
+    const record={root,outsideColliders:world.colliders.slice(before)};
+    rioPreto.aerialFacades.set(lot.id,record);
+    return record;
+  }
+  function rioMakeHistoricHome(lot){
+    const site=rioHistoricHomeSite(lot);
+    const {root,outsideColliders}=rioMountHistoricFacade(lot);
     const room=rioMountPlace(site,worldGroup);
+    rioPreto.aerialFacades.delete(lot.id);
     room.legacyResidence=true;
     room.root.visible=false;
     room.colliders.forEach(c=>c.disabled=true);
@@ -527,11 +536,12 @@
     // Scenery streams on approach. Store a bounded set of simple tile meshes
     // to avoid reconstructing whole neighborhoods every time the player turns.
     const ranges=typeof performanceDistanceRanges==='function'?performanceDistanceRanges():{critical:95};
-    const renderRange=Math.max(126,ranges.critical+49);
+    const renderRange=Math.max(126,ranges.critical+49),aerial=typeof worldFlightHorizon==='function'?worldFlightHorizon():0;
+    const visibleRange=aerial||renderRange+42,loadRange=aerial||renderRange+64;
     for(const tile of rioPreto.tiles.values()){
-      const d=nearRegion?Math.hypot(tile.x-focus.x,tile.z-focus.z):Infinity;
-      if(tile.root){tile.root.visible=d<renderRange+42;if(tile.root.visible)visible++;continue;}
-      if(d<renderRange+64&&d<closestDistance){closestDistance=d;closest=tile;}
+      const d=nearRegion||aerial?Math.hypot(tile.x-focus.x,tile.z-focus.z):Infinity;
+      if(tile.root){tile.root.visible=d<visibleRange;if(tile.root.visible)visible++;continue;}
+      if(d<loadRange&&d<closestDistance){closestDistance=d;closest=tile;}
     }
     if(closest&&performance.now()>=rioPreto.nextTileAt){
       const root=new THREE.Group();
@@ -541,11 +551,11 @@
       for(const draw of closest.draw)draw(batch);
       closest.primitives=batch.commit();
       closest.root=root;
-      root.visible=closestDistance<renderRange+42;
+      root.visible=closestDistance<visibleRange;
       if(root.visible)visible++;
       worldGroup.add(root);
       world.navCache?.clear?.();
-      rioPreto.nextTileAt=performance.now()+34;
+      rioPreto.nextTileAt=performance.now()+(aerial?125:34);
     }
     if(typeof rioCompactWorld==='function'&&rioCompactWorld()){
       // House streaming uses the same one-object-per-frame budget as city tiles.
@@ -553,21 +563,23 @@
       let closestHouse=null,nearDistance=Infinity;
       for(const lot of RIO_PRETO_LAYOUT.lots){
         if(!lot.style.startsWith('house-'))continue;
-        const distance=nearRegion?Math.hypot(lot.x-focus.x,lot.z-focus.z):Infinity;
+        const distance=nearRegion||aerial?Math.hypot(lot.x-focus.x,lot.z-focus.z):Infinity;
         const house=rioPreto.homes.get(lot.id);
         if(house){
-          house.root.visible=distance<renderRange+35&&!house.inside;
+          house.root.visible=distance<(aerial||renderRange+35)&&!house.inside;
           for(const collider of house.outsideColliders)collider.disabled=house.inside;
           for(const collider of house.room.colliders)collider.disabled=!house.inside;
           continue;
         }
-        if(distance<renderRange+20&&distance<nearDistance){
+        const facade=rioPreto.aerialFacades.get(lot.id);
+        if(facade)facade.root.visible=distance<(aerial||renderRange+35);
+        if((aerial?!facade&&distance<aerial:distance<renderRange+20)&&distance<nearDistance){
           closestHouse=lot;nearDistance=distance;
         }
       }
       if(closestHouse&&time>=rioPreto.nextHomeAt){
-        rioMakeHistoricHome(closestHouse);
-        rioPreto.nextHomeAt=time+145;
+        if(aerial)rioMountHistoricFacade(closestHouse);else rioMakeHistoricHome(closestHouse);
+        rioPreto.nextHomeAt=time+(aerial?200:145);
       }
     }
     rioPreto.visible=visible;

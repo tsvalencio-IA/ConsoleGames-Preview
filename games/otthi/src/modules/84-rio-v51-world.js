@@ -800,17 +800,18 @@
     }
     const focus=otGamesFocus();
     rioAttractionUpdate(focus);
+    const aerial=typeof worldFlightHorizon==='function'?worldFlightHorizon():0;
     let next=null,distance=Infinity;
     for(const sector of Object.values(RIO_V51.sectors)){
       if(!legacyRegionalLayout&&!RIO_RECOVERED_SECTORS.includes(sector.id))continue;
       const d=Math.hypot(focus.x-sector.x,focus.z-sector.z);
       const root=rioV51World.roots.get(sector.id);
-      if(root){root.visible=d<195;continue;}
-      if(d<210&&d<distance){next=sector;distance=d;}
+      if(root){root.visible=d<(aerial||195);continue;}
+      if(d<(aerial||210)&&d<distance){next=sector;distance=d;}
     }
     if(!next||performance.now()<rioV51World.nextSectorAt)return;
-    mountRioV51Sector(next).visible=distance<195;
-    rioV51World.nextSectorAt=performance.now()+55;
+    mountRioV51Sector(next).visible=distance<(aerial||195);
+    rioV51World.nextSectorAt=performance.now()+(aerial?220:55);
   }
 
   const RIO_V51_INTERIOR_TYPES=Object.freeze({

@@ -98,3 +98,18 @@ test('world vegetation preserves textured grass but never draws opaque green rec
  const mask=ctx.createWorldGrassMask();assert.equal(mask.image.width,64);assert.equal(mask.image.height,128);assert.equal(draws.filter(d=>d==='blade').length,8);
  assert.match(s,/alphaMap:createWorldGrassMask\(\),alphaTest:\.48,transparent:false/);
 });
+
+test('aerial historic facade is reused by the full furnished house without duplicate colliders',()=>{
+ const source=read('79-rio-preto-districts.js'),lot={id:'house-1',district:'andalo'};
+ const world={colliders:[]},rioPreto={aerialFacades:new Map()},roots=[];
+ const ctx=vm.createContext({world,rioPreto,worldGroup:{add(g){roots.push(g)}},rioDistrictStyles:{andalo:{}},THREE:{Group:class{}},rioCreateBatch:()=>({commit(){}}),rioDrawHouse:()=>world.colliders.push({id:'original-wall'})});
+ vm.runInContext(source.slice(source.indexOf('  function rioMountHistoricFacade('),source.indexOf('  function rioMakeHistoricHome(')),ctx);
+ const first=ctx.rioMountHistoricFacade(lot),second=ctx.rioMountHistoricFacade(lot);
+ assert.equal(first,second);assert.equal(world.colliders.length,1);assert.equal(roots.length,1);
+ assert.match(source,/const \{root,outsideColliders\}=rioMountHistoricFacade\(lot\)/);
+});
+test('civil runway retains asphalt material rather than terminal steel',()=>{
+ const s=read('60-airport-mountain-balloon.js');
+ assert.match(s,/const runway=v702TextureMaterial\('road',0xffffff/);
+ assert.match(s,/box\(runway,91,\.08,-216,130,\.06,12\)/);
+});
