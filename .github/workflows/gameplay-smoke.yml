@@ -8,7 +8,7 @@ on:
       - 'enhancements/**'
   workflow_dispatch:
 concurrency:
-  group: consolegames-gameplay-validation
+  group: consolegames-gameplay-validation-${{ github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
