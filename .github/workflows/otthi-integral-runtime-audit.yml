@@ -1,0 +1,170 @@
+name: OTThi - Auditoria integral de jogabilidade
+on:
+  push:
+    branches: ['audit/otthi-simulador-integral-20261126']
+    paths: ['.github/workflows/otthi-integral-runtime-audit.yml']
+permissions:
+  contents: read
+concurrency:
+  group: otthi-integral-runtime-audit
+  cancel-in-progress: false
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compilar e executar todos os testes automatizados
+        run: |
+          set -o pipefail
+          mkdir -p evidence
+          python3 games/otthi/tools/build_project.py | tee evidence/build.log
+          node --check games/otthi/app.js
+          node --test tests/*.test.mjs | tee evidence/unit.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: otthi-integral-unit
+          path: evidence/
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [0,1,2,3,4,5]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar navegador e runtime
+        run: |
+          python3 games/otthi/tools/build_project.py
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium --with-deps
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/otthi-audit-server.log 2>&1 &
+          sleep 2
+      - name: Executar cenarios locais de todos os subsistemas sem parar no primeiro defeito
+        env:
+          SHARD: ${{ matrix.shard }}
+          WORLD_QA_URL: http://127.0.0.1:4173/games/otthi/
+        run: |
+          mkdir -p evidence
+          python3 - <<'PY'
+          import glob, json, os, pathlib, re, subprocess, time
+          root=pathlib.Path('tests')
+          names=sorted(set(p for pattern in ('world-*-browser.mjs','rio-*-browser.mjs','transport-*-browser.mjs','vehicle-*-browser.mjs','emergency-visual-lifecycle-browser.mjs','family-playable.mjs','public-destinations-browser.mjs','balloon-photo-browser.mjs') for p in root.glob(pattern)))
+          inventory=[]
+          for p in names:
+              src=p.read_text()
+              reason=None
+              if 'public' in p.name or p.name=='public-destinations-browser.mjs':
+                  reason='Public endpoint: excluded from disposable local audit'
+              elif p.name=='world-native-endurance-browser.mjs':
+                  reason='Dedicated native wall-clock endurance job'
+              elif 'multiplayerServer' not in src and not re.search(r'http://(?:127\.0\.0\.1|localhost):4173',src):
+                  reason='Local transport not verified: manual review required'
+              inventory.append({'path':str(p),'excluded':reason})
+          eligible=[v['path'] for v in inventory if not v['excluded']]
+          shard=int(os.environ['SHARD'])
+          selected=eligible[shard::6]
+          out=pathlib.Path('evidence')
+          (out/'inventory.json').write_text(json.dumps(inventory,indent=2))
+          results=[]
+          for p in selected:
+              start=time.monotonic()
+              log=out/(pathlib.Path(p).stem+'.log')
+              print('RUN',p,flush=True)
+              with log.open('wb') as f:
+                  try:
+                      proc=subprocess.run(['node',p],stdout=f,stderr=subprocess.STDOUT,timeout=720)
+                      status='PASS' if proc.returncode==0 else 'FAIL'
+                      code=proc.returncode
+                  except subprocess.TimeoutExpired:
+                      status='TIMEOUT'
+                      code=None
+              row={'path':p,'status':status,'returncode':code,'elapsedSeconds':round(time.monotonic()-start,1)}
+              results.append(row)
+              print(json.dumps(row),flush=True)
+              (out/'results.json').write_text(json.dumps(results,indent=2))
+          if any(r['status']!='PASS' for r in results): raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: otthi-integral-browser-${{ matrix.shard }}
+          path: |
+            evidence/
+            test-results/**/*.json
+            test-results/**/*.png
+          if-no-files-found: warn
+  endurance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar runtime e navegador
+        run: |
+          python3 games/otthi/tools/build_project.py
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium --with-deps
+      - name: Comparar sessoes nativas de quinze minutos
+        env:
+          OT_ENDURANCE_BASELINE: ee03542fa3f3e15732ee8fe7673c4e2e0296e71c
+          OT_ENDURANCE_SECONDS: '900'
+          OT_ENDURANCE_CASE: both
+        run: node tests/world-native-endurance-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: otthi-integral-endurance
+          path: test-results/world-native-endurance/
+          if-no-files-found: warn
+  summary:
+    if: always()
+    needs: [unit,browser,endurance]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: otthi-integral-*
+          path: evidence
+      - name: Relatorio consolidado sem declarar cobertura inexistente
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, os
+          root=pathlib.Path('evidence')
+          inventories=list(root.glob('**/inventory.json'))
+          inventory=json.loads(inventories[0].read_text()) if inventories else []
+          results={}
+          for f in root.glob('**/evidence/results.json'):
+              for row in json.loads(f.read_text()): results[row['path']]=row
+          for f in root.glob('*/results.json'):
+              for row in json.loads(f.read_text()): results[row['path']]=row
+          rows=[]
+          for item in inventory:
+              p=item['path']
+              rows.append(results.get(p,{'path':p,'status':'EXCLUDED' if item['excluded'] else 'NOT EXECUTED','reason':item['excluded']}))
+          report={'revision':os.environ['GITHUB_SHA'],'scenarios':rows,'limits':['Existing suite coverage only; absence of a test is not evidence of quality.','Chromium and disposable fixtures; no physical Android, real remote Firebase users or subjective sound validation.','Test setup may use teleports, seeded resources, accelerated clocks or injected inputs; consult each source.']}
+          pathlib.Path('integral-audit.json').write_text(json.dumps(report,indent=2))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## OTThi — audit of existing runtime scenarios\\n\\n| Scenario | Status |\\n|---|---|\\n'.replace('\\n','\n'))
+              for r in rows: f.write('| '+r['path']+' | '+r['status']+' |\n')
+              f.write('\nA missing or excluded scenario is not approved. No release is performed by this audit.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: otthi-integral-audit-summary
+          path: integral-audit.json
