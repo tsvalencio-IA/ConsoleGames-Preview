@@ -1,0 +1,109 @@
+name: OTThi - Integrar recuperacao visual validada
+on:
+  push:
+    branches: ['fix/otthi-visual-recovery-20261126']
+    paths: ['.github/workflows/package-validated-visual-recovery.yml']
+permissions:
+  contents: write
+  actions: write
+concurrency:
+  group: otthi-package-validated-visual-recovery
+  cancel-in-progress: false
+jobs:
+  package:
+    if: github.repository == 'tsvalencio-IA/ConsoleGames-Preview'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE: 8d4f3e30cf7a428ac709e936da9734529a724268
+      BASELINE: 4bacc1bd104a2f7c1f0bf7c9a2734451cf53f569
+      SOURCE_BRANCH: fix/otthi-visual-recovery-20261126
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Confirmar revisao exata e aprovacoes independentes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "$CANDIDATE"
+          git diff --exit-code "$CANDIDATE" HEAD -- . ':(exclude).github/workflows/package-validated-visual-recovery.yml'
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASELINE"
+          for run in 45879619719 45879619718 45879619931 45879619722; do
+            for attempt in $(seq 1 45); do
+              result=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run")
+              test "$(jq -r .head_sha <<<"$result")" = "$CANDIDATE"
+              if [ "$(jq -r .status <<<"$result")" = completed ]; then
+                test "$(jq -r .conclusion <<<"$result")" = success
+                echo "Approved: $run"
+                break
+              fi
+              test "$attempt" -lt 45
+              sleep 20
+            done
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Identidade da atualizacao sem alterar jogabilidade
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path('games/otthi')
+          version = root / 'VERSION.json'
+          info = json.loads(version.read_text())
+          old = '705.28.51-rio-preto-estabilidade'
+          new = '705.28.52-rio-preto-recuperacao-visual'
+          assert info['build'] == old and info['assetVersion'] == 70675
+          for name in ('VERSION.json','index.html','src/modules/00-runtime-foundation.js','assets/js/core/runtime-config.js','sw.js'):
+              path = root / name
+              data = path.read_text()
+              assert old in data, name
+              path.write_text(data.replace(old,new).replace('70675','70676'))
+          assert json.loads(version.read_text())['assetVersion'] == 70676
+          PY
+          python3 games/otthi/tools/build_project.py
+          node --check games/otthi/app.js
+          git diff --check
+          node --test tests/*.test.mjs
+      - name: Registrar somente identidade e artefatos derivados
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ConsoleGames Build Bot'
+          git config user.email 'console-build@users.noreply.github.com'
+          git add games/otthi/VERSION.json games/otthi/index.html games/otthi/src/modules/00-runtime-foundation.js games/otthi/assets/js/core/runtime-config.js games/otthi/sw.js games/otthi/app.js games/otthi/style.css games/otthi/src/module-order.json games/otthi/release-manifest.json
+          git diff --exit-code
+          git diff --cached --check
+          git commit -m 'Release 705.28.52: recuperacao visual validada, sem alterar os demais jogos'
+          python3 games/otthi/tools/build_project.py
+          git diff --exit-code -- games/otthi
+      - name: Conferir o pacote final em Chromium antes da integracao
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium --with-deps
+          python3 tools/build-github-pages-preview.py
+          GITHUB_SHA="$(git rev-parse HEAD)" node tests/pages-preview-browser.mjs
+      - name: Integrar por fast-forward e acionar publicacao existente
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASELINE"
+          test "$(git ls-remote origin "refs/heads/$SOURCE_BRANCH" | cut -f1)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$BASELINE" HEAD
+          git push --atomic origin HEAD:refs/heads/main "HEAD:refs/heads/$SOURCE_BRANCH"
+          gh workflow run publish-isolated-pages-preview.yml --ref main
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-recovery-release-evidence
+          path: test-results/pages-preview/
+          if-no-files-found: ignore
