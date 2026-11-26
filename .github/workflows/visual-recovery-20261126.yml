@@ -2,7 +2,7 @@ name: OTThi - Recuperacao visual sem regressao
 on:
   push:
     branches: ['fix/otthi-visual-recovery-20261126']
-    paths: ['.github/workflows/visual-recovery-20261126.yml']
+    paths: ['.github/workflows/visual-recovery-20261126.yml', 'games/otthi/src/modules/**', 'tests/player-regressions.test.mjs', 'tests/world-render-stability*.mjs', 'tests/world-play-performance.mjs']
   workflow_dispatch:
 permissions:
   contents: read

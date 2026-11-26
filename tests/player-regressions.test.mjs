@@ -73,13 +73,17 @@ test('boxing: a points lead can win a full bout; the first-round challenge fails
  const {game:g}=engine('boxe','game_box');g.p1=g.createPlayer('p1',0);g.p2=g.createPlayer('p2',1);g.currentFase={id:'arcade'};g.p1.score=300;g.p2.score=100;g.p1.hp=65;g.p2.hp=80;g.round=3;g.endRound();assert(g.matchWon);assert.equal(g.endReason,'DECISÃO');
  g.matchEnded=false;g.matchWon=false;g.currentFase={id:'f2'};g.round=1;g.endRound();assert(g.matchEnded&&!g.matchWon);assert.equal(g.round,1,'No extra rounds after failing the challenge');
 });
-test('OTThi: pending and failed world textures have neutral images rather than black uninitialized maps',()=>{
- const context=vm.createContext({console});context.window={};context.document={createElement:()=>({width:0,height:0,getContext:()=>({fillStyle:'',fillRect(){}})})};
+test('OTThi: pending and failed world textures retain patterned terrain and neutral data maps',()=>{
+ const fills=[],context=vm.createContext({console,fills});context.window={};
+ context.document={createElement:()=>({width:0,height:0,getContext:()=>({fillStyle:'',fillRect(){fills.push(this.fillStyle);},beginPath(){},moveTo(){},lineTo(){},stroke(){}})})};
  vm.runInContext(readFileSync('games/otthi/assets/vendor/three-r128.min.js','utf8'),context);
- vm.runInContext(`let pending=[];THREE.ImageLoader=class{load(url,ok,progress,fail){pending.push({ok,fail})}};let renderer=null;const registerVisualAsset=()=>{},updateVisualAsset=()=>{};`,context);
+ vm.runInContext(`let pending=[];THREE.ImageLoader=class{load(url,ok,progress,fail){pending.push({url,ok,fail})}};let renderer=null;const registerVisualAsset=()=>{},updateVisualAsset=()=>{};const OTTHI_VISUAL_ASSETS={textures:{grass:'./assets/textures/grass-v628.png',road:'./assets/textures/asphalt-v628.png'}};`,context);
+ const original=readFileSync('games/otthi/src/modules/11-render-materials-player-model.js','utf8');
+ vm.runInContext(original.slice(original.indexOf('  function canvasTexture('),original.indexOf('  function professionalTexture(')),context);
  vm.runInContext(readFileSync('games/otthi/src/modules/33-otthi-world-professional-core.js','utf8'),context);
- const info=vm.runInContext(`const grass=loadWorldTexture('grass','basecolor',{color:true});const normal=loadWorldTexture('grass','normal');pending[0].fail(new Error('offline'));({grass:!!grass.image,normal:!!normal.image,w:grass.image.width,errors:otthiWorldRuntime.errors.length})`,context);
- assert(info.grass&&info.normal&&info.w===1);assert.equal(info.errors,1);
+ const info=vm.runInContext(`const grass=loadWorldTexture('grass','basecolor',{color:true});const normal=loadWorldTexture('grass','normal');const road=loadWorldTexture('road','basecolor',{color:true});const gImage=grass.image,rImage=road.image;pending[0].fail(new Error('offline'));pending[2].fail(new Error('offline'));const originalUrls=pending.slice(3).map(p=>p.url);pending[3].fail(new Error('offline'));pending[4].fail(new Error('offline'));({grass:grass.image===gImage,road:road.image===rImage,normal:!!normal.image,w:grass.image.width,rw:road.image.width,nw:normal.image.width,errors:otthiWorldRuntime.errors.length,originalUrls})`,context);
+ assert(info.grass&&info.road&&info.normal);assert.equal(info.w,256);assert.equal(info.rw,256);assert.equal(info.nw,1);assert.equal(info.errors,2);
+ assert.equal(info.originalUrls.join(','),'./assets/textures/grass-v628.png,./assets/textures/asphalt-v628.png');assert(fills.includes('#348f32')&&fills.includes('#252d38')&&fills.includes('rgb(128,128,255)'));
 });
 test('kart: a real second of acceleration covers the same distance on 30, 60 and 120Hz displays',()=>{
  const results=[30,60,120].map(fps=>{const {game:g,advance}=engine('kart','game_kart');g.currentFase={id:'arcade',mode:'RACE',targetRank:3};g.setupUI();g.resetPhysics();g.startRace(0);g.localBots=[];g.rivals=[];g.arcadeManual={throttle:true,brake:false,left:false,right:false,rear:false};g.renderWorld=()=>{};g.renderUI=()=>{};const c=canvas();for(let i=0;i<fps;i++){advance(1000/fps);g.update(c,390,844,null);}return {pos:g.pos,speed:g.speed,x:g.playerX};});
