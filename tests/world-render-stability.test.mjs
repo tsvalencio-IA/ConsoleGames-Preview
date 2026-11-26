@@ -89,3 +89,12 @@ test('civil flight retains highway biomes that ground distance legitimately cull
  air=3000;ctx.updateOttoviasVisibility(true);assert.equal(item.group.visible,true);assert.equal(segment.group.visible,true);
  air=0;ctx.updateOttoviasVisibility(true);assert.equal(item.group.visible,false);assert.equal(segment.group.visible,false);
 });
+
+test('world vegetation preserves textured grass but never draws opaque green rectangles or plants on roads',()=>{
+ const s=read('35-world-render-pbr-environment.js'),draws=[];
+ const ctx=vm.createContext({waterAt:()=>false,v704ReservedAt:(x,z)=>x===42,v704RoadAt:(x,z)=>z===30,world:{colliders:[],houses:[]},document:{createElement:()=>({getContext:()=>({fillRect(){draws.push('background')},beginPath(){},moveTo(){},quadraticCurveTo(){},closePath(){},fill(){draws.push('blade')}})})},THREE:{CanvasTexture:class{constructor(image){this.image=image}},LinearFilter:1}});
+ vm.runInContext(s.slice(s.indexOf('  function worldDetailAllowed('),s.indexOf('  function createWorldInstancedDetails(')),ctx);
+ assert.equal(ctx.worldDetailAllowed(42,40),false);assert.equal(ctx.worldDetailAllowed(40,30),false);assert.equal(ctx.worldDetailAllowed(40,40),true);
+ const mask=ctx.createWorldGrassMask();assert.equal(mask.image.width,64);assert.equal(mask.image.height,128);assert.equal(draws.filter(d=>d==='blade').length,8);
+ assert.match(s,/alphaMap:createWorldGrassMask\(\),alphaTest:\.48,transparent:false/);
+});

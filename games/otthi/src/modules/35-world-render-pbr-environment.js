@@ -8,18 +8,33 @@
   function worldDetailAllowed(x,z){
     if(Math.abs(x)<12||Math.abs(z)<12)return false;
     if(waterAt(x,z))return false;
+    // Prevent decorative grass and flowers from emerging through asphalt,
+    // shoulders, sidewalks or the protected footprints of playable buildings.
+    if(typeof v704ReservedAt==='function'&&v704ReservedAt(x,z,.65))return false;
+    if(typeof v704RoadAt==='function'&&v704RoadAt(x,z,.65,true))return false;
     if(world.colliders?.some(c=>Math.abs(x-c.x)<c.w/2+1.1&&Math.abs(z-c.z)<c.d/2+1.1))return false;
     if(world.houses?.some(h=>Math.abs(x-h.x)<7&&Math.abs(z-h.z)<6))return false;
     return Math.abs(x)<108&&Math.abs(z)<108;
   }
+  function createWorldGrassMask(){
+    // The existing foliage basecolor is an opaque square of green pixels,
+    // not a cutout. Keep it as the color source but mask it to grass blades.
+    const canvas=document.createElement('canvas');canvas.width=64;canvas.height=128;
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#000';ctx.fillRect(0,0,64,128);
+    ctx.fillStyle='#fff';
+    for(const [base,tip,height,width] of [[9,2,78,6],[16,12,109,7],[23,35,84,7],[31,27,124,8],[39,51,98,7],[49,59,70,6],[53,41,58,5],[28,18,64,6]]){
+      ctx.beginPath();ctx.moveTo(base-width/2,127);ctx.quadraticCurveTo(base,127-height*.48,tip,127-height);ctx.quadraticCurveTo(base+width,127-height*.40,base+width/2,127);ctx.closePath();ctx.fill();
+    }
+    const texture=new THREE.CanvasTexture(canvas);texture.name='OTTHI_GRASS_BLADE_MASK';texture.magFilter=THREE.LinearFilter;texture.minFilter=THREE.LinearFilter;texture.generateMipmaps=false;return texture;
+  }
   function createWorldInstancedDetails(){
     if(!worldGroup||world.worldProfessional?.details)return false;const random=otthiSeededRandom(700031),quality=qualityTier(),grassCount=quality==='low'?100:quality==='high'?360:220,flowerCount=quality==='low'?30:quality==='high'?120:72;
-    const grassMaterial=new THREE.MeshStandardMaterial({map:loadWorldTexture('foliage','basecolor',{repeat:[1,1],color:true,nearest:true}),normalMap:loadWorldTexture('foliage','normal',{repeat:[1,1]}),roughnessMap:loadWorldTexture('foliage','roughness',{repeat:[1,1]}),color:0x75bc55,roughness:.92,side:THREE.DoubleSide,vertexColors:false});
+    const grassMaterial=new THREE.MeshStandardMaterial({map:loadWorldTexture('foliage','basecolor',{repeat:[1,1],color:true,nearest:true}),normalMap:loadWorldTexture('foliage','normal',{repeat:[1,1]}),roughnessMap:loadWorldTexture('foliage','roughness',{repeat:[1,1]}),color:0x75bc55,roughness:.92,side:THREE.DoubleSide,vertexColors:false,alphaMap:createWorldGrassMask(),alphaTest:.48,transparent:false});
     const grassGeometry=new THREE.PlaneGeometry(.42,.72);grassGeometry.translate(0,.36,0);const grass=new THREE.InstancedMesh(grassGeometry,grassMaterial,grassCount);grass.name='OTTHI_WORLD_INSTANCED_GRASS';grass.userData.otthiWorldDetail=true;const dummy=new THREE.Object3D();let placed=0,attempts=0;
-    while(placed<grassCount&&attempts<grassCount*16){attempts++;const x=(random()-.5)*208,z=(random()-.5)*208;if(!worldDetailAllowed(x,z))continue;dummy.position.set(x,.025,z);dummy.rotation.set(0,random()*Math.PI*2,0);const scale=.55+random()*.8;dummy.scale.set(scale,scale,scale);dummy.updateMatrix();grass.setMatrixAt(placed++,dummy.matrix);}
-    grass.count=placed;grass.instanceMatrix.needsUpdate=true;grass.frustumCulled=true;worldGroup.add(grass);
+    while(placed<grassCount&&attempts<grassCount*16){attempts++;const x=(random()-.5)*208,z=(random()-.5)*208;if(!worldDetailAllowed(x,z))continue;dummy.position.set(x,groundHeightAt(x,z)+.025,z);dummy.rotation.set(0,random()*Math.PI*2,0);const scale=.55+random()*.8;dummy.scale.set(scale,scale,scale);dummy.updateMatrix();grass.setMatrixAt(placed++,dummy.matrix);}
+    grass.count=placed;grass.instanceMatrix.needsUpdate=true;grass.frustumCulled=false;worldGroup.add(grass);
     const flowerGeo=new THREE.OctahedronGeometry(.11,0),flowerMaterial=new THREE.MeshStandardMaterial({color:0xffd55b,roughness:.56,emissive:0x4a2500,emissiveIntensity:.08});const flowers=new THREE.InstancedMesh(flowerGeo,flowerMaterial,flowerCount);flowers.name='OTTHI_WORLD_INSTANCED_FLOWERS';flowers.userData.otthiWorldDetail=true;placed=0;attempts=0;
-    while(placed<flowerCount&&attempts<flowerCount*18){attempts++;const x=(random()-.5)*198,z=(random()-.5)*198;if(!worldDetailAllowed(x,z))continue;dummy.position.set(x,.18,z);dummy.rotation.set(random()*Math.PI,random()*Math.PI,random()*Math.PI);const scale=.7+random()*.8;dummy.scale.set(scale,scale,scale);dummy.updateMatrix();flowers.setMatrixAt(placed++,dummy.matrix);}
+    while(placed<flowerCount&&attempts<flowerCount*18){attempts++;const x=(random()-.5)*198,z=(random()-.5)*198;if(!worldDetailAllowed(x,z))continue;dummy.position.set(x,groundHeightAt(x,z)+.18,z);dummy.rotation.set(random()*Math.PI,random()*Math.PI,random()*Math.PI);const scale=.7+random()*.8;dummy.scale.set(scale,scale,scale);dummy.updateMatrix();flowers.setMatrixAt(placed++,dummy.matrix);}
     flowers.count=placed;flowers.instanceMatrix.needsUpdate=true;worldGroup.add(flowers);world.worldProfessional={...(world.worldProfessional||{}),details:{grass,flowers}};otthiWorldRuntime.stats.instancedDetails=grass.count+flowers.count;return true;
   }
   function createWorldMushroomCluster(x,z,scale=1,color=0xd73b35){
