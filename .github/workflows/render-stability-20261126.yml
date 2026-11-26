@@ -1,0 +1,66 @@
+name: OTThi - Estabilidade visual e desempenho
+on:
+  push:
+    branches: ['fix/otthi-render-stability-20261126']
+    paths: ['.github/workflows/render-stability-20261126.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compilar e testar geometria
+        run: |
+          python3 games/otthi/tools/build_project.py
+          node --test tests/world-render-stability.test.mjs
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+      - name: Comparar quadros reais de represa aeroporto e serra
+        env:
+          OT_RENDER_BASELINE: b1494df118346da51ce4fcb3af4cc92c6da7b891
+        run: node tests/world-render-stability-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: render-stability-visual
+          path: test-results/render-stability/
+  desempenho:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compilar e testar runtime integral
+        run: |
+          python3 games/otthi/tools/build_project.py
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+          node --test tests/*.test.mjs
+      - name: Comparar jogo em movimento e rotacao da camera
+        env:
+          OT_LIVE_BASELINE: b1494df118346da51ce4fcb3af4cc92c6da7b891
+          OT_LIVE_QUALITY: auto
+          OT_LIVE_SECONDS: '20'
+          OT_LIVE_TURN: '1'
+          OT_LIVE_PROFILE: '1'
+          OT_LIVE_SHADERS: '1'
+          OT_LIVE_REQUIRE_COMPARISON: '1'
+          OT_LIVE_OUT: test-results/world-live-performance
+        run: node tests/world-play-performance.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: render-stability-performance
+          path: test-results/world-live-performance/

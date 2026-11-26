@@ -307,8 +307,8 @@
       if(!mesh?.parent)continue;
       if(mesh.userData?.alwaysVisible===true||Number(mesh.renderOrder||0)>=900){mesh.visible=true;visible++;continue;}
       let radius=0;
-      try{if(mesh.geometry&&!mesh.geometry.boundingSphere)mesh.geometry.computeBoundingSphere();radius=Number(mesh.geometry?.boundingSphere?.radius||0);const matrix=visualWorldMatrix(mesh,visited);distanceCullPosition.setFromMatrixPosition(matrix);distanceCullScale.setFromMatrixScale(matrix);radius*=Math.max(Math.abs(distanceCullScale.x)||1,Math.abs(distanceCullScale.y)||1,Math.abs(distanceCullScale.z)||1);}catch{mesh.visible=true;visible++;continue;}
-      const d=Math.hypot(focus.x-distanceCullPosition.x,focus.z-distanceCullPosition.z),show=!Number.isFinite(d)||!Number.isFinite(radius)||d<=range+Math.max(1,radius);
+      try{if(mesh.geometry&&!mesh.geometry.boundingSphere)mesh.geometry.computeBoundingSphere();radius=Number(mesh.geometry?.boundingSphere?.radius||0);const matrix=visualWorldMatrix(mesh,visited);distanceCullPosition.copy(mesh.geometry?.boundingSphere?.center||distanceCullPosition.set(0,0,0)).applyMatrix4(matrix);distanceCullScale.setFromMatrixScale(matrix);radius*=Math.max(Math.abs(distanceCullScale.x)||1,Math.abs(distanceCullScale.y)||1,Math.abs(distanceCullScale.z)||1);}catch{mesh.visible=true;visible++;continue;}
+      const d=Math.hypot(focus.x-distanceCullPosition.x,focus.z-distanceCullPosition.z),margin=mesh.userData.otthiDistanceCulled?0:Math.max(12,range*.15),show=!Number.isFinite(d)||!Number.isFinite(radius)||d<=range+Math.max(1,radius)+margin;
       mesh.visible=show;mesh.frustumCulled=false;mesh.userData.otthiDistanceCulled=!show;if(show)visible++;else hidden++;
     }
     perf.criticalVisible=visible;perf.criticalHidden=hidden;return{visible,hidden,range};
@@ -346,12 +346,12 @@
   }
   function freezeWorldFrustumCulling(){
     if(!worldGroup)return;
-    let enabled=0,bypassed=0,total=0;
+    let enabled=0,bypassed=0,total=0;const criticalSet=new Set(world.criticalSurfaces);
     worldGroup.traverse(obj=>{
       if(!(obj.isMesh||obj.isLine||obj.isLineSegments||obj.isPoints||obj.isSprite))return;
       total++;
       if(obj.geometry&&!obj.geometry.boundingSphere){try{obj.geometry.computeBoundingSphere();}catch(_){}}
-      const radius=Number(obj.geometry?.boundingSphere?.radius||0),critical=world.criticalSurfaces.includes(obj),overlay=obj.isSprite||Number(obj.renderOrder||0)>=900||obj.userData?.alwaysVisible===true;
+      const radius=Number(obj.geometry?.boundingSphere?.radius||0),critical=criticalSet.has(obj),overlay=obj.isSprite||Number(obj.renderOrder||0)>=900||obj.userData?.alwaysVisible===true;
       // Instâncias distribuídas pelo mundo não podem usar apenas a esfera da geometria-base no Three r128.
       // Superfícies críticas, overlays, lotes instanciados e objetos enormes permanecem protegidos.
       const keepAlwaysVisible=critical||overlay||obj.isInstancedMesh&&!obj.userData.otthiBoundedInstances||radius>170;
