@@ -40,3 +40,25 @@ test('road and grass retain a patterned surface when texture download fails',()=
  vm.runInContext(s.slice(s.indexOf('  function loadWorldTexture('),s.indexOf('  function ensureUv2(')),ctx);
  for(const pack of ['road','grass']){const t=ctx.loadWorldTexture(pack,'basecolor',{color:true});assert.equal(t.pack,pack);assert.equal(t.image.width,256);assert.notEqual(t.colors[0],'#ffffff');}
 });
+
+test('mapped Rio roads reuse asphalt texture and world-space UVs without changing road vertices',()=>{
+ const s=read('89-rio-map-world.js'),root={children:[],add(mesh){this.children.push(mesh)}};
+ class Material{constructor(options){Object.assign(this,options)}}
+ class Geometry{constructor(){this.attributes={}}setAttribute(k,v){this.attributes[k]=v}computeVertexNormals(){}computeBoundingSphere(){}}
+ class Attribute{constructor(data,size){this.array=Array.from(data);this.itemSize=size}}
+ class Color{convertSRGBToLinear(){return this}}
+ const asphalt={name:'existing-asphalt'},water={clone:()=>({repeat:{set(){}}})};
+ const ctx=vm.createContext({textures:{water},loadWorldTexture:(p,c,o)=>{assert.equal(p,'road');assert.equal(c,'basecolor');assert.equal(o.color,true);return asphalt;},rioMap:{},THREE:{Color,MeshStandardMaterial:Material,MeshBasicMaterial:Material,BufferGeometry:Geometry,Float32BufferAttribute:Attribute,BufferAttribute:Attribute,Mesh:class{constructor(geometry,material){Object.assign(this,{geometry,material,userData:{}})}},DoubleSide:2}});
+ vm.runInContext(s.slice(s.indexOf('  function rioTerrainMaterials(){'),s.indexOf('  function rioDrawRoad(')),ctx);
+ ctx.rioMap.materials=ctx.rioTerrainMaterials();const batch=ctx.rioSurfaceBatch();
+ const points=[[0,.039,0],[10,.039,0],[10,.039,5],[0,.039,5]];
+ batch.quad('street',...points);batch.commit(root);
+ const mesh=root.children[0];assert.equal(mesh.material.map,asphalt);assert.deepEqual(mesh.geometry.attributes.position.array,[...points[0],...points[1],...points[2],...points[0],...points[2],...points[3]]);
+ assert.equal(mesh.geometry.attributes.uv.array.length,12);
+ assert(Math.abs(mesh.geometry.attributes.uv.array[2]-2.2)<1e-6);
+ assert(Math.abs(mesh.geometry.attributes.uv.array[5]-1.1)<1e-6);
+ for(const k of ['paint','lane']){assert.equal(ctx.rioMap.materials[k].polygonOffset,true);assert(ctx.rioMap.materials[k].polygonOffsetUnits<0);}
+ const continuous=read('50-world-road-continuity.js');
+ assert.match(continuous,/white:new THREE.MeshStandardMaterial\(\{[^}]*polygonOffset:true/);
+ assert.match(continuous,/yellow:new THREE.MeshStandardMaterial\(\{[^}]*polygonOffset:true/);
+});

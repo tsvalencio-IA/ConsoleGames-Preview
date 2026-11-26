@@ -132,7 +132,7 @@
   const paint=(x,z,w,d)=>strip('white',{x:x-w/2,z:z-d/2},{x:x+w/2,z:z-d/2},{x:x+w/2,z:z+d/2},{x:x-w/2,z:z+d/2},.117);
   for(const j of CITY_SIGNALS)for(const sign of[-1,1]){for(let u=-j.ns/2+.5;u<j.ns/2-.5;u+=.95)paint(j.x+u,j.z+sign*(j.ew/2+1.05),.5,1.5);for(let u=-j.ew/2+.5;u<j.ew/2-.5;u+=.95)paint(j.x+sign*(j.ns/2+1.05),j.z+u,1.5,.5);paint(j.x-sign*j.ns/4,j.z+sign*(j.ew/2+2.15),j.ns/2-.65,.18);paint(j.x+sign*(j.ns/2+2.15),j.z+sign*j.ew/4,.18,j.ew/2-.65);}
   const asphalt=new THREE.MeshStandardMaterial({color:0x747b80,roughness:.94,side:THREE.DoubleSide});try{asphalt.map=loadWorldTexture('road','basecolor',{repeat:[1,1],color:true});asphalt.normalMap=loadWorldTexture('road','normal',{repeat:[1,1]});asphalt.normalScale.set(.24,.24);asphalt.roughnessMap=loadWorldTexture('road','roughness',{repeat:[1,1]});}catch{}
-  const mats={asphalt,shoulder:new THREE.MeshStandardMaterial({color:0x88918b,roughness:1,side:THREE.DoubleSide}),white:new THREE.MeshStandardMaterial({color:0xe4e6d9,roughness:.85,side:THREE.DoubleSide}),yellow:new THREE.MeshStandardMaterial({color:0xe8bd36,roughness:.86,side:THREE.DoubleSide})};
+  const mats={asphalt,shoulder:new THREE.MeshStandardMaterial({color:0x88918b,roughness:1,side:THREE.DoubleSide}),white:new THREE.MeshStandardMaterial({color:0xe4e6d9,roughness:.85,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),yellow:new THREE.MeshStandardMaterial({color:0xe8bd36,roughness:.86,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1})};
   const counts={asphalt:0,shoulder:0,white:0,yellow:0};
   for(const [key,{parts,uv}] of [['',base],...regions])for(const [kind,vertices] of Object.entries(parts)){
    if(!vertices.length)continue;

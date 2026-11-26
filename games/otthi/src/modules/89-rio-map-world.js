@@ -75,10 +75,10 @@
     waterMap.repeat.set(1,1);waterMap.needsUpdate=true;
     return {
       building:new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:.94,side:THREE.DoubleSide}),
-      street:new THREE.MeshStandardMaterial({color:0x5a5d5c,roughness:.98,side:THREE.DoubleSide}),
+      street:new THREE.MeshStandardMaterial({color:0xffffff,map:loadWorldTexture('road','basecolor',{repeat:[1,1],color:true}),roughness:.98,side:THREE.DoubleSide}),
       pedestrian:new THREE.MeshStandardMaterial({color:0xc0b9ab,roughness:1,side:THREE.DoubleSide}),
-      paint:new THREE.MeshBasicMaterial({color:0xe9ded0,side:THREE.DoubleSide}),
-      lane:new THREE.MeshBasicMaterial({color:0xcba96e,side:THREE.DoubleSide}),
+      paint:new THREE.MeshBasicMaterial({color:0xe9ded0,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
+      lane:new THREE.MeshBasicMaterial({color:0xcba96e,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
       park:new THREE.MeshStandardMaterial({color:0x759361,roughness:1,side:THREE.DoubleSide}),
       field:new THREE.MeshStandardMaterial({color:0x598750,roughness:1,side:THREE.DoubleSide}),
       water:new THREE.MeshBasicMaterial({
@@ -114,10 +114,11 @@
         const geometry=new THREE.BufferGeometry();
         geometry.setAttribute('position',new THREE.Float32BufferAttribute(layer.position,3));
         if(layer.color.length)geometry.setAttribute('color',new THREE.Float32BufferAttribute(layer.color,3));
-        if(type==='water'){
+        if(type==='water'||type==='street'){
+          const uvScale=type==='street'?.22:1/19;
           const uv=new Float32Array(layer.position.length*2/3);
           for(let i=0,k=0;i<layer.position.length;i+=3){
-            uv[k++]=layer.position[i]/19;uv[k++]=layer.position[i+2]/19;
+            uv[k++]=layer.position[i]*uvScale;uv[k++]=layer.position[i+2]*uvScale;
           }
           geometry.setAttribute('uv',new THREE.BufferAttribute(uv,2));
         }
