@@ -1,0 +1,61 @@
+name: OTThi - Filmagens com mascote oficial thIAguinho
+on:
+  push:
+    branches: ['capture/clipe-otthi-20261125']
+    paths: ['.github/workflows/filmagem-mascote.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cenas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - {script: mascote-aereo, category: voo-plane, folder: voo}
+          - {script: mascote-aereo, category: voo-helicopter, folder: voo}
+          - {script: mascote-aereo, category: voo-balloon, folder: voo}
+          - {script: mascote-oficina, category: oficina, folder: oficina}
+          - {script: mascote-aventuras, category: represa, folder: aventuras}
+          - {script: mascote-aventuras, category: serra, folder: aventuras}
+          - {script: mascote-aventuras, category: transporte, folder: aventuras}
+          - {script: mascote-aventuras, category: missao-police, folder: aventuras}
+          - {script: mascote-aventuras, category: missao-fire, folder: aventuras}
+          - {script: mascote-aventuras, category: missao-snow, folder: aventuras}
+          - {script: mascote-aventuras, category: missao-beach, folder: aventuras}
+          - {script: mascote-aventuras, category: missao-neighbors, folder: aventuras}
+          - {script: mascote-lazer, category: mar-guaruja, folder: lazer}
+          - {script: mascote-lazer, category: mar-santos, folder: lazer}
+          - {script: mascote-lazer, category: teleferico, folder: lazer}
+          - {script: mascote-lazer, category: casa, folder: lazer}
+          - {script: mascote-lazer, category: shopping, folder: lazer}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar mundo e verificar sintaxe
+        run: |
+          python3 games/otthi/tools/build_project.py
+          command -v ffprobe || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+          node --check tools/filmagem/${{ matrix.script }}.mjs
+      - name: Gravar com avatar oficial validado
+        env:
+          FILM_CATEGORY: ${{ matrix.category }}
+        run: node tools/filmagem/${{ matrix.script }}.mjs
+      - name: Salvar cenas concluidas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MASCOTE-${{ matrix.category }}
+          path: |
+            filmagem-mascote-${{ matrix.folder }}/**/*.mp4
+            filmagem-mascote-${{ matrix.folder }}/**/*.json
+            !filmagem-mascote-${{ matrix.folder }}/**/*.tmp.mp4
+          if-no-files-found: error
+          retention-days: 14

@@ -271,9 +271,9 @@
       }, text='THIAGUINHO', cell=.0074, white=color('#f0f2ed');
       const point=(x,y)=>[x,y,-.217*Math.sqrt(Math.max(.1,1-(x/.38)**2))-.005];
       for(let i=0;i<text.length;i++) for(let row=0;row<7;row++) for(let col=0;col<5;col++) if(font[text[i]][row][col]==='1') {
-        const x=(i*6+col-(text.length*6-1)/2)*cell,y=1.81+(6-row)*cell,r=cell*.46;
+        const x=-(i*6+col-(text.length*6-1)/2)*cell,y=1.81+(6-row)*cell,r=cell*.46;
         const a=point(x-r,y-r),b=point(x+r,y-r),c=point(x+r,y+r),d=point(x-r,y+r),n=normalize([x/.38,0,-1]);
-        for(const p of [a,b,c,a,c,d])g.vertex(p,n,white);
+        for(const p of [a,c,b,a,d,c])g.vertex(p,n,white);
       }
     }
 
