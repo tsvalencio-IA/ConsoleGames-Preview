@@ -15,7 +15,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.51-rio-preto-estabilidade';
+  const OTTHI_GAME_WEB_BUILD = '705.28.52-rio-preto-recuperacao-visual';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
