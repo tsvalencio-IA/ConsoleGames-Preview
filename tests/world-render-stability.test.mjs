@@ -65,8 +65,8 @@ test('mapped Rio roads reuse asphalt texture and world-space UVs without changin
 
 test('sign boards avoid roads and complete building footprints, including failed normal-axis search',()=>{
  const s=read('05a-world-layout-v704.js'),rect={id:'workshop',x:0,z:0,w:8,d:10,margin:.4};
- const ctx=vm.createContext({console,v704WorldBounds:()=>({minX:-100,maxX:100,minZ:-100,maxZ:100}),v704ProtectedRectangles:()=>[rect],v704RoadAt:(x,z)=>Math.abs(z-8)<2,v704RectOverlap:(a,b,m)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+m&&Math.abs(a.z-b.z)<(a.d+b.d)/2+m});
- vm.runInContext(s.slice(s.indexOf('  function v704SafeSignPoint('),s.indexOf('  function v704ZoneAt(')),ctx);
+ const ctx=vm.createContext({console,compactRioLayout:true,OTTHI_PERSONAL_HOME_LOTS:[],v704WorldBounds:()=>({minX:-100,maxX:100,minZ:-100,maxZ:100}),v704ProtectedRectangles:()=>[rect],v704RoadAt:(x,z)=>Math.abs(z-8)<2,v704RectOverlap:(a,b,m)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+m&&Math.abs(a.z-b.z)<(a.d+b.d)/2+m});
+ vm.runInContext(s.slice(s.indexOf('  const V704_SIGN_WIDTH='),s.indexOf('  function v704ZoneAt(')),ctx);
  const safe=ctx.v704SafeSignPoint(0,0,0);
  assert(Math.abs(safe.z)>5.78||Math.abs(safe.x)>5.86);
  assert(Math.abs(safe.z-8)>=2);
