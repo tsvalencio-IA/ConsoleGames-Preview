@@ -110,6 +110,17 @@
     ];
   }
 
+  function rioFurnitureLayout(site,item,saved={}){
+    const rotation=Number.isInteger(saved.rotation)?((saved.rotation%4)+4)%4:0;
+    const width=rotation%2?item.d:item.w,depth=rotation%2?item.w:item.d;
+    const limX=Math.max(.25,site.w/2-width/2-.53),limZ=Math.max(.25,site.d/2-depth/2-1.10);
+    return {
+      x:clamp(Number.isFinite(saved.x)?saved.x:item.x,-limX,limX),
+      z:clamp(Number.isFinite(saved.z)?saved.z:item.z,-limZ,limZ),
+      rotation,stored:!!saved.stored
+    };
+  }
+
   // Shared furnishings keep their original IDs, but a chair, a television
   // and a refrigerator must not all use the same seated pose.
   function rioFurnitureUsePlan(item,placement,seat,point,yaw,floorY){
@@ -495,16 +506,7 @@
       room.root.add(group);decorMeshes.set(item.id,group);
       return group;
     };
-    const layoutFor=(item,owner)=>{
-      const p=owner?.decorLayout?.[item.id]||{};
-      const limX=Math.max(.25,w/2-item.w/2-.53),limZ=Math.max(.25,d/2-item.d/2-1.10);
-      return {
-        x:clamp(Number.isFinite(p.x)?p.x:item.x,-limX,limX),
-        z:clamp(Number.isFinite(p.z)?p.z:item.z,-limZ,limZ),
-        rotation:Number.isInteger(p.rotation)?((p.rotation%4)+4)%4:0,
-        stored:!!p.stored
-      };
-    };
+    const layoutFor=(item,owner)=>rioFurnitureLayout(site,item,owner?.decorLayout?.[item.id]||{});
     const updateDecor=()=>{
       const owner=rioPropertyTitle(rioResidencePropertyId());
       const owned=new Set(owner?.furniture||[]);
@@ -560,10 +562,6 @@
       if(!els.modal.hidden)closeModal();
       const original=layoutFor(item,owner);
       activeDecor={item,original,position:{...original},propertyId:rioResidencePropertyId()};
-      const bound=pos=>{
-        const wx=Math.max(.25,w/2-item.w/2-.53),wz=Math.max(.25,d/2-item.d/2-1.10);
-        return {x:clamp(pos.x,-wx,wx),z:clamp(pos.z,-wz,wz),rotation:((pos.rotation%4)+4)%4,stored:!!pos.stored};
-      };
       decorSelection=new THREE.Mesh(new THREE.RingGeometry(.71,1.01,32),
         new THREE.MeshBasicMaterial({color:0xffdc62,side:THREE.DoubleSide,transparent:true,opacity:.94,depthTest:false}));
       decorSelection.rotation.x=-Math.PI/2;decorSelection.renderOrder=999;room.root.add(decorSelection);
@@ -584,7 +582,7 @@
       const refresh=()=>{
         if(!activeDecor)return;
         if(activeDecor.propertyId!==rioResidencePropertyId()){endDecor();updateDecor();return;}
-        activeDecor.position=bound(activeDecor.position);
+        activeDecor.position=rioFurnitureLayout(site,item,activeDecor.position);
         const p=activeDecor.position,worldPoint=room.point(p.x,p.z);
         const object=decorMeshes.get(item.id)||addDecorModel(item);
         object.visible=!p.stored;object.position.set(worldPoint.x,room.floorY,worldPoint.z);
@@ -662,7 +660,7 @@
       // immediately on save, cancel or switching apartments.
       const canvas=renderer?.domElement;
       if(canvas){
-        const ray=new THREE.Raycaster(),floor=new THREE.Plane(new THREE.Vector3(0,1,0),-.10);
+        const ray=new THREE.Raycaster(),floor=new THREE.Plane(new THREE.Vector3(0,1,0),-room.floorY);
         const impact=new THREE.Vector3();let movingPointer=null;
         const positionFromPointer=event=>{
           if(!activeDecor||!room.root.visible)return;
@@ -807,8 +805,9 @@
       if(!activity)continue;
       const currentPlacement=()=>layoutFor(item,rioPropertyTitle(rioResidencePropertyId()));
       const position=()=>{const p=currentPlacement();return room.point(p.x,p.z);};
+      const id=site.id+'-furniture-use-'+item.id;
       registerInteractable({
-        id:site.id+'-furniture-use-'+item.id,type:'activity',
+        id,type:'activity',
         label:'Usar · '+item.name,icon:activity==='bed'?'🛏️':activity==='cook'?'🍳':
           activity==='eat'?'🍽️':activity==='tv'?'📺':'🛋️',
         radius:2.05,priority:246,getPos:position,
@@ -844,6 +843,7 @@
             }});
         }
       });
+      room.actions.push(id);
     }
     room.action('home-entry','Ver propriedade',0,d*.24,()=>{
       const title=rioPropertyTitle(rioResidencePropertyId());

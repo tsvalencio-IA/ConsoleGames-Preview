@@ -28,6 +28,35 @@ test('native mall adds a food court without removing wardrobe and market actions
  assert.match(places,/if\(!rioPurchaseItems\(order\.item\)\)return false/);
  assert.match(places,/if\(ordered\|\|button\.disabled/);
 });
+test('a rotated sofa fits the room and dragging projects onto the actual finished floor',()=>{
+ const code=homes.slice(homes.indexOf('  function rioFurnitureCatalog('),homes.indexOf('  // Shared furnishings'));
+ const site={w:8,d:6};
+ const saved={x:30,z:30,rotation:5,stored:true};
+ const ctx=vm.createContext({site,saved,clamp:(n,min,max)=>Math.max(min,Math.min(n,max))});
+ const layouts=JSON.parse(vm.runInContext(code+`
+  const sofa=rioFurnitureCatalog(site).find(item=>item.id==='sofa-modular');
+  JSON.stringify({sofa,legacy:rioFurnitureLayout(site,sofa,{...saved,rotation:0}),rotated:rioFurnitureLayout(site,sofa,saved)});
+ `,ctx));
+ const {sofa,legacy,rotated}=layouts;
+ assert.equal(rotated.rotation,1);
+ assert(rotated.stored);
+ assert(rotated.x>legacy.x&&rotated.z<legacy.z);
+ assert(Math.abs(rotated.x+sofa.d/2+.53-site.w/2)<1e-9);
+ assert(Math.abs(rotated.z+sofa.w/2+1.10-site.d/2)<1e-9);
+ assert.deepEqual(saved,{x:30,z:30,rotation:5,stored:true});
+ assert.match(homes,/new THREE\.Plane\(new THREE\.Vector3\(0,1,0\),-room\.floorY\)/);
+});
+test('streaming tracks movable furniture interactions alongside the mounted room',()=>{
+ const code=homes.slice(homes.indexOf('    const furnitureAction='),homes.indexOf("    room.action('home-entry'"));
+ const site={id:'regional-qa-residencia'},room={actions:[],point:(x,z)=>({x,z})};
+ const actions=[];
+ const ctx=vm.createContext({site,room,furnishings:[{id:'sofa-modular',type:'sofa',name:'Sofá'},{id:'quadro',type:'picture'}],
+  registerInteractable:action=>actions.push(action),rioResidencePropertyId:()=>site.id,rioPropertyTitle:()=>({}),layoutFor:()=>({x:2,z:3})});
+ vm.runInContext(code,ctx);
+ assert.deepEqual(room.actions,[site.id+'-furniture-use-sofa-modular']);
+ assert.deepEqual(actions.map(action=>action.id),room.actions);
+ assert.deepEqual(actions[0].getPos(),{x:2,z:3});
+});
 test('life goals count actual native save and preserve old civil mission progression',()=>{
  const save={properties:{home:{owned:true,adopted:true},other:{owned:true,paid:600,decorLayout:{sofa:{x:1}},renovation:{floor:0}}},visits:{'regional-mercado_municipal':true},wardrobePurchases:{polo:true},constructionOrders:[{status:'delivered'}],regionExperience:{visits:{ibira:{count:1}}}};
  const ctx=vm.createContext({rioCompactWorld:()=>true,rioMapSave:()=>save});

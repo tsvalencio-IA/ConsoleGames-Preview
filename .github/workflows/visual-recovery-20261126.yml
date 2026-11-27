@@ -117,3 +117,23 @@ jobs:
             test-results/phone-fuel/
             test-results/world-player-journey/
             test-results/world-native-endurance/
+  moradia:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar o jogo real e navegador
+        run: |
+          python3 games/otthi/tools/build_project.py
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+      - name: Jogar em Rio Preto, comprar imóvel e posicionar móveis
+        run: node tests/rio-compact-world-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: otthi-rio-preto-imoveis
+          path: test-results/rio-compact-world/
