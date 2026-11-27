@@ -216,14 +216,6 @@
       }
     }
   }
-  function outlineBelongsToPlayer(line){
-    let owner=line;
-    while(owner){
-      if(owner===playerGroup||owner===playerModel||owner===vehicleVisual||owner.userData?.alwaysOutline===true)return true;
-      owner=owner.parent;
-    }
-    return false;
-  }
   function visualWorldMatrix(object,visited){
     if(!visited.has(object)){
       if(object.parent)visualWorldMatrix(object.parent,visited);
@@ -231,23 +223,40 @@
     }
     return object.matrixWorld;
   }
-  function updateManagedOutlineVisibility(){
+  function updateManagedOutlineVisibility(visited=new Set()){
     if(!world?.outlines||!camera)return;
     const profile=visualFoundation.qualityProfile||visualQualityProfile(qualityTier?.()||'balanced');
-    const position=new THREE.Vector3(),visited=new Set(),ancestorHidden=new Map();
+    const position=new THREE.Vector3(),ancestry=new Map();
     const maxDistanceSq=profile.outlineDistance*profile.outlineDistance;
-    function hiddenBranch(node){if(!node)return false;if(ancestorHidden.has(node))return ancestorHidden.get(node);const hidden=node.visible===false||hiddenBranch(node.parent);ancestorHidden.set(node,hidden);return hidden;}
+    const protectedOutline=1,hiddenBranch=2;
+    const ownsProtectedOutline=node=>node===playerGroup||node===playerModel||node===vehicleVisual||node.userData?.alwaysOutline===true;
+    function outlineBranchState(node){
+      if(!node)return 0;
+      const cached=ancestry.get(node);
+      if(cached!==undefined)return cached;
+      let state=outlineBranchState(node.parent);
+      if(ownsProtectedOutline(node))state|=protectedOutline;
+      if(node.visible===false)state|=hiddenBranch;
+      ancestry.set(node,state);
+      return state;
+    }
     let visible=0,hidden=0;
     for(const line of world.outlines){
       if(!line?.parent)continue;
-      const keep=outlineBelongsToPlayer(line);
-      if(keep){
+      const branch=outlineBranchState(line.parent);
+      if((branch&protectedOutline)||ownsProtectedOutline(line)){
         line.visible=true;
         visible++;
         continue;
       }
-      if(hiddenBranch(line.parent)){line.visible=false;hidden++;continue;}
-      position.setFromMatrixPosition(visualWorldMatrix(line,visited));
+      if(branch&hiddenBranch){line.visible=false;hidden++;continue;}
+      // This visibility test needs the origin, not the line's world matrix.
+      // Reuse the parent's transform and let Three update the line for drawing.
+      const e=visualWorldMatrix(line.parent,visited).elements;
+      const local=line.matrixAutoUpdate?line.position:position.setFromMatrixPosition(line.matrix);
+      const {x,y,z}=local,w=line.matrixAutoUpdate?1:line.matrix.elements[15];
+      position.set(e[0]*x+e[4]*y+e[8]*z+e[12]*w,
+        e[1]*x+e[5]*y+e[9]*z+e[13]*w,e[2]*x+e[6]*y+e[10]*z+e[14]*w);
       const show=position.distanceToSquared(camera.position)<=maxDistanceSq;
       line.visible=show;
       if(show)visible++;else hidden++;

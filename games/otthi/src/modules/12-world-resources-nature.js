@@ -118,9 +118,9 @@
     const safe=typeof v704SafeSignPoint==='function'?v704SafeSignPoint(x,z,rotationY):{x,z};x=safe.x;z=safe.z;
     const group=new THREE.Group();group.position.set(x,0,z);group.name=`OTTHI_NAV_SIGN_${String(text||'').replace(/\W+/g,'_').slice(0,32)}`;worldGroup.add(group);
     box(.16,2.1,.16,materials.wood,0,1.05,0,group);
-    const board=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.6),new THREE.MeshStandardMaterial({map:signTexture(text,'#2a3f2c','#f4ede1'),roughness:.85,side:THREE.DoubleSide}));
+    const board=new THREE.Mesh(new THREE.PlaneGeometry(V704_SIGN_WIDTH.local,.6),new THREE.MeshStandardMaterial({map:signTexture(text,'#2a3f2c','#f4ede1'),roughness:.85,side:THREE.DoubleSide}));
     board.position.set(0,1.95,0);board.rotation.y=rotationY;group.add(board);group.visible=Math.hypot(player.x-x,player.z-z)<=42;
-    world.navigationSigns.push({group,x,z,kind:'local',label:text});
+    world.navigationSigns.push({group,x,z,rotationY,kind:'local',label:text});
     return group;
   }
   function createFenceLine(x1,z1,x2,z2,segments=8){

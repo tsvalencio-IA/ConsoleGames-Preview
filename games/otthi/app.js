@@ -261,14 +261,6 @@
       }
     }
   }
-  function outlineBelongsToPlayer(line){
-    let owner=line;
-    while(owner){
-      if(owner===playerGroup||owner===playerModel||owner===vehicleVisual||owner.userData?.alwaysOutline===true)return true;
-      owner=owner.parent;
-    }
-    return false;
-  }
   function visualWorldMatrix(object,visited){
     if(!visited.has(object)){
       if(object.parent)visualWorldMatrix(object.parent,visited);
@@ -276,23 +268,40 @@
     }
     return object.matrixWorld;
   }
-  function updateManagedOutlineVisibility(){
+  function updateManagedOutlineVisibility(visited=new Set()){
     if(!world?.outlines||!camera)return;
     const profile=visualFoundation.qualityProfile||visualQualityProfile(qualityTier?.()||'balanced');
-    const position=new THREE.Vector3(),visited=new Set(),ancestorHidden=new Map();
+    const position=new THREE.Vector3(),ancestry=new Map();
     const maxDistanceSq=profile.outlineDistance*profile.outlineDistance;
-    function hiddenBranch(node){if(!node)return false;if(ancestorHidden.has(node))return ancestorHidden.get(node);const hidden=node.visible===false||hiddenBranch(node.parent);ancestorHidden.set(node,hidden);return hidden;}
+    const protectedOutline=1,hiddenBranch=2;
+    const ownsProtectedOutline=node=>node===playerGroup||node===playerModel||node===vehicleVisual||node.userData?.alwaysOutline===true;
+    function outlineBranchState(node){
+      if(!node)return 0;
+      const cached=ancestry.get(node);
+      if(cached!==undefined)return cached;
+      let state=outlineBranchState(node.parent);
+      if(ownsProtectedOutline(node))state|=protectedOutline;
+      if(node.visible===false)state|=hiddenBranch;
+      ancestry.set(node,state);
+      return state;
+    }
     let visible=0,hidden=0;
     for(const line of world.outlines){
       if(!line?.parent)continue;
-      const keep=outlineBelongsToPlayer(line);
-      if(keep){
+      const branch=outlineBranchState(line.parent);
+      if((branch&protectedOutline)||ownsProtectedOutline(line)){
         line.visible=true;
         visible++;
         continue;
       }
-      if(hiddenBranch(line.parent)){line.visible=false;hidden++;continue;}
-      position.setFromMatrixPosition(visualWorldMatrix(line,visited));
+      if(branch&hiddenBranch){line.visible=false;hidden++;continue;}
+      // This visibility test needs the origin, not the line's world matrix.
+      // Reuse the parent's transform and let Three update the line for drawing.
+      const e=visualWorldMatrix(line.parent,visited).elements;
+      const local=line.matrixAutoUpdate?line.position:position.setFromMatrixPosition(line.matrix);
+      const {x,y,z}=local,w=line.matrixAutoUpdate?1:line.matrix.elements[15];
+      position.set(e[0]*x+e[4]*y+e[8]*z+e[12]*w,
+        e[1]*x+e[5]*y+e[9]*z+e[13]*w,e[2]*x+e[6]*y+e[10]*z+e[14]*w);
       const show=position.distanceToSquared(camera.position)<=maxDistanceSq;
       line.visible=show;
       if(show)visible++;else hidden++;
@@ -3245,7 +3254,11 @@
   ]);
   function otthiHomeIdentity(){const cloudUid=typeof window!=='undefined'?window.OTTHOS_RTDB?.uid:'';const localState=typeof state!=='undefined'?state:null;return String(cloudUid||localState?.profile?.playerId||localState?.profile?.name||'local-home');}
   function otthiHomeLotIndex(){let hash=2166136261;for(const char of otthiHomeIdentity()){hash^=char.charCodeAt(0);hash=Math.imul(hash,16777619);}return(hash>>>0)%OTTHI_PERSONAL_HOME_LOTS.length;}
-  function otthiPersonalHomeLot(){const base=OTTHI_PERSONAL_HOME_LOTS[otthiHomeLotIndex()]||OTTHI_PERSONAL_HOME_LOTS[0],north=base.z<38;return{index:otthiHomeLotIndex(),home:{x:base.x,z:base.z},spawn:{x:base.x,z:base.z+5.2},garage:{x:Math.abs(base.x)<20?Math.sign(base.x)*23:Math.abs(base.x)===22?Math.sign(base.x)*25:base.x,z:base.z+(north?13:-13)}};}
+  function otthiHomeGaragePoint(base){
+    return{x:Math.abs(base.x)<20?Math.sign(base.x)*23:Math.abs(base.x)===22?Math.sign(base.x)*25:base.x,
+      z:base.z+(base.z<38?13:-13)};
+  }
+  function otthiPersonalHomeLot(){const index=otthiHomeLotIndex(),base=OTTHI_PERSONAL_HOME_LOTS[index];return{index,home:{x:base.x,z:base.z},spawn:{x:base.x,z:base.z+5.2},garage:otthiHomeGaragePoint(base)};}
   function v704PersonalHomeLotAt(x,z,margin=0){return OTTHI_PERSONAL_HOME_LOTS.some(lot=>Math.abs(Number(x)-lot.x)<=5.2+margin&&Math.abs(Number(z)-lot.z)<=4.3+margin);}
   function worldLayoutPoint(id,fallback={x:0,z:0}){if(typeof inRioMap==='function'&&inRioMap()){if(id==='workshop')return {...RIO_WORKSHOP};if(id==='farm')return {...RIO_FARM};if(id==='playground'){const park=rioSiteByKey('parque-da-represa');return {x:park.entry[0],z:park.entry[1]};}if(id==='repairParking')return {x:RIO_WORKSHOP.x+11,z:RIO_WORKSHOP.z+2};}if(id==='home'||id==='spawn'||id==='homeGarage'){const personal=otthiPersonalHomeLot();return{...(id==='home'?personal.home:id==='spawn'?personal.spawn:personal.garage)};}const p=WORLD_LAYOUT_V704.points[id];return p?{x:Number(p.x),z:Number(p.z)}:{x:Number(fallback.x||0),z:Number(fallback.z||0)};}
   function worldLayoutRect(id){if(typeof rioCompactWorld==='function'&&rioCompactWorld()&&typeof RIO_COMPACT_LAKES!=='undefined'){const lake=RIO_COMPACT_LAKES.find(l=>l.id===id);if(lake)return {...lake};}const zone=WORLD_LAYOUT_V704.zones[id];return zone?{...zone}:null;}
@@ -3261,7 +3274,9 @@
   function v704HighwayById(id){return (WORLD_LAYOUT_V704.highways||[]).find(highway=>highway.id===id)||null;}
   function v704HighwaySignPoint(spec){const highway=v704HighwayById(spec?.highwayId),points=highway?.points||[],index=Number(spec?.segmentIndex);if(!highway||!Number.isInteger(index)||index<0||index>=points.length-(highway.closed?0:1))return null;const a=points[index],b=points[(index+1)%points.length],t=Math.max(0,Math.min(1,Number(spec.t??.5))),dx=b.x-a.x,dz=b.z-a.z,heading=Math.atan2(dx,dz),rx=Math.cos(heading),rz=-Math.sin(heading),side=Number(spec.side||1)>=0?1:-1;
     /* O afastamento considera a meia largura física da placa, não apenas o poste. */
-    const signHalfWidth=2.9,offset=Number(highway.width||10)/2+Number(highway.shoulder||0)+Number(spec.offset||2.2)+signHalfWidth;return{x:a.x+dx*t+rx*offset*side,z:a.z+dz*t+rz*offset*side,heading,highwayId:highway.id};}
+    const signHalfWidth=V704_SIGN_WIDTH.highway/2+.1,offset=Number(highway.width||10)/2+Number(highway.shoulder||0)+Number(spec.offset||2.2)+signHalfWidth;
+    const point=v704SafeSignPoint(a.x+dx*t+rx*offset*side,a.z+dz*t+rz*offset*side,heading,'highway');
+    return{...point,heading,highwayId:highway.id};}
   function v704HighwaySegments(){
     if(typeof cachedWorldHighwaySegments==='function')return cachedWorldHighwaySegments();
     // The layout is also consumed on its own by audits and map tools.
@@ -3287,24 +3302,48 @@
     for(const road of WORLD_LAYOUT_V704.roads){const w=Number(road.w),d=Number(road.d);if(Math.abs(px-Number(road.x))<=(w+(w>=d?0:side))/2+margin&&Math.abs(pz-Number(road.z))<=(d+(w>=d?side:0))/2+margin)return true;}
     return v704HighwayAt(x,z,margin,includeSidewalk);
   }
-  function v704SafeSignPoint(x,z,rotationY=0){
-    const base={x:Number(x),z:Number(z)},half=1.08,alongX=Math.cos(rotationY)*half,alongZ=-Math.sin(rotationY)*half,normalX=Math.sin(rotationY),normalZ=Math.cos(rotationY);
-    // A sign's whole board must stay out of buildings, not only its pole.
-    const bounds=v704WorldBounds(),protectedRects=v704ProtectedRectangles().filter(r=>!r.id?.startsWith('rio-compact-track-'));
-    const clear=point=>{
-      const samples=[-1,-.5,0,.5,1].map(t=>({x:point.x+alongX*t,z:point.z+alongZ*t}));
-      if(samples.some(p=>p.x<bounds.minX+.38||p.x>bounds.maxX-.38||p.z<bounds.minZ+.38||p.z>bounds.maxZ-.38||v704RoadAt(p.x,p.z,.38,true)))return false;
-      // Conservative full-board AABB prevents crossing a wall between samples.
-      const board={x:point.x,z:point.z,w:2*Math.abs(alongX)+.76,d:2*Math.abs(alongZ)+.76};
-      return !protectedRects.some(r=>v704RectOverlap(board,r,Math.max(0,Number(r.margin)||0)));
-    };
+  const V704_SIGN_WIDTH=Object.freeze({local:1.9,highway:5.6});
+  const V704_SIGN_BLOCKING_STRUCTURES=new Set(['city','house','family-home','civil-home','garage','activity','campaign','castle','dealer','regional-landmark','regional-lake']);
+  function v704SignReservations(){
+    const actualLots=v704ProtectedRectangles().filter(lot=>!lot.kind||V704_SIGN_BLOCKING_STRUCTURES.has(lot.kind));
+    const personalLots=OTTHI_PERSONAL_HOME_LOTS.flatMap((home,index)=>[
+      {...home,id:'personal-home-'+index,w:10.4,d:8.6},
+      {...otthiHomeGaragePoint(home),id:'personal-garage-'+index,w:14.4,d:9.2}
+    ]);
+    const water=compactRioLayout?[]:[WORLD_LAYOUT_V704.zones.lake,WORLD_LAYOUT_V704.zones.lakeNorth];
+    return [...actualLots,...personalLots,...water];
+  }
+  function v704SignPointClear(point,rotationY,kind,lots){
+    const halfWidth=V704_SIGN_WIDTH[kind]/2,halfDepth=.11;
+    const cos=Math.cos(rotationY),sin=Math.sin(rotationY);
+    const footprint={...point,w:2*(Math.abs(cos)*halfWidth+Math.abs(sin)*halfDepth),
+      d:2*(Math.abs(sin)*halfWidth+Math.abs(cos)*halfDepth)};
+    const bounds=v704WorldBounds();
+    if(footprint.x-footprint.w/2<bounds.minX||footprint.x+footprint.w/2>bounds.maxX||
+      footprint.z-footprint.d/2<bounds.minZ||footprint.z+footprint.d/2>bounds.maxZ)return false;
+    if(lots.some(lot=>v704RectOverlap(footprint,lot,.2)))return false;
+    const samples=Math.ceil(halfWidth*4);
+    for(let i=-samples;i<=samples;i++){
+      const along=i*halfWidth/samples;
+      if(v704RoadAt(point.x+cos*along,point.z-sin*along,.38,true))return false;
+    }
+    return true;
+  }
+  function v704SafeSignPoint(x,z,rotationY=0,kind='local'){
+    const base={x:Number(x),z:Number(z)},lots=v704SignReservations();
+    const clear=point=>v704SignPointClear(point,rotationY,kind,lots);
     if(clear(base))return base;
-    for(const distance of [1.5,2.4,3.4,4.6,6,7.5,9,11,14])for(const side of [1,-1]){const candidate={x:base.x+normalX*distance*side,z:base.z+normalZ*distance*side};if(clear(candidate))return candidate;}
-    /* Em cruzamentos, mover somente pela normal pode cair sobre a via transversal. */
-    const tangentX=Math.cos(rotationY),tangentZ=-Math.sin(rotationY);for(const distance of [4.6,6,7.5,9,11,14])for(const side of [1,-1])for(const tangentSide of [1,-1]){const candidate={x:base.x+normalX*distance*side+tangentX*distance*tangentSide,z:base.z+normalZ*distance*side+tangentZ*distance*tangentSide};if(clear(candidate))return candidate;}
-    // If the near verge is occupied, find the nearest clear place rather than
-    // unconditionally moving the sign into the next house.
-    for(const distance of [16,18,20,24,28,32,40,48,64])for(let i=0;i<32;i++){
+    const tangentX=Math.cos(rotationY),tangentZ=-Math.sin(rotationY),normalX=Math.sin(rotationY),normalZ=Math.cos(rotationY);
+    // At a corner, stand the sign beside either street instead of searching only across the carriageway.
+    for(const distance of [1.5,2.4,3.4,4.6,6,7.5,9,11,14,18,24,32]){
+      for(const lateral of [0,1,-1])for(const forward of [1,-1,0]){
+        if(!lateral&&!forward)continue;
+        const candidate={x:base.x+distance*(normalX*forward+tangentX*lateral),
+          z:base.z+distance*(normalZ*forward+tangentZ*lateral)};
+        if(clear(candidate))return candidate;
+      }
+    }
+    for(const distance of [40,48,64])for(let i=0;i<32;i++){
       const angle=i*Math.PI/16,candidate={x:base.x+Math.sin(angle)*distance,z:base.z+Math.cos(angle)*distance};
       if(clear(candidate))return candidate;
     }
@@ -3373,6 +3412,11 @@
     for(const house of houses)for(const hazard of hazards)if(Number.isFinite(hazard.w)&&v704RectOverlap(house,hazard,.25))add('house-in-hazard',house.id,hazard.type);
     const protectedGameplay=protectedRects.filter(rect=>['sport','kart','farm','castle'].includes(rect.kind));for(const collider of world?.colliders||[]){const rect={x:Number(collider.x),z:Number(collider.z),w:Number(collider.w),d:Number(collider.d)};if(!Number.isFinite(rect.x)||collider.sportsV704||collider.kartV704)continue;for(const protectedRect of protectedGameplay){if(protectedRect.kind==='castle'&&collider.castle)continue;if(v704RectOverlap(rect,protectedRect,.15))add('collider-in-protected-area',collider.houseId||collider.buildId||collider.landmark||'collider',protectedRect.id);}}
     for(const vehicle of vehicles){const x=Number(vehicle.group?.position?.x??vehicle.x),z=Number(vehicle.group?.position?.z??vehicle.z),id=String(vehicle.id||'vehicle');if(!Number.isFinite(x)||!Number.isFinite(z)){add('vehicle-invalid-position',id);continue;}const isKart=String(vehicle.kind||'')==='kart',owned=Array.isArray(state?.vehicles?.owned)&&state.vehicles.owned.includes(id);if(!isKart)for(const road of roads)if(v704PointInRect({x,z},road,Number(vehicle.radius||1.35)))add('vehicle-on-road',id,road.id);for(const structure of protectedRects){if(isKart&&(structure.kind==='kart'||structure.kind==='kart-inner'))continue;if(structure.kind==='garage'&&owned)continue;if(structure.id==='workshop'&&(world.workshopLifts||[]).some(l=>String(l.vehicleId)===id&&Math.hypot(x-l.x,z-l.z)<.65))continue;if(v704PointInRect({x,z},structure,1.2))add('vehicle-inside-structure',id,structure.id);}}
+    const signLots=v704SignReservations();
+    for(const sign of world?.navigationSigns||[]){
+      const yaw=Number(sign.rotationY||0),kind=sign.kind==='highway'?'highway':'local';
+      if(!v704SignPointClear(sign,yaw,kind,signLots))add('navigation-sign-obstructed',sign.label);
+    }
     const busStops=world?.busStops||[];for(const stop of busStops){const x=Number(stop.sign?.position?.x??stop.x),z=Number(stop.sign?.position?.z??stop.z),rotation=Number(stop.sign?.rotation?.y||0),samples=[{x,z},{x:x+Math.cos(rotation)*1.08,z:z-Math.sin(rotation)*1.08},{x:x-Math.cos(rotation)*1.08,z:z+Math.sin(rotation)*1.08}];if(samples.some(sample=>v704RoadAt(sample.x,sample.z,.38,true)))add('bus-stop-sign-on-road',stop.id,'road-or-sidewalk');}for(let i=0;i<busStops.length;i++)for(let j=i+1;j<busStops.length;j++)if(Math.hypot(busStops[i].x-busStops[j].x,busStops[i].z-busStops[j].z)<3.5)add('duplicate-bus-stop-sign',busStops[i].id,busStops[j].id);
     const spawn=worldLayoutPoint('spawn');if(typeof positionBlockedForPlayer==='function'&&positionBlockedForPlayer(spawn.x,spawn.z,.42,{ignoreTraffic:true,allowWater:false}))add('spawn-blocked','spawn');
     const important=['sportsEntrance','footballEntrance','volleyEntrance','footvolleyEntrance','kartEntrance','farmEntrance','castleEntrance','mountainEntrance','constructionEntrance','ottoviasEntry','ottoviasOperationsAccess','ottoviasTollSouth','ottoviasTollField','ottoviasTollBeach'];for(const id of important){const p=worldLayoutPoint(id);if(typeof nearestRoadProjection==='function'){const projection=nearestRoadProjection(p),pathConnected=v704PathConnectedToRoad(p);if((!projection||projection.distance>18||projection.clear===false)&&!pathConnected)add('destination-inaccessible',id,'road-or-path',projection?`distance=${projection.distance.toFixed(1)}`:'no-projection');}}
@@ -4422,10 +4466,29 @@
     return{critical:122,npc:96,resource:112,enemy:106,crystal:120,animal:100};
   }
   function worldFlightHorizon(){
-    if(typeof otGames==='undefined'||!otGames.active||!['plane','helicopter','balloon'].includes(otGames.mode)||!otGames.body)return 0;
+    if(!worldFlightBody())return 0;
     const bounds=v704WorldSize();
     // Fixed projection throughout the flight; no resize/recompile on each change of altitude.
     return Math.ceil(Math.hypot(bounds.w,bounds.d)+900);
+  }
+  function worldFlightBody(){
+    if(typeof otGames==='undefined'||!otGames.active||!otGames.body)return null;
+    return otGames.mode==='plane'||otGames.mode==='helicopter'||otGames.mode==='balloon'?otGames.body:null;
+  }
+  const flightSceneryFloor={body:null,x:0,z:0,y:0};
+  function worldFlightSceneryRange(groundRange,maximum=920){
+    const body=worldFlightBody();
+    if(!body||otGames.armed||otGames.onGround)return groundRange;
+    // Several visibility passes share the flight position in each tick.
+    // Query the same terrain as the flight model once at that position.
+    if(body!==flightSceneryFloor.body||body.x!==flightSceneryFloor.x||body.z!==flightSceneryFloor.z){
+      flightSceneryFloor.body=body;
+      flightSceneryFloor.x=body.x;
+      flightSceneryFloor.z=body.z;
+      flightSceneryFloor.y=groundHeightAt(body.x,body.z);
+    }
+    const altitude=body.y-flightSceneryFloor.y;
+    return altitude>0?Math.max(groundRange,Math.min(maximum,groundRange+altitude*3.5)):groundRange;
   }
   let previousFlightHorizon=null;
   function syncWorldFlightHorizon(){
@@ -4444,9 +4507,9 @@
       }
     }
   }
-  function updateCriticalSurfaceDistanceVisibility(){
+  function updateCriticalSurfaceDistanceVisibility(visited=new Set()){
     const focus=typeof otGamesFocus==='function'?otGamesFocus():player;
-    const flightRange=worldFlightHorizon(),range=flightRange||performanceDistanceRanges().critical,visited=new Set();let visible=0,hidden=0;
+    const flightRange=worldFlightHorizon(),range=flightRange||performanceDistanceRanges().critical;let visible=0,hidden=0;
     for(const mesh of world.criticalSurfaces||[]){
       if(!mesh?.parent)continue;
       if(mesh.userData?.alwaysVisible===true||Number(mesh.renderOrder||0)>=900){mesh.visible=true;visible++;continue;}
@@ -4468,8 +4531,9 @@
     perf.dynamicVisible=visible;perf.dynamicHidden=hidden;return{visible,hidden,ranges};
   }
   function lockStableSceneVisibility(){
-    updateCriticalSurfaceDistanceVisibility();updateDynamicEntityVisibility();
-    updateManagedOutlineVisibility();
+    const worldTransforms=new Set();
+    updateCriticalSurfaceDistanceVisibility(worldTransforms);updateDynamicEntityVisibility();
+    updateManagedOutlineVisibility(worldTransforms);
     const glowVisible=visualQualityProfile(qualityTier()).glows;for(const light of world.glows){if(light?.parent)light.visible=glowVisible;}
     if(world.clouds){const max=qualityTier()==='high'?8:qualityTier()==='balanced'?6:4;world.clouds.forEach((cloud,i)=>cloud.group.visible=i<max);}
   }
@@ -4506,8 +4570,9 @@
   }
   function updateVisualLOD(){
     updateManagedVisualLODs(camera);
-    updateManagedOutlineVisibility();
-    updateCriticalSurfaceDistanceVisibility();
+    const worldTransforms=new Set();
+    updateManagedOutlineVisibility(worldTransforms);
+    updateCriticalSurfaceDistanceVisibility(worldTransforms);
     updateDynamicEntityVisibility();
     if(typeof updateParkedVehicleVisibility==='function')updateParkedVehicleVisibility();
     const signRange=qualityTier()==='low'?30:qualityTier()==='high'?58:42;
@@ -5063,9 +5128,9 @@
     const safe=typeof v704SafeSignPoint==='function'?v704SafeSignPoint(x,z,rotationY):{x,z};x=safe.x;z=safe.z;
     const group=new THREE.Group();group.position.set(x,0,z);group.name=`OTTHI_NAV_SIGN_${String(text||'').replace(/\W+/g,'_').slice(0,32)}`;worldGroup.add(group);
     box(.16,2.1,.16,materials.wood,0,1.05,0,group);
-    const board=new THREE.Mesh(new THREE.PlaneGeometry(1.9,.6),new THREE.MeshStandardMaterial({map:signTexture(text,'#2a3f2c','#f4ede1'),roughness:.85,side:THREE.DoubleSide}));
+    const board=new THREE.Mesh(new THREE.PlaneGeometry(V704_SIGN_WIDTH.local,.6),new THREE.MeshStandardMaterial({map:signTexture(text,'#2a3f2c','#f4ede1'),roughness:.85,side:THREE.DoubleSide}));
     board.position.set(0,1.95,0);board.rotation.y=rotationY;group.add(board);group.visible=Math.hypot(player.x-x,player.z-z)<=42;
-    world.navigationSigns.push({group,x,z,kind:'local',label:text});
+    world.navigationSigns.push({group,x,z,rotationY,kind:'local',label:text});
     return group;
   }
   function createFenceLine(x1,z1,x2,z2,segments=8){
@@ -6181,7 +6246,7 @@
   }
   function createOttoviasTrafficFlow(){const h=ottoviasHighway();if(!h)return[];const clockwise=ottoviasLaneRoute(h.points,2.45,false),counter=ottoviasLaneRoute(h.points,2.45,true),specs=[['azul',clockwise,1,0x3877c8,7.4,'car'],['amarelo',clockwise,8,0xe5ac36,6.9,'car'],['verde',clockwise,16,0x3f9b65,7.2,'car'],['vinho',counter,3,0xa84755,7.0,'car'],['prata',counter,11,0xaeb9c2,7.5,'car'],['carga',counter,19,0x26718d,6.2,'truck']];world.ottoviasTraffic=world.ottoviasTraffic||[];OTTOVIAS_RUNTIME.traffic.length=0;for(const spec of specs)createOttoviasTrafficVehicle(`ottovias-${spec[0]}`,spec[1],spec[2],spec[3],spec[4],spec[5]);world.ottoviasTraffic=OTTOVIAS_RUNTIME.traffic;world.trafficSnapshot=null;return OTTOVIAS_RUNTIME.traffic;}
   function updateOttoviasTraffic(dt){const now=performance.now(),tier=typeof qualityTier==='function'?qualityTier():'balanced',mobile=!!perf?.mobile,decisionMs=tier==='low'?240:tier==='high'?90:150,visibleRange=tier==='low'?74:tier==='high'?122:96;for(const vehicle of OTTOVIAS_RUNTIME.traffic){if(vehicle.taken){vehicle.group.visible=false;continue;}const target=vehicle.route[vehicle.index],dx=target.x-vehicle.group.position.x,dz=target.z-vehicle.group.position.z,d=Math.hypot(dx,dz);if(d<.45){vehicle.index=(vehicle.index+1)%vehicle.route.length;continue;}const heading=Math.atan2(dx,dz);if(now>=Number(vehicle.nextTrafficDecisionAt||0)){const playerDistance=Math.hypot(otGamesFocus().x-vehicle.group.position.x,otGamesFocus().z-vehicle.group.position.z);vehicle.group.visible=playerDistance<visibleRange;vehicle.cachedSpeedFactor=trafficSpeedFactor(vehicle,heading,8.5);vehicle.nextTrafficDecisionAt=now+decisionMs+(mobile?(vehicle.index%3)*18:0);}const factor=Number(vehicle.cachedSpeedFactor??1),targetSpeed=Math.min(vehicle.speed*factor,!player.vehicle&&!player.boating&&Math.hypot(player.x-vehicle.group.position.x,player.z-vehicle.group.position.z)<7?1.5:Infinity);vehicle.currentSpeed=lerp(Number(vehicle.currentSpeed||0),targetSpeed,Math.min(1,dt*3.8));const move=Math.min(d,vehicle.currentSpeed*dt),previous={x:vehicle.group.position.x,z:vehicle.group.position.z};if(move>.0001){vehicle.group.position.x+=dx/d*move;vehicle.group.position.z+=dz/d*move;snapTrafficToRoad(vehicle.group,previous);vehicle.group.rotation.y=lerpAngle(vehicle.group.rotation.y,heading,Math.min(1,dt*5));if(vehicle.group.visible)for(const wheel of vehicle.wheels)wheel.rotation.x-=move*2.7;}}const bridge=OTTOVIAS_RUNTIME.footbridge,animateBridge=!!bridge&&Math.hypot(player.x-bridge.position.x,player.z-bridge.position.z)<(tier==='low'?48:82);for(const person of OTTOVIAS_RUNTIME.bridgePedestrians){person.visible=animateBridge;if(!animateBridge)continue;person.position.x+=person.userData.direction*dt*.72;if(Math.abs(person.position.x)>10.7)person.userData.direction*=-1;const walk=Math.sin(now*.009+person.userData.phase)*.42;person.userData.left.rotation.x=walk;person.userData.right.rotation.x=-walk;}}
-  function createOttoviasHighwaySign(x,z,title,subtitle,heading=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=heading;worldGroup.add(g);for(const sx of[-2.2,2.2])premiumBox(.18,4.5,.18,0x66727b,sx,2.25,0,g);premiumBox(5.6,1.7,.16,0x176b4f,0,4.0,0,g);const face=new THREE.Mesh(new THREE.PlaneGeometry(5.1,1.35),new THREE.MeshStandardMaterial({map:signTexture(`${title}\n${subtitle}`,'#176b4f','#ffffff'),roughness:.55,side:THREE.DoubleSide}));face.position.set(0,4.02,.1);g.add(face);g.visible=Math.hypot(player.x-x,player.z-z)<=70;world.navigationSigns.push({group:g,x,z,kind:'highway',label:title});return g;}
+  function createOttoviasHighwaySign(x,z,title,subtitle,heading=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=heading;worldGroup.add(g);for(const sx of[-2.2,2.2])premiumBox(.18,4.5,.18,0x66727b,sx,2.25,0,g);premiumBox(V704_SIGN_WIDTH.highway,1.7,.16,0x176b4f,0,4.0,0,g);const face=new THREE.Mesh(new THREE.PlaneGeometry(5.1,1.35),new THREE.MeshStandardMaterial({map:signTexture(`${title}\n${subtitle}`,'#176b4f','#ffffff'),roughness:.55,side:THREE.DoubleSide}));face.position.set(0,4.02,.1);g.add(face);g.visible=Math.hypot(player.x-x,player.z-z)<=70;world.navigationSigns.push({group:g,x,z,rotationY:heading,kind:'highway',label:title});return g;}
   function ottoviasTollRecord(id){return OTTOVIAS_RUNTIME.tolls.get(id)||null;}
   function createOttoviasToll(toll){const h=ottoviasHighway(),p=ottoviasSegmentPoint(toll.routeIndex,toll.t),g=new THREE.Group();g.position.set(p.x,0,p.z);g.rotation.y=p.heading;g.name=`OTTHI_${toll.id.toUpperCase()}`;worldGroup.add(g);box(19,.12,20,0x3b4248,0,.065,0,g);const roof=ottoviasMaterial(0x1d745a,{roughness:.7}),booth=ottoviasMaterial(0xe9f0f1,{roughness:.7}),glass=renderMat(0x5ecbf1,{transparent:true,opacity:.62,roughness:.18});
     for(const bx of[-7.45,7.45]){box(1.05,2.8,3.5,booth,bx,1.4,0,g);box(.82,.8,.08,glass,bx,1.65,1.79,g);box(1.35,.22,3.8,roof,bx,2.9,0,g);registerCollider(p.x+Math.cos(p.heading)*bx,p.z-Math.sin(p.heading)*bx,.9,1.2,{landmark:`${toll.id}-booth`});}
@@ -6424,12 +6489,19 @@
     const names={central:'Central',oeste:'Oeste',leste:'Leste',norte:'Norte',sul:'Sul'};
     const selected=plan?.legs||[];
     const lineDraw=METRO_LINES.map(line=>{const ids=line.stations.filter(id=>points.has(id));return ids.slice(1).map((id,i)=>{const a=points.get(ids[i]),b=points.get(id),active=selected.some(e=>e.line===line.id&&((e.from===ids[i]&&e.to===id)||(e.to===ids[i]&&e.from===id)));return '<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="'+line.color+'" stroke-width="'+(active?12:7)+'" stroke-linecap="round" opacity="'+(selected.length&&!active ? .45 : 1)+'"/>';}).join('');}).join('');
-    const dots=nodes.map(n=>{
-      const p=points.get(n.id),here=n.id===origin,final=n.id===plan?.destination,transfer=(n.lineIds||[]).length>1;
-      const name=escapeHtml(names[n.id]||n.name),attributes=here?' aria-label="Estação atual: '+name+'"':' data-metro-map-station="'+escapeHtml(n.id)+'" role="button" tabindex="0" aria-label="Selecionar estação '+name+'" aria-pressed="'+String(final)+'" style="cursor:pointer"';
-      return '<g'+attributes+'><circle cx="'+p.x+'" cy="'+p.y+'" r="19" fill="transparent"/><circle cx="'+p.x+'" cy="'+p.y+'" r="'+(here||final?10:transfer?8:6)+'" fill="'+(here?'#ffe078':final?'#b0ffdc':'#fff')+'" stroke="#14283d" stroke-width="2"/><text x="'+p.x+'" y="'+(p.y+(n.id==='norte'?-15:23))+'" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">'+name+'</text></g>';
+    const dots=nodes.map(node=>{
+      const point=points.get(node.id),here=node.id===origin,final=node.id===plan?.destination;
+      const transfer=(node.lineIds||[]).length>1;
+      const label=escapeHtml(node.name+(transfer?' · estação de baldeação':'')+(here?' · você está aqui':''));
+      const attributes=here?'aria-current="location" role="img"':
+        `data-metro-map-station="${escapeHtml(node.id)}" role="button" tabindex="0" aria-pressed="${final}"`;
+      return `<g ${attributes} aria-label="${label}" transform="translate(${point.x} ${point.y})">
+        <rect class="metro-map-target" x="-27" y="-27" width="54" height="54" rx="12" fill="transparent"/>
+        <circle r="${here||final?10:transfer?8:6}" fill="${here?'#ffe078':final?'#b0ffdc':'#fff'}" stroke="#14283d" stroke-width="2"/>
+        <text y="${node.id==='norte'?-15:23}" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">${escapeHtml(names[node.id]||node.name)}</text>
+      </g>`;
     }).join('');
-    return '<svg class="metro-network-svg" viewBox="0 0 360 230" role="group" aria-label="Diagrama interativo das linhas de metrô do jogo, estação atual e rota selecionada">'+lineDraw+dots+'</svg>';
+    return '<svg class="metro-network-svg" viewBox="0 0 360 230" role="group" aria-label="Mapa interativo das linhas do metrô">'+lineDraw+dots+'</svg>';
   }
   function openMetroStation(station){
     if(player.vehicle||player.boating||player.transit.mode){toast('Desembarque antes de entrar no metrô.','warn');return;}
@@ -6461,11 +6533,33 @@
         selected={destination:target.id,legs,place,walkDistance:distance,previousLine:null};
         metroPlayerPlan=selected;render();
       }
-      $$('[data-metro-destination]',root).forEach(btn=>btn.onclick=()=>{const target=stations.find(x=>x.id===btn.dataset.metroDestination);if(target)choose(target);});
-      const chooseMapStation=event=>{const node=event.target.closest?.('[data-metro-map-station]'),target=node&&stations.find(s=>s.id===node.dataset.metroMapStation);if(!target)return;event.preventDefault();choose(target);if(event.type==='keydown')map.querySelector('[data-metro-map-station="'+target.id+'"]')?.focus();};
-      map.addEventListener('click',chooseMapStation);
-      map.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' ')chooseMapStation(event);});
-      placeSelect.onchange=e=>{if(e.target.value==='')return;const place=places[Number(e.target.value)],near=place&&metroNearestStation(place);if(near)choose(near.station,place,near.distance);};
+      function chooseStation(id){
+        const target=stations.find(station=>station.id===id);
+        if(!target)return;
+        choose(target);
+      }
+      map.addEventListener('click',event=>{
+        const marker=event.target.closest('[data-metro-map-station]');
+        if(marker)chooseStation(marker.dataset.metroMapStation);
+      });
+      map.addEventListener('keydown',event=>{
+        const marker=event.target.closest('[data-metro-map-station]');
+        if(!marker||!['Enter',' '].includes(event.key))return;
+        event.preventDefault();
+        const id=marker.dataset.metroMapStation;
+        chooseStation(id);
+        $$('[data-metro-map-station]',map).find(node=>node.dataset.metroMapStation===id)?.focus();
+      });
+      $$('[data-metro-destination]',root).forEach(btn=>btn.onclick=()=>chooseStation(btn.dataset.metroDestination));
+      placeSelect.onchange=event=>{
+        if(event.target.value===''){
+          selected=metroPlayerPlan=null;
+          render();
+          return;
+        }
+        const place=places[Number(event.target.value)],near=place&&metroNearestStation(place);
+        if(near)choose(near.station,place,near.distance);
+      };
       $$('[data-metro-bus]',root).forEach(btn=>btn.onclick=()=>{metroPlayerPlan=null;setWaypoint('bus-stop-'+btn.dataset.metroBus);});
       board.onclick=()=>{
         if(!selected)return;
@@ -7475,7 +7569,7 @@
   function updateBoatPhysics(dt,ix,iz){
     const boat=player.boat;if(boat.passengerOf){const ghost=world.ghosts.get(boat.passengerOf),target=ghost?.userData?.target;if(!ghost||!target){boat.hostMissingAt=boat.hostMissingAt||performance.now();if(performance.now()-boat.hostMissingAt>3500){toast('O motorista saiu. Você voltou ao píer.','warn');player.x=BOAT_DOCK.exitX;player.z=54;exitBoat(true);}player.vx=player.vz=0;return;}boat.hostMissingAt=0;const tx=Number(target.x||ghost.position.x),tz=Number(target.z||ghost.position.z);player.vx=clamp((tx-player.x)*8,-18,18);player.vz=clamp((tz-player.z)*8,-18,18);boat.heading=Number(target.r||boat.heading);player.facing=boat.heading;return;}
     // V643: mesma convenção do carro — manche para a direita vira para a direita.
-    const steer=Math.abs(ix)<.07?0:-ix,command=mobilityThrottleIntent(iz,boat.speed),throttle=command.throttle;
+    const steer=Math.abs(ix)<.07?0:-ix,command=mobilityThrottleIntent(iz,boat.speed),throttle=command.throttle;mobilityEngineLoad=command.brake?0:throttle;
     if(command.brake)boat.speed=approachNumber(boat.speed,0,(7.2+Math.abs(boat.speed)*.8)*dt);else{const crossing=boat.speed*throttle<-.08;boat.speed+=throttle*(world.boat?.acceleration??(world.boat?.seaGoing?11:8.5))*(crossing?1.8:1)*dt;if(world.boat?.kind==='surf'&&throttle>.1&&player.z<563){const shoreward=Math.max(0,-Math.cos(boat.heading)),wave=Math.max(0,Math.sin((player.z-513)*.34-performance.now()*.0017));boat.speed+=wave*shoreward*2.7*dt;}}
     if(!throttle&&!command.brake)boat.speed*=Math.pow(.12,dt);if(Math.abs(boat.speed)<.02&&!throttle)boat.speed=0;boat.speed=clamp(boat.speed,-(world.boat?.reverseSpeed||3.4),world.boat?.maxSpeed||8.8);boat.steerVisual=lerp(boat.steerVisual||0,steer,Math.min(1,dt*6.5));const authority=Math.max(clamp(Math.abs(boat.speed)/2.8,0,1),Math.abs(throttle)>.1?.12:0);const turnRate=1.5/(1+Math.abs(boat.speed)*.075);boat.heading+=boat.steerVisual*turnRate*authority*dt*(boat.speed<-.08?-1:1);player.vx=Math.sin(boat.heading)*boat.speed;player.vz=Math.cos(boat.heading)*boat.speed;player.facing=boat.heading;updateMobilityControlLabels();
   }
@@ -8472,10 +8566,10 @@
       if(p.life<=0){worldGroup.remove(p.mesh);p.mesh.geometry.dispose();p.mesh.material.dispose();fxParticles.splice(i,1);}
     }
   }
-  let engineAudio=null,driftSoundCooldown=0,vehicleImpactCount=0;
+  let engineAudio=null,driftSoundCooldown=0,vehicleImpactCount=0,mobilityEngineLoad=0;
   function startEngineSound(){if(!state.settings.sound||engineAudio)return;const model=player.boating?'boat':currentVehicleRef()?.brazilModel||player.car.id||'',kind=player.boating?'boat':player.car.kind||'car',voice=window.GameAudio?.vehicleVoice(model,kind);if(voice)engineAudio={voice,signature:model+'|'+kind};}
   function stopEngineSound(){engineAudio?.voice.dispose();engineAudio=null;}
-  function updateEngineSound(speed,kind,model){if(!state.settings.sound){stopEngineSound();return;}if(engineAudio&&engineAudio.signature!==model+'|'+kind)stopEngineSound();if(!engineAudio)startEngineSound();engineAudio?.voice.update(speed,input.mobilityAccelerate?1:input.mobilityBrake?0:Math.abs(Number(input.z||0)),performance.now()<Number(player.car.turboUntil||0),!paused);}
+  function updateEngineSound(speed,kind,model){if(!state.settings.sound){stopEngineSound();return;}if(engineAudio&&engineAudio.signature!==model+'|'+kind)stopEngineSound();if(!engineAudio)startEngineSound();const demand=clamp(Number(mobilityEngineLoad)||0,-1,1),load=Math.abs(demand),turbo=!player.boating&&demand>0&&performance.now()<Number(player.car.turboUntil||0);engineAudio?.voice.update(speed,load,turbo,!paused);}
   function updateVehicleFX(dt){
     if(player.boating&&!player.boat.passengerOf){
       if(world.boat?.kind==='board')stopEngineSound();
@@ -9357,6 +9451,9 @@
   function requestJump(){if(activeRace?.type==='rio-street'&&activeRace.countdown>0)return;if(typeof handleActiveSportJumpControlV705==='function'&&handleActiveSportJumpControlV705(true))return;if(!els.modal.hidden||paused||player.vehicle||player.boating||player.transit.mode)return;player.jumpBuffer=performance.now()+170;if(canGroundJump())doJump(false);else if(canAirJump())doJump(true);}
   function doJump(aerial=false){if(aerial?!canAirJump():!canGroundJump())return;state.stats.jumps++;trackDaily('jump',1);player.lastJumpWasAir=!!aerial;if(aerial){player.airJumpAvailable=false;player.vy=Math.max(1.4,player.vy*.18)+8.7;beep(720,65,'sine');vibrate([12,18,12]);}else{player.vy=player.swimming?3.1:10.2;beep(player.swimming?420:540);vibrate(18);}player.grounded=false;player.jumpBuffer=0;}
   function updatePlayer(dt){
+    // Reset the accepted power demand before the selected mobility controller.
+    // Early exits (dry tank, damage, passenger or incident) must not rev the engine.
+    mobilityEngineLoad=0;
     // Entrada é atualizada em todos os estados. O veículo tem prioridade absoluta:
     // uma animação anterior de sofá/cama/TV nunca pode bloquear aceleração ou direção.
     resolveMovementInput();
@@ -9422,7 +9519,7 @@
     // V643: o eixo lateral foi invertido para que direita no manche vire fisicamente para a direita.
     const steer=Math.abs(ix)<.06?0:-ix;
     if(car.passengerOf){const ghost=world.ghosts.get(car.passengerOf),target=ghost?.userData?.target;if(!ghost||!target?.vehicle){car.hostMissingAt=car.hostMissingAt||performance.now();if(performance.now()-car.hostMissingAt>3500){toast('O motorista saiu. Você deixou o carro.','warn');exitVehicle(true);}player.vx=player.vz=0;return;}car.hostMissingAt=0;const v2Pose=typeof multiplayerV2RemotePose==='function'&&typeof multiplayerV2GhostControlled==='function'&&multiplayerV2GhostControlled(car.passengerOf)?multiplayerV2RemotePose(car.passengerOf,target,true):null,pose=v2Pose||smoothPassengerHostPose(car,ghost,target,dt),heading=pose.r,seatIndex=typeof multiplayerVehiclePassengerSeatIndex==='function'?multiplayerVehiclePassengerSeatIndex(car.passengerOf,String(window.OTTHOS_RTDB?.uid||state.profile?.playerId||'')):0,seat=target.vehicleAppearance?.brazilModel?brazilSeatOffset(target.vehicleAppearance.brazilModel,seatIndex):vehiclePassengerSeatOffset(seatIndex,target.vehicleBodyType||target.vehicleAppearance?.bodyType||'',target.vehicleKind||target.vehicleAppearance?.kind||''),tx=pose.x+Math.cos(heading)*seat.x+Math.sin(heading)*seat.z,tz=pose.z-Math.sin(heading)*seat.x+Math.cos(heading)*seat.z;if(v2Pose){player.x=tx;player.z=tz;player.vx=Number(pose.vx||0);player.vz=Number(pose.vz||0);car._passengerHostSync={x:pose.x,z:pose.z,r:heading,vx:player.vx,vz:player.vz,t:performance.now()};}else{const dx=tx-player.x,dz=tz-player.z,distance=Math.hypot(dx,dz),frameDt=Math.max(1/240,dt);if(distance>4.5){player.x=tx;player.z=tz;player.vx=player.vz=0;}else{player.vx=clamp(dx/frameDt,-48,48);player.vz=clamp(dz/frameDt,-48,48);}}car.heading=heading;player.facing=heading;return;}
-    const command=mobilityThrottleIntent(iz,car.speed),throttle=command.throttle;const turbo=performance.now()<Number(car.turboUntil||0);const maxSpeed=turbo?31:23.5,maxReverse=-8.5;
+    const command=mobilityThrottleIntent(iz,car.speed),throttle=command.throttle;mobilityEngineLoad=command.brake?0:throttle;const turbo=performance.now()<Number(car.turboUntil||0);const maxSpeed=turbo?31:23.5,maxReverse=-8.5;
     if(command.brake){car.speed=approachNumber(car.speed,0,(18+Math.abs(car.speed)*1.25)*dt);}
     else{const accelFactor=car.speed>=0?Math.max(.22,1-car.speed/maxSpeed):1;const crossing=(car.speed>0.2&&throttle<0)||(car.speed<-.2&&throttle>0);const throttleAccel=throttle>=0?throttle*(turbo?23:17.8)*accelFactor:throttle*10.8*(crossing?2.9:1);car.speed+=throttleAccel*dt;}
     if(!throttle&&!command.brake)car.speed*=Math.pow(.05,dt);if(Math.abs(car.speed)<.025&&!throttle)car.speed=0;car.speed=clamp(car.speed,maxReverse,maxSpeed);
@@ -13352,7 +13449,8 @@ function build(T,key,H){
     if(OT_CHILD_WORLD)worldCampaign.mission=null;
     campaignEnsure();document.body.classList.toggle('campaign-operation-active',!!worldCampaign.mission);if(!worldCampaign.initialized||paused)return;
     const focus=otGames.active?otGames.body:player;
-    for(const item of worldCampaign.landmarks)item.root.visible=campaignDist(focus,item.site)<240;
+    const landmarkRange=worldFlightSceneryRange(240);
+    for(const item of worldCampaign.landmarks)item.root.visible=campaignDist(focus,item.site)<landmarkRange;
     campaignSyncAircraft();
     const m=worldCampaign.mission,g=otGames;
     if(m){
@@ -13708,8 +13806,15 @@ function build(T,key,H){
   }
   function updateWorldExpansion(){
     expansionEnsure();if(!worldExpansion.ready||performance.now()-worldExpansion.lastLod<250)return;worldExpansion.lastLod=performance.now();
-    const focus=otGamesFocus();for(const root of worldExpansion.groups)root.visible=Math.hypot(focus.x-root.position.x,focus.z-root.position.z)<(otGames.active&&otGames.mode!=='ground'?420:220);
-    for(const c of SPORTS_V705.circuits){const near=Math.hypot(focus.x-c.cx,focus.z-c.cz)<210;c.root.visible=near;for(const car of c.karts)if(!car.occupied)car.group.visible=near&&!car.garageStored;}
+    const focus=otGamesFocus();
+    const cityRange=worldFlightSceneryRange(otGames.active&&otGames.mode!=='ground'?420:220);
+    const circuitRange=worldFlightSceneryRange(210);
+    for(const root of worldExpansion.groups)root.visible=Math.hypot(focus.x-root.position.x,focus.z-root.position.z)<cityRange;
+    for(const c of SPORTS_V705.circuits){
+      const distance=Math.hypot(focus.x-c.cx,focus.z-c.cz);
+      c.root.visible=distance<circuitRange;
+      for(const car of c.karts)if(!car.occupied)car.group.visible=distance<210&&!car.garageStored;
+    }
   }
   window.OTTHI_EXPANSION={locations:expansionMapLocations,diagnostics:()=>({ready:worldExpansion.ready,bounds:{...v704WorldBounds()},cities:Object.values(WORLD_LAYOUT_V704.cities).map(c=>({...c})),assets:Object.keys(worldExpansion.assets),models:worldExpansion.cars.map(c=>({id:c.id,asset:c.group.userData.racerAsset,drivable:!c.occupied})),circuits:SPORTS_V705.circuits.map(c=>({id:c.id,length:c.curve.getLength(),width:c.width,active:c.active}))})};
 
@@ -16344,10 +16449,15 @@ function precompile(T,renderer,scene,camera,timings){
  function updateCordillera(){
   createCordillera();if(!cordillera.ready)return;ensureRegionalRoadTraffic();const focus=otGamesFocus(),now=airNow()/1000;
   if(sharedWorldIsAuthority())for(const car of OTTOVIAS_RUNTIME.traffic)if(!car.taken)car.group.position.y=professionalTerrainHeightAt(car.group.position.x,car.group.position.z)+.03;
-  for(const c of cordillera.chunks)c.mesh.visible=Math.hypot(focus.x-c.x,focus.z-c.z)<(otGames.active?920:550);
+  const terrainRange=worldFlightSceneryRange(otGames.active?920:550,1320);
+  for(const c of cordillera.chunks)c.mesh.visible=Math.hypot(focus.x-c.x,focus.z-c.z)<terrainRange;
   for(const b of cordillera.balloons){const cycle=180,t=(now+b.phase)%cycle,angle=Math.max(0,(t-15)/140)*Math.PI*2,cruising=t>=15&&t<155,land=t>=155?Math.max(0,(170-t)/15):Math.min(1,t/15),x=b.x+(cruising?Math.sin(angle)*52:0),z=b.z+(cruising?(1-Math.cos(angle))*28:0),base=b.ground;b.group.position.set(x,base+1.05+Math.max(0,land)*(b.cruise-base),z);b.group.rotation.y=angle;b.group.visible=Math.hypot(focus.x-x,focus.z-z)<(otGames.active?750:480);b.group.userData.flame.visible=t<155;}
   const trip=state.worldExploration?.snowTrail;if(trip&&!trip.done){const p=SNOW_TRAIL[trip.step];if(p&&state.waypoint?.id===p.id&&!otGames.active&&!player.boating&&Math.hypot(player.x-p.x,player.z-p.z)<4&&Math.abs(player.y-groundHeightAt(player.x,player.z))<3){trip.step++;addXP(15);if(trip.step>=SNOW_TRAIL.length){trip.done=true;trip.finishedAt=Date.now();addCoins(60);awardMedal('Picos Nevados');clearWaypoint();toast('Trilha concluída: cinco etapas e retorno aos chalés. +60 moedas.','good',4000);}else{setWaypoint(SNOW_TRAIL[trip.step].id);toast('Etapa concluída. Próximo: '+SNOW_TRAIL[trip.step].name,'good',3000);}saveState(true);}}
-  if(scene.fog){scene.fog.near=otGames.active?380:210;scene.fog.far=otGames.active?1150:650;}
+  // Flight projection owns the clear-weather horizon. Rio weather owns the
+  // fog during precipitation, including when the player lands.
+  if(scene.fog&&!worldFlightBody()&&(typeof rioClimate==='undefined'||rioClimate.kind==='clear')){
+    scene.fog.near=otGames.active?380:210;scene.fog.far=otGames.active?1150:650;
+  }
  }
  const cordilleraOldExpand=updateWorldExpansion;updateWorldExpansion=function(){cordilleraOldExpand();updateCordillera();};
  const cordilleraOldExplore=worldExploreLocations;worldExploreLocations=function(){return[...cordilleraOldExplore(),...SNOW_TRAIL.map(p=>({...p,label:p.name,icon:'❄️',group:'Cordilheira e neve',navX:p.x,navZ:p.z,description:'Passo de montanha da trilha dos Picos Nevados. Estradas conectadas à Ligação Norte, neve, mirantes e moradores.',actions:['Seguir pela estrada dos Picos Nevados','Visitar o mirante','Concluir a trilha por etapas']})),{id:'forest-great',name:'Mata Grande · estrada e montanhas',label:'Mata Grande',icon:'🌲',group:'Natureza',x:-630,z:170,navX:-550,navZ:100,description:'Mata ampliada, colinas e uma estrada conectada à Costa Verde e à Rodovia dos Horizontes.'}];};
@@ -22201,8 +22311,10 @@ function precompile(T,renderer,scene,camera,timings){
   function updateRioWaterArea(water,dt){
     if(!water)return;
     const craft=water.craft||[];
-    if(Math.hypot(player.x-water.entry.x,player.z-water.entry.z)>208){
-      water.group.visible=false;
+    const flight=worldFlightBody(),focus=flight||player;
+    const distance=Math.hypot(focus.x-water.entry.x,focus.z-water.entry.z);
+    if(distance>208){
+      water.group.visible=distance<=worldFlightSceneryRange(208);
       for(const boat of craft)if(!boat.seaGoing)boat.group.visible=player.boating&&boat===world.boat;
       for(const actor of water.swimmers)actor.npc.group.visible=false;
       return;
@@ -24620,12 +24732,13 @@ function precompile(T,renderer,scene,camera,timings){
     updateRioPractice(performance.now());
     for(const room of rioMap.sites.values()){
       const {site}=room;
+      const distance=distance2D(focus,site);
       if(room.legacyResidence){
         // Historic homes retain the exact old exterior while the furnished
         // native room is visible only to the player who entered the door.
         const inside=!!room.legacyRecord?.inside;
         room.root.visible=inside;
-        if(room.poolExterior)room.poolExterior.visible=distance2D(focus,site)<(flight||nearRange);
+        if(room.poolExterior)room.poolExterior.visible=distance<(flight||nearRange);
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
@@ -24633,8 +24746,8 @@ function precompile(T,renderer,scene,camera,timings){
         }
         continue;
       }
-      const near=distance2D(focus,site)<nearRange;
-      room.root.visible=distance2D(focus,site)<(flight||nearRange);
+      const near=distance<nearRange;
+      room.root.visible=distance<(flight||nearRange);
       if(room.poolExterior)room.poolExterior.visible=room.root.visible;
       if(!room.root.visible)continue;
       if(room.roof){

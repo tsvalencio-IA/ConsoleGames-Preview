@@ -87,9 +87,14 @@ try{
      for(const [i,a] of buildings.entries())for(const b of buildings.slice(i+1)){
        if(a.bounds.intersectsBox(b.bounds))overlaps.push([a.id,b.id]);
      }
+     const signOverlaps=[],signBounds=new THREE.Box3();
+     for(const sign of world.navigationSigns){
+       signBounds.setFromObject(sign.group);
+       for(const house of buildings)if(signBounds.intersectsBox(house.bounds))signOverlaps.push([sign.label,house.id]);
+     }
      const inlet=rioMap.sites.get('regional-mcdonalds_andalo').site.entry;
      const sign=world.navigationSigns.filter(s=>s.kind==='highway').map(s=>distance2D(s,{x:inlet[0],z:inlet[1]}));
-     return {count:buildings.length,overlaps,nearestRoadSign:Math.min(...sign)};
+     return {count:buildings.length,overlaps,signOverlaps,nearestRoadSign:Math.min(...sign)};
    },
    boardCar:()=>{
      const v=world.vehicles.find(v=>v.id==='garage-orange');
@@ -157,6 +162,7 @@ try{
  }
  const shells=await page.evaluate(()=>__PARK_QA.renderedBuildings());
  assert(shells.count>=50&&shells.nearestRoadSign>5,JSON.stringify(shells));assert.deepEqual(shells.overlaps,[]);
+ assert.deepEqual(shells.signOverlaps,[],'Rendered sign and building bounds must remain separated');
  report.renderedBuildings=shells;
  for(const [id,bridge] of [['regional-portaria_damha',false],['rio-orla-largada',true]]){
    const start=await page.evaluate(id=>__PARK_QA.action(id),id);

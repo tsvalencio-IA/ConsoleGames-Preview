@@ -382,7 +382,11 @@
   ]);
   function otthiHomeIdentity(){const cloudUid=typeof window!=='undefined'?window.OTTHOS_RTDB?.uid:'';const localState=typeof state!=='undefined'?state:null;return String(cloudUid||localState?.profile?.playerId||localState?.profile?.name||'local-home');}
   function otthiHomeLotIndex(){let hash=2166136261;for(const char of otthiHomeIdentity()){hash^=char.charCodeAt(0);hash=Math.imul(hash,16777619);}return(hash>>>0)%OTTHI_PERSONAL_HOME_LOTS.length;}
-  function otthiPersonalHomeLot(){const base=OTTHI_PERSONAL_HOME_LOTS[otthiHomeLotIndex()]||OTTHI_PERSONAL_HOME_LOTS[0],north=base.z<38;return{index:otthiHomeLotIndex(),home:{x:base.x,z:base.z},spawn:{x:base.x,z:base.z+5.2},garage:{x:Math.abs(base.x)<20?Math.sign(base.x)*23:Math.abs(base.x)===22?Math.sign(base.x)*25:base.x,z:base.z+(north?13:-13)}};}
+  function otthiHomeGaragePoint(base){
+    return{x:Math.abs(base.x)<20?Math.sign(base.x)*23:Math.abs(base.x)===22?Math.sign(base.x)*25:base.x,
+      z:base.z+(base.z<38?13:-13)};
+  }
+  function otthiPersonalHomeLot(){const index=otthiHomeLotIndex(),base=OTTHI_PERSONAL_HOME_LOTS[index];return{index,home:{x:base.x,z:base.z},spawn:{x:base.x,z:base.z+5.2},garage:otthiHomeGaragePoint(base)};}
   function v704PersonalHomeLotAt(x,z,margin=0){return OTTHI_PERSONAL_HOME_LOTS.some(lot=>Math.abs(Number(x)-lot.x)<=5.2+margin&&Math.abs(Number(z)-lot.z)<=4.3+margin);}
   function worldLayoutPoint(id,fallback={x:0,z:0}){if(typeof inRioMap==='function'&&inRioMap()){if(id==='workshop')return {...RIO_WORKSHOP};if(id==='farm')return {...RIO_FARM};if(id==='playground'){const park=rioSiteByKey('parque-da-represa');return {x:park.entry[0],z:park.entry[1]};}if(id==='repairParking')return {x:RIO_WORKSHOP.x+11,z:RIO_WORKSHOP.z+2};}if(id==='home'||id==='spawn'||id==='homeGarage'){const personal=otthiPersonalHomeLot();return{...(id==='home'?personal.home:id==='spawn'?personal.spawn:personal.garage)};}const p=WORLD_LAYOUT_V704.points[id];return p?{x:Number(p.x),z:Number(p.z)}:{x:Number(fallback.x||0),z:Number(fallback.z||0)};}
   function worldLayoutRect(id){if(typeof rioCompactWorld==='function'&&rioCompactWorld()&&typeof RIO_COMPACT_LAKES!=='undefined'){const lake=RIO_COMPACT_LAKES.find(l=>l.id===id);if(lake)return {...lake};}const zone=WORLD_LAYOUT_V704.zones[id];return zone?{...zone}:null;}
@@ -398,7 +402,9 @@
   function v704HighwayById(id){return (WORLD_LAYOUT_V704.highways||[]).find(highway=>highway.id===id)||null;}
   function v704HighwaySignPoint(spec){const highway=v704HighwayById(spec?.highwayId),points=highway?.points||[],index=Number(spec?.segmentIndex);if(!highway||!Number.isInteger(index)||index<0||index>=points.length-(highway.closed?0:1))return null;const a=points[index],b=points[(index+1)%points.length],t=Math.max(0,Math.min(1,Number(spec.t??.5))),dx=b.x-a.x,dz=b.z-a.z,heading=Math.atan2(dx,dz),rx=Math.cos(heading),rz=-Math.sin(heading),side=Number(spec.side||1)>=0?1:-1;
     /* O afastamento considera a meia largura física da placa, não apenas o poste. */
-    const signHalfWidth=2.9,offset=Number(highway.width||10)/2+Number(highway.shoulder||0)+Number(spec.offset||2.2)+signHalfWidth;return{x:a.x+dx*t+rx*offset*side,z:a.z+dz*t+rz*offset*side,heading,highwayId:highway.id};}
+    const signHalfWidth=V704_SIGN_WIDTH.highway/2+.1,offset=Number(highway.width||10)/2+Number(highway.shoulder||0)+Number(spec.offset||2.2)+signHalfWidth;
+    const point=v704SafeSignPoint(a.x+dx*t+rx*offset*side,a.z+dz*t+rz*offset*side,heading,'highway');
+    return{...point,heading,highwayId:highway.id};}
   function v704HighwaySegments(){
     if(typeof cachedWorldHighwaySegments==='function')return cachedWorldHighwaySegments();
     // The layout is also consumed on its own by audits and map tools.
@@ -424,24 +430,48 @@
     for(const road of WORLD_LAYOUT_V704.roads){const w=Number(road.w),d=Number(road.d);if(Math.abs(px-Number(road.x))<=(w+(w>=d?0:side))/2+margin&&Math.abs(pz-Number(road.z))<=(d+(w>=d?side:0))/2+margin)return true;}
     return v704HighwayAt(x,z,margin,includeSidewalk);
   }
-  function v704SafeSignPoint(x,z,rotationY=0){
-    const base={x:Number(x),z:Number(z)},half=1.08,alongX=Math.cos(rotationY)*half,alongZ=-Math.sin(rotationY)*half,normalX=Math.sin(rotationY),normalZ=Math.cos(rotationY);
-    // A sign's whole board must stay out of buildings, not only its pole.
-    const bounds=v704WorldBounds(),protectedRects=v704ProtectedRectangles().filter(r=>!r.id?.startsWith('rio-compact-track-'));
-    const clear=point=>{
-      const samples=[-1,-.5,0,.5,1].map(t=>({x:point.x+alongX*t,z:point.z+alongZ*t}));
-      if(samples.some(p=>p.x<bounds.minX+.38||p.x>bounds.maxX-.38||p.z<bounds.minZ+.38||p.z>bounds.maxZ-.38||v704RoadAt(p.x,p.z,.38,true)))return false;
-      // Conservative full-board AABB prevents crossing a wall between samples.
-      const board={x:point.x,z:point.z,w:2*Math.abs(alongX)+.76,d:2*Math.abs(alongZ)+.76};
-      return !protectedRects.some(r=>v704RectOverlap(board,r,Math.max(0,Number(r.margin)||0)));
-    };
+  const V704_SIGN_WIDTH=Object.freeze({local:1.9,highway:5.6});
+  const V704_SIGN_BLOCKING_STRUCTURES=new Set(['city','house','family-home','civil-home','garage','activity','campaign','castle','dealer','regional-landmark','regional-lake']);
+  function v704SignReservations(){
+    const actualLots=v704ProtectedRectangles().filter(lot=>!lot.kind||V704_SIGN_BLOCKING_STRUCTURES.has(lot.kind));
+    const personalLots=OTTHI_PERSONAL_HOME_LOTS.flatMap((home,index)=>[
+      {...home,id:'personal-home-'+index,w:10.4,d:8.6},
+      {...otthiHomeGaragePoint(home),id:'personal-garage-'+index,w:14.4,d:9.2}
+    ]);
+    const water=compactRioLayout?[]:[WORLD_LAYOUT_V704.zones.lake,WORLD_LAYOUT_V704.zones.lakeNorth];
+    return [...actualLots,...personalLots,...water];
+  }
+  function v704SignPointClear(point,rotationY,kind,lots){
+    const halfWidth=V704_SIGN_WIDTH[kind]/2,halfDepth=.11;
+    const cos=Math.cos(rotationY),sin=Math.sin(rotationY);
+    const footprint={...point,w:2*(Math.abs(cos)*halfWidth+Math.abs(sin)*halfDepth),
+      d:2*(Math.abs(sin)*halfWidth+Math.abs(cos)*halfDepth)};
+    const bounds=v704WorldBounds();
+    if(footprint.x-footprint.w/2<bounds.minX||footprint.x+footprint.w/2>bounds.maxX||
+      footprint.z-footprint.d/2<bounds.minZ||footprint.z+footprint.d/2>bounds.maxZ)return false;
+    if(lots.some(lot=>v704RectOverlap(footprint,lot,.2)))return false;
+    const samples=Math.ceil(halfWidth*4);
+    for(let i=-samples;i<=samples;i++){
+      const along=i*halfWidth/samples;
+      if(v704RoadAt(point.x+cos*along,point.z-sin*along,.38,true))return false;
+    }
+    return true;
+  }
+  function v704SafeSignPoint(x,z,rotationY=0,kind='local'){
+    const base={x:Number(x),z:Number(z)},lots=v704SignReservations();
+    const clear=point=>v704SignPointClear(point,rotationY,kind,lots);
     if(clear(base))return base;
-    for(const distance of [1.5,2.4,3.4,4.6,6,7.5,9,11,14])for(const side of [1,-1]){const candidate={x:base.x+normalX*distance*side,z:base.z+normalZ*distance*side};if(clear(candidate))return candidate;}
-    /* Em cruzamentos, mover somente pela normal pode cair sobre a via transversal. */
-    const tangentX=Math.cos(rotationY),tangentZ=-Math.sin(rotationY);for(const distance of [4.6,6,7.5,9,11,14])for(const side of [1,-1])for(const tangentSide of [1,-1]){const candidate={x:base.x+normalX*distance*side+tangentX*distance*tangentSide,z:base.z+normalZ*distance*side+tangentZ*distance*tangentSide};if(clear(candidate))return candidate;}
-    // If the near verge is occupied, find the nearest clear place rather than
-    // unconditionally moving the sign into the next house.
-    for(const distance of [16,18,20,24,28,32,40,48,64])for(let i=0;i<32;i++){
+    const tangentX=Math.cos(rotationY),tangentZ=-Math.sin(rotationY),normalX=Math.sin(rotationY),normalZ=Math.cos(rotationY);
+    // At a corner, stand the sign beside either street instead of searching only across the carriageway.
+    for(const distance of [1.5,2.4,3.4,4.6,6,7.5,9,11,14,18,24,32]){
+      for(const lateral of [0,1,-1])for(const forward of [1,-1,0]){
+        if(!lateral&&!forward)continue;
+        const candidate={x:base.x+distance*(normalX*forward+tangentX*lateral),
+          z:base.z+distance*(normalZ*forward+tangentZ*lateral)};
+        if(clear(candidate))return candidate;
+      }
+    }
+    for(const distance of [40,48,64])for(let i=0;i<32;i++){
       const angle=i*Math.PI/16,candidate={x:base.x+Math.sin(angle)*distance,z:base.z+Math.cos(angle)*distance};
       if(clear(candidate))return candidate;
     }
@@ -510,6 +540,11 @@
     for(const house of houses)for(const hazard of hazards)if(Number.isFinite(hazard.w)&&v704RectOverlap(house,hazard,.25))add('house-in-hazard',house.id,hazard.type);
     const protectedGameplay=protectedRects.filter(rect=>['sport','kart','farm','castle'].includes(rect.kind));for(const collider of world?.colliders||[]){const rect={x:Number(collider.x),z:Number(collider.z),w:Number(collider.w),d:Number(collider.d)};if(!Number.isFinite(rect.x)||collider.sportsV704||collider.kartV704)continue;for(const protectedRect of protectedGameplay){if(protectedRect.kind==='castle'&&collider.castle)continue;if(v704RectOverlap(rect,protectedRect,.15))add('collider-in-protected-area',collider.houseId||collider.buildId||collider.landmark||'collider',protectedRect.id);}}
     for(const vehicle of vehicles){const x=Number(vehicle.group?.position?.x??vehicle.x),z=Number(vehicle.group?.position?.z??vehicle.z),id=String(vehicle.id||'vehicle');if(!Number.isFinite(x)||!Number.isFinite(z)){add('vehicle-invalid-position',id);continue;}const isKart=String(vehicle.kind||'')==='kart',owned=Array.isArray(state?.vehicles?.owned)&&state.vehicles.owned.includes(id);if(!isKart)for(const road of roads)if(v704PointInRect({x,z},road,Number(vehicle.radius||1.35)))add('vehicle-on-road',id,road.id);for(const structure of protectedRects){if(isKart&&(structure.kind==='kart'||structure.kind==='kart-inner'))continue;if(structure.kind==='garage'&&owned)continue;if(structure.id==='workshop'&&(world.workshopLifts||[]).some(l=>String(l.vehicleId)===id&&Math.hypot(x-l.x,z-l.z)<.65))continue;if(v704PointInRect({x,z},structure,1.2))add('vehicle-inside-structure',id,structure.id);}}
+    const signLots=v704SignReservations();
+    for(const sign of world?.navigationSigns||[]){
+      const yaw=Number(sign.rotationY||0),kind=sign.kind==='highway'?'highway':'local';
+      if(!v704SignPointClear(sign,yaw,kind,signLots))add('navigation-sign-obstructed',sign.label);
+    }
     const busStops=world?.busStops||[];for(const stop of busStops){const x=Number(stop.sign?.position?.x??stop.x),z=Number(stop.sign?.position?.z??stop.z),rotation=Number(stop.sign?.rotation?.y||0),samples=[{x,z},{x:x+Math.cos(rotation)*1.08,z:z-Math.sin(rotation)*1.08},{x:x-Math.cos(rotation)*1.08,z:z+Math.sin(rotation)*1.08}];if(samples.some(sample=>v704RoadAt(sample.x,sample.z,.38,true)))add('bus-stop-sign-on-road',stop.id,'road-or-sidewalk');}for(let i=0;i<busStops.length;i++)for(let j=i+1;j<busStops.length;j++)if(Math.hypot(busStops[i].x-busStops[j].x,busStops[i].z-busStops[j].z)<3.5)add('duplicate-bus-stop-sign',busStops[i].id,busStops[j].id);
     const spawn=worldLayoutPoint('spawn');if(typeof positionBlockedForPlayer==='function'&&positionBlockedForPlayer(spawn.x,spawn.z,.42,{ignoreTraffic:true,allowWater:false}))add('spawn-blocked','spawn');
     const important=['sportsEntrance','footballEntrance','volleyEntrance','footvolleyEntrance','kartEntrance','farmEntrance','castleEntrance','mountainEntrance','constructionEntrance','ottoviasEntry','ottoviasOperationsAccess','ottoviasTollSouth','ottoviasTollField','ottoviasTollBeach'];for(const id of important){const p=worldLayoutPoint(id);if(typeof nearestRoadProjection==='function'){const projection=nearestRoadProjection(p),pathConnected=v704PathConnectedToRoad(p);if((!projection||projection.distance>18||projection.clear===false)&&!pathConnected)add('destination-inaccessible',id,'road-or-path',projection?`distance=${projection.distance.toFixed(1)}`:'no-projection');}}

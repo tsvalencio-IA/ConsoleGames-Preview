@@ -68,10 +68,15 @@
  function updateCordillera(){
   createCordillera();if(!cordillera.ready)return;ensureRegionalRoadTraffic();const focus=otGamesFocus(),now=airNow()/1000;
   if(sharedWorldIsAuthority())for(const car of OTTOVIAS_RUNTIME.traffic)if(!car.taken)car.group.position.y=professionalTerrainHeightAt(car.group.position.x,car.group.position.z)+.03;
-  for(const c of cordillera.chunks)c.mesh.visible=Math.hypot(focus.x-c.x,focus.z-c.z)<(otGames.active?920:550);
+  const terrainRange=worldFlightSceneryRange(otGames.active?920:550,1320);
+  for(const c of cordillera.chunks)c.mesh.visible=Math.hypot(focus.x-c.x,focus.z-c.z)<terrainRange;
   for(const b of cordillera.balloons){const cycle=180,t=(now+b.phase)%cycle,angle=Math.max(0,(t-15)/140)*Math.PI*2,cruising=t>=15&&t<155,land=t>=155?Math.max(0,(170-t)/15):Math.min(1,t/15),x=b.x+(cruising?Math.sin(angle)*52:0),z=b.z+(cruising?(1-Math.cos(angle))*28:0),base=b.ground;b.group.position.set(x,base+1.05+Math.max(0,land)*(b.cruise-base),z);b.group.rotation.y=angle;b.group.visible=Math.hypot(focus.x-x,focus.z-z)<(otGames.active?750:480);b.group.userData.flame.visible=t<155;}
   const trip=state.worldExploration?.snowTrail;if(trip&&!trip.done){const p=SNOW_TRAIL[trip.step];if(p&&state.waypoint?.id===p.id&&!otGames.active&&!player.boating&&Math.hypot(player.x-p.x,player.z-p.z)<4&&Math.abs(player.y-groundHeightAt(player.x,player.z))<3){trip.step++;addXP(15);if(trip.step>=SNOW_TRAIL.length){trip.done=true;trip.finishedAt=Date.now();addCoins(60);awardMedal('Picos Nevados');clearWaypoint();toast('Trilha concluída: cinco etapas e retorno aos chalés. +60 moedas.','good',4000);}else{setWaypoint(SNOW_TRAIL[trip.step].id);toast('Etapa concluída. Próximo: '+SNOW_TRAIL[trip.step].name,'good',3000);}saveState(true);}}
-  if(scene.fog){scene.fog.near=otGames.active?380:210;scene.fog.far=otGames.active?1150:650;}
+  // Flight projection owns the clear-weather horizon. Rio weather owns the
+  // fog during precipitation, including when the player lands.
+  if(scene.fog&&!worldFlightBody()&&(typeof rioClimate==='undefined'||rioClimate.kind==='clear')){
+    scene.fog.near=otGames.active?380:210;scene.fog.far=otGames.active?1150:650;
+  }
  }
  const cordilleraOldExpand=updateWorldExpansion;updateWorldExpansion=function(){cordilleraOldExpand();updateCordillera();};
  const cordilleraOldExplore=worldExploreLocations;worldExploreLocations=function(){return[...cordilleraOldExplore(),...SNOW_TRAIL.map(p=>({...p,label:p.name,icon:'❄️',group:'Cordilheira e neve',navX:p.x,navZ:p.z,description:'Passo de montanha da trilha dos Picos Nevados. Estradas conectadas à Ligação Norte, neve, mirantes e moradores.',actions:['Seguir pela estrada dos Picos Nevados','Visitar o mirante','Concluir a trilha por etapas']})),{id:'forest-great',name:'Mata Grande · estrada e montanhas',label:'Mata Grande',icon:'🌲',group:'Natureza',x:-630,z:170,navX:-550,navZ:100,description:'Mata ampliada, colinas e uma estrada conectada à Costa Verde e à Rodovia dos Horizontes.'}];};

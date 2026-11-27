@@ -183,12 +183,19 @@
     const names={central:'Central',oeste:'Oeste',leste:'Leste',norte:'Norte',sul:'Sul'};
     const selected=plan?.legs||[];
     const lineDraw=METRO_LINES.map(line=>{const ids=line.stations.filter(id=>points.has(id));return ids.slice(1).map((id,i)=>{const a=points.get(ids[i]),b=points.get(id),active=selected.some(e=>e.line===line.id&&((e.from===ids[i]&&e.to===id)||(e.to===ids[i]&&e.from===id)));return '<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="'+line.color+'" stroke-width="'+(active?12:7)+'" stroke-linecap="round" opacity="'+(selected.length&&!active ? .45 : 1)+'"/>';}).join('');}).join('');
-    const dots=nodes.map(n=>{
-      const p=points.get(n.id),here=n.id===origin,final=n.id===plan?.destination,transfer=(n.lineIds||[]).length>1;
-      const name=escapeHtml(names[n.id]||n.name),attributes=here?' aria-label="Estação atual: '+name+'"':' data-metro-map-station="'+escapeHtml(n.id)+'" role="button" tabindex="0" aria-label="Selecionar estação '+name+'" aria-pressed="'+String(final)+'" style="cursor:pointer"';
-      return '<g'+attributes+'><circle cx="'+p.x+'" cy="'+p.y+'" r="19" fill="transparent"/><circle cx="'+p.x+'" cy="'+p.y+'" r="'+(here||final?10:transfer?8:6)+'" fill="'+(here?'#ffe078':final?'#b0ffdc':'#fff')+'" stroke="#14283d" stroke-width="2"/><text x="'+p.x+'" y="'+(p.y+(n.id==='norte'?-15:23))+'" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">'+name+'</text></g>';
+    const dots=nodes.map(node=>{
+      const point=points.get(node.id),here=node.id===origin,final=node.id===plan?.destination;
+      const transfer=(node.lineIds||[]).length>1;
+      const label=escapeHtml(node.name+(transfer?' · estação de baldeação':'')+(here?' · você está aqui':''));
+      const attributes=here?'aria-current="location" role="img"':
+        `data-metro-map-station="${escapeHtml(node.id)}" role="button" tabindex="0" aria-pressed="${final}"`;
+      return `<g ${attributes} aria-label="${label}" transform="translate(${point.x} ${point.y})">
+        <rect class="metro-map-target" x="-27" y="-27" width="54" height="54" rx="12" fill="transparent"/>
+        <circle r="${here||final?10:transfer?8:6}" fill="${here?'#ffe078':final?'#b0ffdc':'#fff'}" stroke="#14283d" stroke-width="2"/>
+        <text y="${node.id==='norte'?-15:23}" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">${escapeHtml(names[node.id]||node.name)}</text>
+      </g>`;
     }).join('');
-    return '<svg class="metro-network-svg" viewBox="0 0 360 230" role="group" aria-label="Diagrama interativo das linhas de metrô do jogo, estação atual e rota selecionada">'+lineDraw+dots+'</svg>';
+    return '<svg class="metro-network-svg" viewBox="0 0 360 230" role="group" aria-label="Mapa interativo das linhas do metrô">'+lineDraw+dots+'</svg>';
   }
   function openMetroStation(station){
     if(player.vehicle||player.boating||player.transit.mode){toast('Desembarque antes de entrar no metrô.','warn');return;}
@@ -220,11 +227,33 @@
         selected={destination:target.id,legs,place,walkDistance:distance,previousLine:null};
         metroPlayerPlan=selected;render();
       }
-      $$('[data-metro-destination]',root).forEach(btn=>btn.onclick=()=>{const target=stations.find(x=>x.id===btn.dataset.metroDestination);if(target)choose(target);});
-      const chooseMapStation=event=>{const node=event.target.closest?.('[data-metro-map-station]'),target=node&&stations.find(s=>s.id===node.dataset.metroMapStation);if(!target)return;event.preventDefault();choose(target);if(event.type==='keydown')map.querySelector('[data-metro-map-station="'+target.id+'"]')?.focus();};
-      map.addEventListener('click',chooseMapStation);
-      map.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' ')chooseMapStation(event);});
-      placeSelect.onchange=e=>{if(e.target.value==='')return;const place=places[Number(e.target.value)],near=place&&metroNearestStation(place);if(near)choose(near.station,place,near.distance);};
+      function chooseStation(id){
+        const target=stations.find(station=>station.id===id);
+        if(!target)return;
+        choose(target);
+      }
+      map.addEventListener('click',event=>{
+        const marker=event.target.closest('[data-metro-map-station]');
+        if(marker)chooseStation(marker.dataset.metroMapStation);
+      });
+      map.addEventListener('keydown',event=>{
+        const marker=event.target.closest('[data-metro-map-station]');
+        if(!marker||!['Enter',' '].includes(event.key))return;
+        event.preventDefault();
+        const id=marker.dataset.metroMapStation;
+        chooseStation(id);
+        $$('[data-metro-map-station]',map).find(node=>node.dataset.metroMapStation===id)?.focus();
+      });
+      $$('[data-metro-destination]',root).forEach(btn=>btn.onclick=()=>chooseStation(btn.dataset.metroDestination));
+      placeSelect.onchange=event=>{
+        if(event.target.value===''){
+          selected=metroPlayerPlan=null;
+          render();
+          return;
+        }
+        const place=places[Number(event.target.value)],near=place&&metroNearestStation(place);
+        if(near)choose(near.station,place,near.distance);
+      };
       $$('[data-metro-bus]',root).forEach(btn=>btn.onclick=()=>{metroPlayerPlan=null;setWaypoint('bus-stop-'+btn.dataset.metroBus);});
       board.onclick=()=>{
         if(!selected)return;

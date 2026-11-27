@@ -14,7 +14,7 @@ test('grass recovery upgrades the one base surface without adding overlapping ge
  const build=read('20-world-build-cloud-houses.js');assert.match(build,/world\.baseGround=ground/);
 });
 test('critical surface culling uses transformed geometry center and hysteresis',()=>{
- const s=read('09-responsive-ar-quality-diagnostics.js');const body=s.slice(s.indexOf('  function updateCriticalSurfaceDistanceVisibility(){'),s.indexOf('  function updateDynamicEntityVisibility(){'));
+ const s=read('09-responsive-ar-quality-diagnostics.js');const body=s.slice(s.indexOf('  function updateCriticalSurfaceDistanceVisibility('),s.indexOf('  function updateDynamicEntityVisibility(){'));
  class V{constructor(x=0,y=0,z=0){this.set(x,y,z)}set(x,y,z){Object.assign(this,{x,y,z});return this}copy(v){return this.set(v.x,v.y,v.z)}applyMatrix4(m){this.x+=m.x||0;this.y+=m.y||0;this.z+=m.z||0;return this}setFromMatrixScale(){return this.set(1,1,1)}}
  const focus={x:0,z:0},mesh={parent:{},geometry:{boundingSphere:{center:new V(100,0,0),radius:2}},matrix:{x:-100},userData:{},visible:true},world={criticalSurfaces:[mesh]},perf={};
  const ctx=vm.createContext({world,perf,player:focus,worldFlightHorizon:()=>0,performanceDistanceRanges:()=>({critical:52}),visualWorldMatrix:m=>m.matrix,distanceCullPosition:new V(),distanceCullScale:new V()});
@@ -29,7 +29,7 @@ test('critical surface culling uses transformed geometry center and hysteresis',
 test('civil flight horizon covers the map and restores the ground camera',()=>{
  const s=read('09-responsive-ar-quality-diagnostics.js'),camera={far:1200,updates:0,updateProjectionMatrix(){this.updates++}},scene={fog:{near:210,far:520}},otGames={active:true,mode:'helicopter',body:{y:90}},rioClimate={kind:'clear'};
  const ctx=vm.createContext({camera,scene,otGames,rioClimate,v704WorldSize:()=>({w:1700,d:1800})});
- vm.runInContext(s.slice(s.indexOf('  function worldFlightHorizon(){'),s.indexOf('  function updateCriticalSurfaceDistanceVisibility(){')),ctx);
+ vm.runInContext(s.slice(s.indexOf('  function worldFlightHorizon(){'),s.indexOf('  function updateCriticalSurfaceDistanceVisibility(')),ctx);
  ctx.syncWorldFlightHorizon();assert(camera.far>2500);assert.equal(scene.fog.far,camera.far);const far=camera.far;otGames.body.y=100;ctx.syncWorldFlightHorizon();assert.equal(camera.far,far);assert.equal(camera.updates,1);
  otGames.active=false;ctx.syncWorldFlightHorizon();assert.equal(camera.far,1200);assert.equal(scene.fog.near,210);assert.equal(scene.fog.far,520);
  otGames.active=true;otGames.mode='ground';assert.equal(ctx.worldFlightHorizon(),0);

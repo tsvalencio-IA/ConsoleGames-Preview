@@ -31,3 +31,53 @@ test('batched visual transforms equal native Three world positions and extents a
     assert.equal(rootUpdates,1,'shared ancestors update once during a visibility pass');root.updateWorldMatrix=original;
   }
 });
+test('outline visibility keeps native world positions and shares ancestor transforms with other visibility queries',()=>{
+  const module={exports:{}};
+  vm.runInNewContext(fs.readFileSync('games/otthi/assets/vendor/three-r128.min.js','utf8'),{module,exports:module.exports});
+  const T=module.exports,world={outlines:[]},camera=new T.Object3D();
+  const root=new T.Group(),car=new T.Group(),building=new T.Group(),far=new T.Group();
+  root.add(car,building,far);
+  root.position.set(3,-2,5);
+  building.scale.set(-1.4,2,.65);
+  building.rotation.set(.3,.9,-.4);
+  far.position.set(140,0,80);
+  car.position.set(90,0,60);
+  const outline=parent=>{const line=new T.Object3D();parent.add(line);world.outlines.push(line);return line;};
+  const near=outline(building),manual=outline(building),remote=outline(far),driver=outline(car),marked=outline(far);
+  manual.matrixAutoUpdate=false;
+  manual.matrix.makeTranslation(9,-4,16);
+  near.position.set(1,2,3);
+  marked.userData.alwaysOutline=true;
+  const visualFoundation={qualityProfile:{outlineDistance:28}};
+  const c=vm.createContext({THREE:T,world,camera,playerGroup:null,playerModel:null,vehicleVisual:car,visualFoundation});
+  const visual=read('00a-visual-foundation-avatar-v2.js');
+  vm.runInContext(visual.slice(visual.indexOf('  function visualWorldMatrix('),visual.indexOf('  function visualFoundationDiagnostics(')),c);
+  for(const frame of [0,1,2,3]){
+    root.position.x+=2;
+    camera.position.set(frame===1?143:0,2,frame===1?83:0);
+    building.visible=frame!==2;
+    if(frame===3)far.add(near);
+    const expected=world.outlines.map(line=>{
+      for(let node=line;node;node=node.parent)if(node===car||node.userData.alwaysOutline)return true;
+      for(let node=line.parent;node;node=node.parent)if(!node.visible)return false;
+      return line.getWorldPosition(new T.Vector3()).distanceToSquared(camera.position)<=28**2;
+    });
+    let rootRefreshes=0,outlineRefreshes=0;
+    const rootWorldMatrix=root.updateWorldMatrix;
+    root.updateWorldMatrix=function(...args){rootRefreshes++;return rootWorldMatrix.apply(this,args);};
+    const refreshes=world.outlines.map(line=>line.updateWorldMatrix);
+    for(const [index,line] of world.outlines.entries())line.updateWorldMatrix=function(...args){outlineRefreshes++;return refreshes[index].apply(this,args);};
+    const visited=new Set();
+    c.visualWorldMatrix(building,visited);
+    c.updateManagedOutlineVisibility(visited);
+    assert.deepEqual(world.outlines.map(line=>line.visible),expected);
+    assert.equal(visualFoundation.outlineVisible,expected.filter(Boolean).length);
+    assert.equal(rootRefreshes,1,'shared scene and outline checks refresh the root once');
+    assert.equal(outlineRefreshes,0,'exclude outline leaf matrices from visibility checks');
+    root.updateWorldMatrix=rootWorldMatrix;
+    for(const [index,line] of world.outlines.entries())line.updateWorldMatrix=refreshes[index];
+  }
+  assert.equal(driver.visible,true);
+  assert.equal(marked.visible,true);
+  assert.equal(remote.visible,false);
+});

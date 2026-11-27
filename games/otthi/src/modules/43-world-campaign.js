@@ -317,7 +317,8 @@
     if(OT_CHILD_WORLD)worldCampaign.mission=null;
     campaignEnsure();document.body.classList.toggle('campaign-operation-active',!!worldCampaign.mission);if(!worldCampaign.initialized||paused)return;
     const focus=otGames.active?otGames.body:player;
-    for(const item of worldCampaign.landmarks)item.root.visible=campaignDist(focus,item.site)<240;
+    const landmarkRange=worldFlightSceneryRange(240);
+    for(const item of worldCampaign.landmarks)item.root.visible=campaignDist(focus,item.site)<landmarkRange;
     campaignSyncAircraft();
     const m=worldCampaign.mission,g=otGames;
     if(m){

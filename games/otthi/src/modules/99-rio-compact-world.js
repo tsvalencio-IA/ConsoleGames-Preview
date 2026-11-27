@@ -494,12 +494,13 @@
     updateRioPractice(performance.now());
     for(const room of rioMap.sites.values()){
       const {site}=room;
+      const distance=distance2D(focus,site);
       if(room.legacyResidence){
         // Historic homes retain the exact old exterior while the furnished
         // native room is visible only to the player who entered the door.
         const inside=!!room.legacyRecord?.inside;
         room.root.visible=inside;
-        if(room.poolExterior)room.poolExterior.visible=distance2D(focus,site)<(flight||nearRange);
+        if(room.poolExterior)room.poolExterior.visible=distance<(flight||nearRange);
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
@@ -507,8 +508,8 @@
         }
         continue;
       }
-      const near=distance2D(focus,site)<nearRange;
-      room.root.visible=distance2D(focus,site)<(flight||nearRange);
+      const near=distance<nearRange;
+      room.root.visible=distance<(flight||nearRange);
       if(room.poolExterior)room.poolExterior.visible=room.root.visible;
       if(!room.root.visible)continue;
       if(room.roof){
