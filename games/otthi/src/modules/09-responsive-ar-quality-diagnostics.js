@@ -301,10 +301,29 @@
     return{critical:122,npc:96,resource:112,enemy:106,crystal:120,animal:100};
   }
   function worldFlightHorizon(){
-    if(typeof otGames==='undefined'||!otGames.active||!['plane','helicopter','balloon'].includes(otGames.mode)||!otGames.body)return 0;
+    if(!worldFlightBody())return 0;
     const bounds=v704WorldSize();
     // Fixed projection throughout the flight; no resize/recompile on each change of altitude.
     return Math.ceil(Math.hypot(bounds.w,bounds.d)+900);
+  }
+  function worldFlightBody(){
+    if(typeof otGames==='undefined'||!otGames.active||!otGames.body)return null;
+    return otGames.mode==='plane'||otGames.mode==='helicopter'||otGames.mode==='balloon'?otGames.body:null;
+  }
+  const flightSceneryFloor={body:null,x:0,z:0,y:0};
+  function worldFlightSceneryRange(groundRange,maximum=920){
+    const body=worldFlightBody();
+    if(!body||otGames.armed||otGames.onGround)return groundRange;
+    // Several visibility passes share the flight position in each tick.
+    // Query the same terrain as the flight model once at that position.
+    if(body!==flightSceneryFloor.body||body.x!==flightSceneryFloor.x||body.z!==flightSceneryFloor.z){
+      flightSceneryFloor.body=body;
+      flightSceneryFloor.x=body.x;
+      flightSceneryFloor.z=body.z;
+      flightSceneryFloor.y=groundHeightAt(body.x,body.z);
+    }
+    const altitude=body.y-flightSceneryFloor.y;
+    return altitude>0?Math.max(groundRange,Math.min(maximum,groundRange+altitude*3.5)):groundRange;
   }
   let previousFlightHorizon=null;
   function syncWorldFlightHorizon(){
@@ -323,9 +342,9 @@
       }
     }
   }
-  function updateCriticalSurfaceDistanceVisibility(){
+  function updateCriticalSurfaceDistanceVisibility(visited=new Set()){
     const focus=typeof otGamesFocus==='function'?otGamesFocus():player;
-    const flightRange=worldFlightHorizon(),range=flightRange||performanceDistanceRanges().critical,visited=new Set();let visible=0,hidden=0;
+    const flightRange=worldFlightHorizon(),range=flightRange||performanceDistanceRanges().critical;let visible=0,hidden=0;
     for(const mesh of world.criticalSurfaces||[]){
       if(!mesh?.parent)continue;
       if(mesh.userData?.alwaysVisible===true||Number(mesh.renderOrder||0)>=900){mesh.visible=true;visible++;continue;}
@@ -347,8 +366,9 @@
     perf.dynamicVisible=visible;perf.dynamicHidden=hidden;return{visible,hidden,ranges};
   }
   function lockStableSceneVisibility(){
-    updateCriticalSurfaceDistanceVisibility();updateDynamicEntityVisibility();
-    updateManagedOutlineVisibility();
+    const worldTransforms=new Set();
+    updateCriticalSurfaceDistanceVisibility(worldTransforms);updateDynamicEntityVisibility();
+    updateManagedOutlineVisibility(worldTransforms);
     const glowVisible=visualQualityProfile(qualityTier()).glows;for(const light of world.glows){if(light?.parent)light.visible=glowVisible;}
     if(world.clouds){const max=qualityTier()==='high'?8:qualityTier()==='balanced'?6:4;world.clouds.forEach((cloud,i)=>cloud.group.visible=i<max);}
   }
@@ -385,8 +405,9 @@
   }
   function updateVisualLOD(){
     updateManagedVisualLODs(camera);
-    updateManagedOutlineVisibility();
-    updateCriticalSurfaceDistanceVisibility();
+    const worldTransforms=new Set();
+    updateManagedOutlineVisibility(worldTransforms);
+    updateCriticalSurfaceDistanceVisibility(worldTransforms);
     updateDynamicEntityVisibility();
     if(typeof updateParkedVehicleVisibility==='function')updateParkedVehicleVisibility();
     const signRange=qualityTier()==='low'?30:qualityTier()==='high'?58:42;

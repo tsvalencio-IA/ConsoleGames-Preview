@@ -66,7 +66,14 @@
   }
   function updateWorldExpansion(){
     expansionEnsure();if(!worldExpansion.ready||performance.now()-worldExpansion.lastLod<250)return;worldExpansion.lastLod=performance.now();
-    const focus=otGamesFocus();for(const root of worldExpansion.groups)root.visible=Math.hypot(focus.x-root.position.x,focus.z-root.position.z)<(otGames.active&&otGames.mode!=='ground'?420:220);
-    for(const c of SPORTS_V705.circuits){const near=Math.hypot(focus.x-c.cx,focus.z-c.cz)<210;c.root.visible=near;for(const car of c.karts)if(!car.occupied)car.group.visible=near&&!car.garageStored;}
+    const focus=otGamesFocus();
+    const cityRange=worldFlightSceneryRange(otGames.active&&otGames.mode!=='ground'?420:220);
+    const circuitRange=worldFlightSceneryRange(210);
+    for(const root of worldExpansion.groups)root.visible=Math.hypot(focus.x-root.position.x,focus.z-root.position.z)<cityRange;
+    for(const c of SPORTS_V705.circuits){
+      const distance=Math.hypot(focus.x-c.cx,focus.z-c.cz);
+      c.root.visible=distance<circuitRange;
+      for(const car of c.karts)if(!car.occupied)car.group.visible=distance<210&&!car.garageStored;
+    }
   }
   window.OTTHI_EXPANSION={locations:expansionMapLocations,diagnostics:()=>({ready:worldExpansion.ready,bounds:{...v704WorldBounds()},cities:Object.values(WORLD_LAYOUT_V704.cities).map(c=>({...c})),assets:Object.keys(worldExpansion.assets),models:worldExpansion.cars.map(c=>({id:c.id,asset:c.group.userData.racerAsset,drivable:!c.occupied})),circuits:SPORTS_V705.circuits.map(c=>({id:c.id,length:c.curve.getLength(),width:c.width,active:c.active}))})};

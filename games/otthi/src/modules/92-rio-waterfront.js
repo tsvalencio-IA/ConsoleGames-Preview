@@ -288,8 +288,10 @@
   function updateRioWaterArea(water,dt){
     if(!water)return;
     const craft=water.craft||[];
-    if(Math.hypot(player.x-water.entry.x,player.z-water.entry.z)>208){
-      water.group.visible=false;
+    const flight=worldFlightBody(),focus=flight||player;
+    const distance=Math.hypot(focus.x-water.entry.x,focus.z-water.entry.z);
+    if(distance>208){
+      water.group.visible=distance<=worldFlightSceneryRange(208);
       for(const boat of craft)if(!boat.seaGoing)boat.group.visible=player.boating&&boat===world.boat;
       for(const actor of water.swimmers)actor.npc.group.visible=false;
       return;

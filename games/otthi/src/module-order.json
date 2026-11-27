@@ -14,7 +14,7 @@
       "startLine": 51,
       "endLine": 367,
       "description": "Registro central de assets, LOD gerenciado, orçamento visual e esquema de avatar V2",
-      "sha256Body": "b2d17d26cfc03d346f00c5270e15cdd0b7b5490d295e23e32c0e6af3453b4261"
+      "sha256Body": "09c739be1405704bb93afcbcfadb6e573d954fb44f40d4e54d2b027144115fe2"
     },
     {
       "file": "src/modules/81-rio-wardrobe.js",
@@ -80,7 +80,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Fonte central de verdade do layout mundial V704",
-      "sha256Body": "5632f15c12f260ffcb7c09ea1ab1b4409ca377c66cd0d1a8d14576272ec93640"
+      "sha256Body": "0bc05b4e4e39200216b2527e4844080d19c37dcae96070ef77b847d6fd1a4a9f"
     },
     {
       "file": "src/modules/06-missions-profile-hud-inventory-tools.js",
@@ -115,7 +115,7 @@
       "startLine": 1808,
       "endLine": 2074,
       "description": "Responsividade, AR, modos, qualidade, LOD e diagnóstico",
-      "sha256Body": "27d0867198950c54063d93daceedeb41046d14ab404c0fd8c9321627dfcc0dc7"
+      "sha256Body": "ce9c08b7b9c632fe6a67e397ea4c2eb31e609025ca552d65187e37e4760530d2"
     },
     {
       "file": "src/modules/10-player-skills.js",
@@ -136,7 +136,7 @@
       "startLine": 2514,
       "endLine": 2741,
       "description": "Interações do mundo, árvores, rochas, mina, poço, ruas, água e móveis",
-      "sha256Body": "cb6f7e7fbd0a44ccf0770d9c2922679671b3f744f623cdf1c17ccc29d09cef8f"
+      "sha256Body": "a2243e586d8cfd6d12bc9e86bfa65d71366006c59447a929da40519bb5d93746"
     },
     {
       "file": "src/modules/13-houses-npcs-vehicles-base.js",
@@ -164,14 +164,14 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Rodovia OTTOVIAS integrada: circuito, biomas, pedágios, Michelle e ronda guiada",
-      "sha256Body": "7bafa599a84eabded5f5bb820bd7d2c44c0b5ae1be267c103760a73824d8b481"
+      "sha256Body": "ed6430e7d874ce96a996eea2e2ed941209858a1f3b7ac6e7f1c1c097b1e7d1d2"
     },
     {
       "file": "src/modules/15-transit-bus-metro.js",
       "startLine": 3087,
       "endLine": 3308,
       "description": "Ônibus, rotas viárias, paradas, metrô e painel de transporte",
-      "sha256Body": "655b9d8db15f607966ce9d04e421e4ff4aac323ff6848eb539244f42769cd4ad"
+      "sha256Body": "33a71ed7e3a12d1cafb928f7fee3df12fe1801823192293e6a468784b449a5d9"
     },
     {
       "file": "src/modules/16-emergency-services.js",
@@ -262,7 +262,7 @@
       "startLine": 4767,
       "endLine": 4928,
       "description": "Sociedade NPC, inimigos, combate, câmera, contexto, ação e necessidades",
-      "sha256Body": "c3cfc2c6c65bef9b40a09eae0a876109c1c785000a488e74bf61c2a8dc8fa742"
+      "sha256Body": "902e56e05c1518cc41c8be332900d5c080ab0c6e41b507719c28ee917d7932c8"
     },
     {
       "file": "src/modules/28b-multiplayer-core-v2.js",
@@ -290,7 +290,7 @@
       "startLine": 5124,
       "endLine": 5238,
       "description": "Loop principal, controles, gamepad e início do jogo",
-      "sha256Body": "3873baca7c7da1b50faf882325640516fcf763c16a061023a45384cbf39b541a"
+      "sha256Body": "05ad0df7d484147df42cddf2b449daafa8790b3c8c8f8c3dc7a346f5103ad998"
     },
     {
       "file": "src/modules/30-pause-tests-public-api-bootstrap.js",
@@ -311,7 +311,7 @@
       "startLine": 5680,
       "endLine": 5801,
       "description": "Fundação OTTHI World, PBR local, diagnóstico e painel das cinco etapas",
-      "sha256Body": "b616cc1c9e6e8b87170756e2fadec7b8b890e2142914ed82bf663349f601a0d0"
+      "sha256Body": "daf0cb628ca5b75c6b00f5c62dd815b4bb10e2bf3c8f594f66babff0d9ffaa85"
     },
     {
       "file": "src/modules/34-avatar-studio-professional-v3.js",
@@ -402,7 +402,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Mundo unificado: bases reais, operações no norte e retorno físico",
-      "sha256Body": "9c4ce58253977884451c93f8bb5cc3cfbf6255ed6f0b1b73c9006fff232b3893"
+      "sha256Body": "8abd5fd9fe0d6b5af487c5c6ba1b368741311e0b8b27e7e5fbb3183f7f331169"
     },
     {
       "file": "src/modules/44-world-rhythm.js",
@@ -423,7 +423,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Cidades, autódromos e veículos GLB no mundo unificado",
-      "sha256Body": "a80c5a54a0fe243efad369b567c38b3726aa320c45d28a11d7152ae1d2aefb91"
+      "sha256Body": "bd0ea5f4e55fcbcc7e2a9775453bff3c2663677e4d00534ba0263932e41d562c"
     },
     {
       "file": "assets/js/vehicles/brazilian-details.js",
@@ -486,7 +486,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Continuidade viária e ponte da Costa sobre água preservada",
-      "sha256Body": "8c7e21be48399c8fa7f6d1eab8d0d40f42c40eb403efdc6054534abb8f7c9405"
+      "sha256Body": "cc61889690ebebc352dfafa7eff04b6a36e3c8e5492e652a9225252adfc0561c"
     },
     {
       "file": "src/modules/51-online-travel-party.js",
@@ -576,7 +576,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Cordilheira, neve, mata e trilha conectadas ao mundo",
-      "sha256Body": "2f1dc3a5d1f1081fc9c4daf8fada48ee0f9064258a3d7273c203c7a67c2cb7d3"
+      "sha256Body": "4b7e76475225867e14a4b44b7b9fe16545f62c884a36bea58323db5ff338c5fa"
     },
     {
       "file": "src/modules/65-civil-community.js",
@@ -687,7 +687,7 @@
     },
     {
       "file": "src/modules/89-rio-map-world.js",
-      "sha256Body": "a12433ffb5b3095e51e3a0fd1ea90a92b7e9cc2c8c0754659d874174873e24e2"
+      "sha256Body": "1bf07d9d107a9c827e1388536c6248a3ae4cedda2b543337fc35b7e84c46d901"
     },
     {
       "file": "src/modules/90-rio-map-activities.js",
@@ -699,7 +699,7 @@
     },
     {
       "file": "src/modules/92-rio-waterfront.js",
-      "sha256Body": "0fa266ebc6a69f4caf80f7def82eccd495edd6cf5b6c482a796346086b2f46f3"
+      "sha256Body": "e0a2a68acfbf2a86b904f8e68cfed52d14b465196c855b1c4c3148af2fd9b7e0"
     },
     {
       "file": "src/modules/93-rio-city-services.js",
@@ -734,7 +734,7 @@
     {
       "file": "src/modules/99-rio-compact-world.js",
       "description": "Infraestrutura original e atividades jogáveis da Rio Preto compacta",
-      "sha256Body": "1638b0543806357c26d94f84e49b6c69d2cdd2c294d48608ed0a3511eee6b645"
+      "sha256Body": "db15fa4168bf29c681afede58f26ad25504967af69605ceca1198414fc4fa464"
     },
     {
       "file": "src/modules/100-rio-weather.js",
@@ -950,7 +950,7 @@
     {
       "file": "src/styles/29-exploration-hud.css",
       "description": "Menu de exploração e HUD compacto sem remoção de funções",
-      "sha256Body": "776c968d7845fe1c5d80d1b4333520093f9f8c268df7f794b08abb5546676825"
+      "sha256Body": "ed64fc5caaa798af3d7c5e502446c66b7152d12ac08a657e9157af57b2175fef"
     },
     {
       "file": "src/styles/30-rio-wardrobe.css",

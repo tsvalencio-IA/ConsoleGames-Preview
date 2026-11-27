@@ -491,14 +491,18 @@
     rioMap.indoors=false;
     rioMap.indoorRoom=null;
     const focus=navigationFocus();
+    const serviceRange=qualityTier()==='low'?142:195;
+    const sceneryRange=worldFlightSceneryRange(serviceRange);
+    const flying=!!worldFlightBody();
     for(const room of rioMap.sites.values()){
       const {site}=room;
+      const distance=distance2D(focus,site);
       if(room.legacyResidence){
         // Historic homes retain the exact old exterior while the furnished
         // native room is visible only to the player who entered the door.
         const inside=!!room.legacyRecord?.inside;
         room.root.visible=inside;
-        if(room.poolExterior)room.poolExterior.visible=distance2D(focus,site)<(qualityTier()==='low'?142:195);
+        if(room.poolExterior)room.poolExterior.visible=distance<sceneryRange;
         if(inside){
           if(room.roof)room.roof.visible=false;
           rioMap.indoors=true;rioMap.indoorRoom=room;
@@ -506,15 +510,15 @@
         }
         continue;
       }
-      room.root.visible=distance2D(focus,site)<(qualityTier()==='low'?142:195);
+      room.root.visible=distance<sceneryRange;
       if(room.poolExterior)room.poolExterior.visible=room.root.visible;
       if(!room.root.visible)continue;
       if(room.roof){
-        const inside=!currentHouse&&!player.vehicle&&room.forSite(player.x,player.z,-.22)&&!room.isOutdoorLeisurePoint?.(player.x,player.z);
+        const inside=!flying&&!currentHouse&&!player.vehicle&&room.forSite(player.x,player.z,-.22)&&!room.isOutdoorLeisurePoint?.(player.x,player.z);
         room.roof.visible=!inside;
         if(inside){rioMap.indoors=true;rioMap.indoorRoom=room;}
       }
-      if(room.server||room.door||room.npcs?.length)rioUpdatePlaceService(site,room,.08);
+      if(distance<serviceRange&&(room.server||room.door||room.npcs?.length))rioUpdatePlaceService(site,room,.08);
       if(rioMap.order?.site===site.id&&distance2D(player,site)>Math.max(site.w,site.d)+8){
         rioClearDiningOrder(room);
       }

@@ -106,3 +106,34 @@ test('moving to compact Rio keeps receipts, property and legacy coordinate snaps
   assert.equal(orders[1].status,'delivered');
   assert.equal(older.previousMapPose.position.x,2700);
 });
+
+test('Rio Preto street and highway signs keep their entire panel out of homes and storefronts',()=>{
+  const ctx=compactContext();
+  const locations=source('99-rio-compact-world').match(/for\(const \[x,z,text,yaw\] of (\[[\s\S]*?\])\)createSignpost/)[1];
+  const result=vm.runInContext(`(()=>{
+    const namedSigns=${locations}.map(([x,z,id,rotationY])=>({x,z,id,rotationY,kind:'guide'}));
+    // Use the real façade/lot dimensions independently of the sign placement helper.
+    const parcels=[
+      ...RIO_COMPACT_LAYOUT.lots.map(rioCompactLotRect),
+      ...OTTHI_PERSONAL_HOME_LOTS.map((p,i)=>({...p,id:'personal-home-'+i,w:10.4,d:8.6})),
+      ...WORLD_LAYOUT_V704.structures.filter(s=>['city','house','family-home','civil-home','garage','activity','campaign','castle'].includes(s.kind)).map(s=>worldLayoutStructure(s.id))
+    ];
+    const signs=[...WORLD_LAYOUT_V704.signs,...namedSigns].map(spec=>{
+      const highway=spec.kind==='highway';
+      const p=highway?v704HighwaySignPoint(spec):v704SafeSignPoint(spec.x,spec.z,spec.rotationY);
+      const yaw=p.heading??spec.rotationY??0,halfWidth=highway?2.8:.95;
+      const extent={...p,w:2*(Math.abs(Math.cos(yaw))*halfWidth+Math.abs(Math.sin(yaw))*.11),
+        d:2*(Math.abs(Math.sin(yaw))*halfWidth+Math.abs(Math.cos(yaw))*.11)};
+      return {id:spec.id,point:p,intersections:parcels.filter(lot=>v704RectOverlap(extent,lot,.19)).map(lot=>lot.id)};
+    });
+    return {signs,panel:v704SafeSignPoint(12.8,-21,0,'highway')};
+  })()`,ctx);
+  assert.equal(result.signs.length,25);
+  assert.deepEqual(Array.from(result.signs.flatMap(s=>s.intersections)),[]);
+  const andalo=result.signs.find(s=>s.id==='AV. ALBERTO ANDALÓ');
+  assert(Math.hypot(andalo.point.x-11,andalo.point.z+11)<12,
+    'Alberto Andaló sign must remain near the authored intersection');
+  // The center is clear of the workshop, but this panel's edge crosses it.
+  const {x,z}=result.panel;
+  assert(x!==12.8||z!==-21);
+});
