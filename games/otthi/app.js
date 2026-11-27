@@ -8,7 +8,7 @@
   function regionalRouteVisible(){
     return false;
   }
-  const OTTHI_GAME_WEB_BUILD = '705.28.53-camera-multiplayer';
+  const OTTHI_GAME_WEB_BUILD = '705.28.54-simulador-servicos';
   window.OTTHI_GAME_VERSION = 705;
   window.OTTHI_GAME_BUILD = OTTHI_GAME_WEB_BUILD;
   const OTTHI_INDEX_BUILD = document.documentElement?.dataset?.otthiBuild || '';
@@ -3410,7 +3410,18 @@
     for(const house of houses)for(const road of roads)if(!(house.allowedRoads||[]).includes(road.id)&&v704RectOverlap(house,road,1.0))add('house-on-road',house.id,road.id);for(const house of houses)for(const highway of WORLD_LAYOUT_V704.highways||[])if(!(house.allowedHighways||[]).includes(highway.id)&&v704HighwayIntersectsRect(highway.id,house,1.0))add('house-on-highway',house.id,highway.id);
     for(let i=0;i<houses.length;i++)for(let j=i+1;j<houses.length;j++)if(v704RectOverlap(houses[i],houses[j],1.0))add('house-overlap',houses[i].id,houses[j].id);
     for(const house of houses)for(const hazard of hazards)if(Number.isFinite(hazard.w)&&v704RectOverlap(house,hazard,.25))add('house-in-hazard',house.id,hazard.type);
-    const protectedGameplay=protectedRects.filter(rect=>['sport','kart','farm','castle'].includes(rect.kind));for(const collider of world?.colliders||[]){const rect={x:Number(collider.x),z:Number(collider.z),w:Number(collider.w),d:Number(collider.d)};if(!Number.isFinite(rect.x)||collider.sportsV704||collider.kartV704)continue;for(const protectedRect of protectedGameplay){if(protectedRect.kind==='castle'&&collider.castle)continue;if(v704RectOverlap(rect,protectedRect,.15))add('collider-in-protected-area',collider.houseId||collider.buildId||collider.landmark||'collider',protectedRect.id);}}
+    const protectedGameplay=protectedRects.filter(rect=>['sport','kart','farm','castle'].includes(rect.kind));
+    for(const collider of world?.colliders||[]){
+      const rect={x:Number(collider.x),z:Number(collider.z),w:Number(collider.w),d:Number(collider.d)};
+      if(!Number.isFinite(rect.x)||collider.sportsV704||collider.kartV704)continue;
+      for(const protectedRect of protectedGameplay){
+        const stadiumPart=protectedRect.id==='stadium'&&collider.sportsStructure;
+        const civicPart=protectedRect.id==='castle'&&(collider.castle||collider.rioSiteId==='regional-prefeitura_andalo');
+        if(stadiumPart||civicPart)continue;
+        if(v704RectOverlap(rect,protectedRect,.15))
+          add('collider-in-protected-area',collider.houseId||collider.buildId||collider.rioSiteId||collider.landmark||'collider',protectedRect.id);
+      }
+    }
     for(const vehicle of vehicles){const x=Number(vehicle.group?.position?.x??vehicle.x),z=Number(vehicle.group?.position?.z??vehicle.z),id=String(vehicle.id||'vehicle');if(!Number.isFinite(x)||!Number.isFinite(z)){add('vehicle-invalid-position',id);continue;}const isKart=String(vehicle.kind||'')==='kart',owned=Array.isArray(state?.vehicles?.owned)&&state.vehicles.owned.includes(id);if(!isKart)for(const road of roads)if(v704PointInRect({x,z},road,Number(vehicle.radius||1.35)))add('vehicle-on-road',id,road.id);for(const structure of protectedRects){if(isKart&&(structure.kind==='kart'||structure.kind==='kart-inner'))continue;if(structure.kind==='garage'&&owned)continue;if(structure.id==='workshop'&&(world.workshopLifts||[]).some(l=>String(l.vehicleId)===id&&Math.hypot(x-l.x,z-l.z)<.65))continue;if(v704PointInRect({x,z},structure,1.2))add('vehicle-inside-structure',id,structure.id);}}
     const signLots=v704SignReservations();
     for(const sign of world?.navigationSigns||[]){
@@ -5833,7 +5844,7 @@
   function configureSportControlsV705(type=activeSportControlTypeV705()){SPORTS_V705.uiMode=type||'';return syncSportControlsV705();}
   function clearSportControlsV705(){SPORTS_V705.uiMode='';if(typeof input!=='undefined')input.touchSprint=false;document.body.classList.remove('mode-sport-controls');delete document.body.dataset.sportControls;const ji=$('b',els.jumpBtn),jl=$('span',els.jumpBtn);if(ji)ji.textContent='⬆';if(jl)jl.textContent='Pular';if(els.jumpBtn)els.jumpBtn.setAttribute('aria-label','Pular');if(typeof updateRunUI==='function')updateRunUI();}
   function v705FootballTackle(){const f=SPORTS_V705.football;if(!f||f.finished||f.countdown>0)return false;if(f.mode==='online'&&v705GuestSportAction('football','tackle')){v705PlayerSportAnimation('tackle',520);return true;}const now=performance.now();if(now-Number(f.lastTackleAt||0)<850){toast('Aguarde para dar outro carrinho.','warn',650);return true;}f.lastTackleAt=now;const enemy=f.away.filter(a=>a.role==='field').sort((a,b)=>Math.hypot(player.x-a.group.position.x,player.z-a.group.position.z)-Math.hypot(player.x-b.group.position.x,player.z-b.group.position.z))[0],heading=Number(player.facing||0),fx=Math.sin(heading),fz=Math.cos(heading);player.sportTackleUntil=now+520;player.sportTackleVx=fx*9.4;player.sportTackleVz=fz*9.4;player.vx=player.sportTackleVx;player.vz=player.sportTackleVz;v705PlayerSportAnimation('tackle',520);if(enemy){const ed=Math.hypot(player.x-enemy.group.position.x,player.z-enemy.group.position.z),bd=Math.hypot(f.ball.position.x-enemy.group.position.x,f.ball.position.z-enemy.group.position.z);if(ed<2.55&&bd<2.25){const dx=f.ball.position.x-player.x,dz=f.ball.position.z-player.z,n=Math.max(.001,Math.hypot(dx,dz));f.vx=dx/n*7.8;f.vz=dz/n*7.8;f.cooldown=.42;toast('Carrinho limpo — bola recuperada!','good',900);vibrate(24);return true;}}toast('Carrinho! Tente atingir a bola durante o deslizamento.','warn',800);vibrate(16);return true;}
-  function v705CourtTouch(kind){const c=SPORTS_V705.active;if(!c||!['volley','footvolley'].includes(c.type))return false;if(c.mode==='online'&&v705GuestSportAction(c.type,kind)){v705PlayerSportAnimation(kind,420);return true;}if(kind==='set')return v705CourtSet();if(c.state==='serve'&&c.serving===0){if(kind==='header'||kind==='block'){toast('Primeiro faça o saque.','warn',750);return true;}return courtHitV704();}if(!v705CourtContactWindow(c)){toast('Entre na sombra da bola para executar o movimento.','warn',850);return true;}c.touches[0]=(c.lastSide===0?c.touches[0]+1:1);c.touches[1]=0;c.lastSide=0;if(c.touches[0]>3){v705CourtPoint(c,1);return true;}const aimX=clamp(c.ball.position.x+Math.sin(player.facing)*3,c.cx-c.w/2+1,c.cx+c.w/2-1);if(kind==='header'){v705PlayerSportAnimation('header',430);if(c.ball.position.y<1.15){toast('A bola está baixa demais para cabecear.','warn',700);c.touches[0]=Math.max(0,c.touches[0]-1);return true;}player.vy=Math.max(player.vy||0,2.2);v705CourtSend(c,6.0,6.7,aimX);toast('Cabeçada!','good',650);return true;}if(kind==='kick'){v705PlayerSportAnimation('kick',420);v705CourtSend(c,5.45,7.7,aimX);toast('Chute de ataque!','good',650);return true;}if(kind==='touch'){v705PlayerSportAnimation('touch',330);c.vx=clamp((c.cx-c.ball.position.x)*.32,-2.3,2.3);c.vz=1.0;c.vy=4.7;toast('Toque controlado.','good',600);return true;}if(kind==='block'){v705PlayerSportAnimation('block',480);const nearNet=Math.abs(player.z-c.cz)<2.7;if(!nearNet){toast('Aproxime-se da rede para bloquear.','warn',750);c.touches[0]=Math.max(0,c.touches[0]-1);return true;}player.vy=Math.max(player.vy||0,5.2);v705CourtSend(c,4.3,7.8,aimX);toast('Bloqueio!','good',600);return true;}if(kind==='spike'){v705PlayerSportAnimation('spike',460);player.vy=Math.max(player.vy||0,3.1);v705CourtSend(c,7.0,8.8,aimX);toast('Cortada!','good',600);return true;}return courtHitV704();}
+  function v705CourtTouch(kind){const c=SPORTS_V705.active;if(!c||c.state==='finished'||!['volley','footvolley'].includes(c.type))return false;if(c.mode==='online'&&v705GuestSportAction(c.type,kind)){v705PlayerSportAnimation(kind,420);return true;}if(kind==='set')return v705CourtSet();if(c.state==='serve'&&c.serving===0){if(kind==='header'||kind==='block'){toast('Primeiro faça o saque.','warn',750);return true;}return courtHitV704();}if(!v705CourtContactWindow(c)){toast('Entre na sombra da bola para executar o movimento.','warn',850);return true;}c.touches[0]=(c.lastSide===0?c.touches[0]+1:1);c.touches[1]=0;c.lastSide=0;if(c.touches[0]>3){v705CourtPoint(c,1);return true;}const aimX=clamp(c.ball.position.x+Math.sin(player.facing)*3,c.cx-c.w/2+1,c.cx+c.w/2-1);if(kind==='header'){v705PlayerSportAnimation('header',430);if(c.ball.position.y<1.15){toast('A bola está baixa demais para cabecear.','warn',700);c.touches[0]=Math.max(0,c.touches[0]-1);return true;}player.vy=Math.max(player.vy||0,2.2);v705CourtSend(c,6.0,6.7,aimX);toast('Cabeçada!','good',650);return true;}if(kind==='kick'){v705PlayerSportAnimation('kick',420);v705CourtSend(c,5.45,7.7,aimX);toast('Chute de ataque!','good',650);return true;}if(kind==='touch'){v705PlayerSportAnimation('touch',330);c.vx=clamp((c.cx-c.ball.position.x)*.32,-2.3,2.3);c.vz=1.0;c.vy=4.7;toast('Toque controlado.','good',600);return true;}if(kind==='block'){v705PlayerSportAnimation('block',480);const nearNet=Math.abs(player.z-c.cz)<2.7;if(!nearNet){toast('Aproxime-se da rede para bloquear.','warn',750);c.touches[0]=Math.max(0,c.touches[0]-1);return true;}player.vy=Math.max(player.vy||0,5.2);v705CourtSend(c,4.3,7.8,aimX);toast('Bloqueio!','good',600);return true;}if(kind==='spike'){v705PlayerSportAnimation('spike',460);player.vy=Math.max(player.vy||0,3.1);v705CourtSend(c,7.0,8.8,aimX);toast('Cortada!','good',600);return true;}return courtHitV704();}
   function v705SportsHubV7051(){openModal('🏟️ Central de Esportes',`<p><b>Escolha a modalidade.</b> Cada botão inicia ou leva ao local correto.</p><div class="sports-hub-grid"><button class="primary" data-v7051-sport="football">⚽ <b>Futebol</b><span>4 × 4 • condução • chute • passe</span></button><button data-v7051-sport="volley">🏐 <b>Vôlei</b><span>2 × 2 • saque • recepção • ataque</span></button><button data-v7051-sport="footvolley">🏖️ <b>Futevôlei</b><span>2 × 2 • domínio • levantamento • ataque</span></button><button data-v7051-sport="athletics">🏃 <b>Atletismo</b><span>volta rápida • duas voltas • pega-medalhas</span></button><button data-v7051-sport="kart">🏁 <b>Autódromos</b><span>corrida • chicanes • hairpins • boosts</span></button></div>`,root=>{$$('[data-v7051-sport]',root).forEach(btn=>btn.onclick=()=>{const type=btn.dataset.v7051Sport;if(type==='football')return openFootballV705();if(type==='volley'||type==='footvolley')return openCourtV705(type);if(type==='athletics'){closeModal();return openRaceCenter();}if(type==='kart'){closeModal();setWaypoint('circuit-aurora');toast('Autódromo Nova Aurora marcado no GPS.','good');}});});}
   function v705FootballEntrance(sports){const p=worldLayoutPoint('footballEntrance',{x:sports.centerX+8,z:sports.centerZ-19});return{x:Number(p.x),z:Number(p.z)};}
   function v705AthleticsPoint(gym,t,lane=0){const a=-Math.PI/2+((Number(t)||0)%1+1)%1*Math.PI*2,rx=Number(gym?.radiusX||26)+lane,rz=Number(gym?.radiusZ||14)+lane*.53;return{x:Number(gym?.centerX||42)+Math.cos(a)*rx,z:Number(gym?.centerZ||88)+Math.sin(a)*rz,heading:Math.atan2(-Math.sin(a)*rx,Math.cos(a)*rz)};}
@@ -6003,17 +6014,57 @@
     const halfW=f.w/2,halfD=f.d/2,goal=Math.abs(ball.z-f.cz)<3.35;if(ball.x>f.cx+halfW){if(goal){f.score[0]++;toast('GOL DO SEU TIME!','good',1700);v705FootballReset(-1);}else{ball.x=f.cx+halfW-.55;ball.z=clamp(ball.z,f.cz-halfD+1,f.cz+halfD-1);f.vx=-2;f.vz=0;f.cooldown=.55;}}else if(ball.x<f.cx-halfW){if(goal){f.score[1]++;toast('Gol do adversário.','warn',1500);v705FootballReset(1);}else{ball.x=f.cx-halfW+.55;ball.z=clamp(ball.z,f.cz-halfD+1,f.cz+halfD-1);f.vx=2;f.vz=0;f.cooldown=.55;}}if(ball.z>f.cz+halfD||ball.z<f.cz-halfD){const side=ball.z>f.cz?1:-1;ball.z=f.cz+side*(halfD-.55);ball.x=clamp(ball.x,f.cx-halfW+2,f.cx+halfW-2);f.vx=0;f.vz=-side*1.3;f.cooldown=.55;if(performance.now()-f.lastOutAt>900){f.lastOutAt=performance.now();toast('Lateral — bola em jogo.','warn',650);}}
     player.x=clamp(player.x,f.cx-halfW-1.1,f.cx+halfW+1.1);player.z=clamp(player.z,f.cz-halfD-1.1,f.cz+halfD+1.1);const nearBall=pd<2.3?' • AÇÃO: CHUTAR':'';v705Hud('⚽ Teixeirão',`${Math.ceil(f.time)}s • ${f.score[0]} × ${f.score[1]}${nearBall}`);v705UpdateScoreboard(f.score[0],f.score[1]);v705PublishSport({type:'football',mode:f.mode,score:f.score,time:Math.ceil(f.time),ball:[+ball.x.toFixed(2),+ball.z.toFixed(2)]});if(f.time<=0||f.score[0]>=5||f.score[1]>=5){f.finished=true;const won=f.score[0]>f.score[1];addXP(won?60:26);if(won)addCoins(35);toast(won?'Vitória no futebol!':f.score[0]===f.score[1]?'Empate!':'Fim de jogo.','good',2200);setTimeout(()=>stopSportV704(false),1800);}}
   function v705UpdateScoreboard(a,b){world.sportsV704?.updateScoreboard?.(a,b);}
-  function startCourtV704(type,mode='solo'){if(mode==='online'&&!(typeof multiplayerV2SportOnline==='function'&&multiplayerV2SportOnline(type))){toast('Entre na sessão online antes de iniciar.','warn',2200);return;}stopSportV704(false);closeModal();const c=SPORTS_V705.courts.get(type);if(!c)return;c.ball=c.ball||v705Ball(c.foot?0xffd24b:0xffffff,.39);if(!c.shadow){c.shadow=new THREE.Mesh(new THREE.CircleGeometry(.5,18),renderMat(0x111827,{transparent:true,opacity:.25,roughness:1,side:THREE.DoubleSide}));c.shadow.geometry.rotateX(-Math.PI/2);worldGroup.add(c.shadow);}if(!c.team.length)c.team=[v705Athlete(0x2f7ed6,c.cx-2,c.cz-4.5,`${c.label} parceiro`,'field',1.02)];if(!c.opponents.length)c.opponents=[v705Athlete(0x8b5cf6,c.cx-2,c.cz+4.5,`${c.label} CPU 1`,'field',1.0),v705Athlete(0xd66083,c.cx+2,c.cz+6,`${c.label} CPU 2`,'field',.97)];c.mode=mode;c.score=[0,0];c.touches=[0,0];c.lastSide=-1;c.serving=0;c.state='serve';c.timer=180;c.vx=c.vy=c.vz=0;c.pointLock=0;c.ball.position.set(c.cx,.75,c.cz-6);const onlineIndex=mode==='online'&&typeof multiplayerV2SportParticipantIndex==='function'?multiplayerV2SportParticipantIndex(type):0;player.x=c.cx+clamp(2-onlineIndex*2,-3,3);player.z=c.cz-6;player.y=v705GroundY(player.x,player.z);player.vx=player.vz=0;SPORTS_V705.active=c;v705SetPrimaryAction(c.foot?'🦶':'🏐',c.foot?'Dominar/Atacar':'Sacar/Atacar');v705SetSpecial('⬆️','Levantar');configureSportControlsV705(c.type);v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,'AÇÃO para sacar');toast(`${c.label}: mova-se até a sombra da bola. AÇÃO recebe/ataca e PODER levanta.`, 'good',3200);}
+  function startCourtV704(type,mode='solo'){if(mode==='online'&&!(typeof multiplayerV2SportOnline==='function'&&multiplayerV2SportOnline(type))){toast('Entre na sessão online antes de iniciar.','warn',2200);return;}stopSportV704(false);closeModal();const c=SPORTS_V705.courts.get(type);if(!c)return;c.ball=c.ball||v705Ball(c.foot?0xffd24b:0xffffff,.39);if(!c.shadow){c.shadow=new THREE.Mesh(new THREE.CircleGeometry(.5,18),renderMat(0x111827,{transparent:true,opacity:.25,roughness:1,side:THREE.DoubleSide}));c.shadow.geometry.rotateX(-Math.PI/2);worldGroup.add(c.shadow);}if(!c.team.length)c.team=[v705Athlete(0x2f7ed6,c.cx-2,c.cz-4.5,`${c.label} parceiro`,'field',1.02)];if(!c.opponents.length)c.opponents=[v705Athlete(0x8b5cf6,c.cx-2,c.cz+4.5,`${c.label} CPU 1`,'field',1.0),v705Athlete(0xd66083,c.cx+2,c.cz+6,`${c.label} CPU 2`,'field',.97)];c.mode=mode;c.score=[0,0];c.touches=[0,0];c.lastSide=-1;c.serving=0;c.state='serve';c.timer=180;c.resultRemaining=0;c.vx=c.vy=c.vz=0;c.pointLock=0;c.ball.position.set(c.cx,.75,c.cz-6);const onlineIndex=mode==='online'&&typeof multiplayerV2SportParticipantIndex==='function'?multiplayerV2SportParticipantIndex(type):0;player.x=c.cx+clamp(2-onlineIndex*2,-3,3);player.z=c.cz-6;player.y=v705GroundY(player.x,player.z);player.vx=player.vz=0;SPORTS_V705.active=c;v705SetPrimaryAction(c.foot?'🦶':'🏐',c.foot?'Dominar/Atacar':'Sacar/Atacar');v705SetSpecial('⬆️','Levantar');configureSportControlsV705(c.type);v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,'AÇÃO para sacar');toast(`${c.label}: mova-se até a sombra da bola. AÇÃO recebe/ataca e PODER levanta.`, 'good',3200);}
   function v705CourtSend(c,powerY,powerZ,targetX=0){c.vx=clamp((targetX-c.ball.position.x)*.72,-4.2,4.2);c.vz=powerZ;c.vy=powerY;c.state='rally';}
   function v705CourtContactWindow(c){const d=Math.hypot(c.ball.position.x-player.x,c.ball.position.z-player.z),maxY=c.foot?2.75:3.8;return d<2.55&&c.ball.position.y<maxY&&c.ball.position.z<c.cz+.7;}
-  function courtHitV704(){const c=SPORTS_V705.active;if(!c||!['volley','footvolley'].includes(c.type))return false;if(c.mode==='online'&&v705GuestSportAction(c.type,c.state==='serve'?'serve':'hit')){v705PlayerSportAnimation(c.foot?'kick':'serve',420);return true;}if(c.state==='serve'&&c.serving===0){v705PlayerSportAnimation(c.foot?'kick':'serve',440);c.ball.position.set(player.x,1.05,player.z+.45);v705CourtSend(c,c.foot?5.4:6.8,6.7,c.cx+Math.sin(player.facing)*2);c.lastSide=0;c.touches=[1,0];return true;}if(!v705CourtContactWindow(c))return false;c.touches[0]=(c.lastSide===0?c.touches[0]+1:1);c.touches[1]=0;c.lastSide=0;if(c.touches[0]>3){v705CourtPoint(c,1);return true;}const attack=c.touches[0]>=2||c.ball.position.y>1.5,aimX=clamp(c.ball.position.x+Math.sin(player.facing)*3,c.cx-c.w/2+1,c.cx+c.w/2-1);v705PlayerSportAnimation(c.foot?'touch':attack?'spike':'receive',attack?460:350);v705CourtSend(c,c.foot?(attack?5.0:5.5):(attack?6.25:6.8),attack?7.2:2.1,aimX);if(!c.foot&&attack)player.vy=Math.max(player.vy||0,2.4);return true;}
-  function v705CourtSet(){const c=SPORTS_V705.active;if(!c||!['volley','footvolley'].includes(c.type))return false;if(c.mode==='online'&&v705GuestSportAction(c.type,'set')){v705PlayerSportAnimation(c.foot?'set-foot':'set',420);return true;}if(!v705CourtContactWindow(c))return false;v705PlayerSportAnimation(c.foot?'set-foot':'set',420);c.touches[0]=(c.lastSide===0?c.touches[0]+1:1);c.touches[1]=0;c.lastSide=0;if(c.touches[0]>3){v705CourtPoint(c,1);return true;}const mate=c.team[0];c.vx=clamp((mate.group.position.x-c.ball.position.x)*.5,-2.8,2.8);c.vz=1.3;c.vy=c.foot?5.3:7.2;toast('Levantada! Prepare o ataque.','good',650);return true;}
+  function courtHitV704(){const c=SPORTS_V705.active;if(!c||c.state==='finished'||!['volley','footvolley'].includes(c.type))return false;if(c.mode==='online'&&v705GuestSportAction(c.type,c.state==='serve'?'serve':'hit')){v705PlayerSportAnimation(c.foot?'kick':'serve',420);return true;}if(c.state==='serve'&&c.serving===0){v705PlayerSportAnimation(c.foot?'kick':'serve',440);c.ball.position.set(player.x,1.05,player.z+.45);v705CourtSend(c,c.foot?5.4:6.8,6.7,c.cx+Math.sin(player.facing)*2);c.lastSide=0;c.touches=[1,0];return true;}if(!v705CourtContactWindow(c))return false;c.touches[0]=(c.lastSide===0?c.touches[0]+1:1);c.touches[1]=0;c.lastSide=0;if(c.touches[0]>3){v705CourtPoint(c,1);return true;}const attack=c.touches[0]>=2||c.ball.position.y>1.5,aimX=clamp(c.ball.position.x+Math.sin(player.facing)*3,c.cx-c.w/2+1,c.cx+c.w/2-1);v705PlayerSportAnimation(c.foot?'touch':attack?'spike':'receive',attack?460:350);v705CourtSend(c,c.foot?(attack?5.0:5.5):(attack?6.25:6.8),attack?7.2:2.1,aimX);if(!c.foot&&attack)player.vy=Math.max(player.vy||0,2.4);return true;}
+  function v705CourtSet(){const c=SPORTS_V705.active;if(!c||c.state==='finished'||!['volley','footvolley'].includes(c.type))return false;if(c.mode==='online'&&v705GuestSportAction(c.type,'set')){v705PlayerSportAnimation(c.foot?'set-foot':'set',420);return true;}if(!v705CourtContactWindow(c))return false;v705PlayerSportAnimation(c.foot?'set-foot':'set',420);c.touches[0]=(c.lastSide===0?c.touches[0]+1:1);c.touches[1]=0;c.lastSide=0;if(c.touches[0]>3){v705CourtPoint(c,1);return true;}const mate=c.team[0];c.vx=clamp((mate.group.position.x-c.ball.position.x)*.5,-2.8,2.8);c.vz=1.3;c.vy=c.foot?5.3:7.2;toast('Levantada! Prepare o ataque.','good',650);return true;}
   function v705ResetCourt(c,server){c.serving=server;c.state='serve';c.vx=c.vy=c.vz=0;c.touches=[0,0];c.lastSide=-1;c.ball.position.set(c.cx,.7,c.cz+(server?6:-6));if(server===1)setTimeout(()=>{if(SPORTS_V705.active===c&&c.state==='serve'){c.lastSide=1;c.touches=[0,1];v705CourtSend(c,c.foot?5.2:6.6,-6.5,c.cx+(Math.random()-.5)*3);}},700);}
-  function v705CourtPoint(c,side){if(c.pointLock>0)return;c.pointLock=.4;c.score[side]++;toast(`${side===0?'Seu time':'Computador'} marcou!`,side===0?'good':'warn',950);const win=c.score[side]>=11&&Math.abs(c.score[0]-c.score[1])>=2;if(win){addXP(side===0?52:20);if(side===0)addCoins(24);toast(side===0?`Vitória no ${c.label}!`:`Fim da partida de ${c.label}.`,side===0?'good':'warn',2000);setTimeout(()=>stopSportV704(),1400);return;}v705ResetCourt(c,side===0?0:1);}
-  function updateCourtV704(c,dt){if(!c||SPORTS_V705.active!==c)return;if(c.mode==='online'&&typeof multiplayerV2SportOnline==='function'&&multiplayerV2SportOnline(c.type)){if(typeof multiplayerV2SportIsHost==='function'&&!multiplayerV2SportIsHost(c.type)){v705ApplySportReplica(c.type,dt);return;}v705ConsumeRemoteSportInputs(c.type);}c.timer=Math.max(0,c.timer-dt);c.pointLock=Math.max(0,c.pointLock-dt);if(c.state==='serve'){v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,`${c.serving===0?'AÇÃO para sacar':'Saque do computador'} • ${c.score[0]} × ${c.score[1]}`);if(c.mode==='online')v705PublishSport({type:c.type});return;}c.vy-=(c.foot?8.35:9.05)*dt;c.ball.position.x+=c.vx*dt;c.ball.position.y+=c.vy*dt;c.ball.position.z+=c.vz*dt;if(c.shadow){c.shadow.visible=true;c.shadow.position.set(c.ball.position.x,.24,c.ball.position.z);const scale=clamp(1.35-c.ball.position.y*.08,.55,1.18);c.shadow.scale.setScalar(scale);c.shadow.material.opacity=clamp(.4-c.ball.position.y*.045,.1,.34);}c.ball.rotation.x+=c.vz*dt;c.ball.rotation.z-=c.vx*dt;if(Math.abs(c.ball.position.z-c.cz)<.26&&c.ball.position.y<c.netH+.13){c.ball.position.z=c.cz+(c.vz>0?-.3:.3);c.vz*=-.42;c.vy*=.58;}
+  function v705FinishCourt(c,winner=null){
+    if(c.state==='finished')return;
+    c.state='finished';
+    c.resultRemaining=1.4;
+    c.vx=c.vy=c.vz=0;
+    if(winner!==null){
+      addXP(winner===0?52:20);
+      if(winner===0)addCoins(24);
+      toast(winner===0?`Vitória no ${c.label}!`:`Fim da partida de ${c.label}.`,'good',2000);
+    }else toast(`Tempo encerrado no ${c.label}.`,'info',2000);
+    if(c.mode==='online')v705PublishSport({type:c.type});
+  }
+  function v705CourtPoint(c,side){
+    if(c.state==='finished'||c.pointLock>0)return;
+    c.pointLock=.4;
+    c.score[side]++;
+    toast(`${side===0?'Seu time':'Computador'} marcou!`,side===0?'good':'warn',950);
+    if(c.score[side]>=11&&Math.abs(c.score[0]-c.score[1])>=2)v705FinishCourt(c,side);
+    else v705ResetCourt(c,side===0?0:1);
+  }
+  function updateCourtV704(c,dt){
+    if(!c||SPORTS_V705.active!==c)return;
+    if(c.state==='finished'){
+      c.resultRemaining=Math.max(0,c.resultRemaining-dt);
+      if(c.resultRemaining===0){stopSportV704(false);return;}
+      v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,`Fim • ${c.score[0]} × ${c.score[1]}`);
+      if(c.mode==='online')v705PublishSport({type:c.type});
+      return;
+    }
+    if(c.mode==='online'&&typeof multiplayerV2SportOnline==='function'&&multiplayerV2SportOnline(c.type)){
+      if(typeof multiplayerV2SportIsHost==='function'&&!multiplayerV2SportIsHost(c.type)){v705ApplySportReplica(c.type,dt);return;}
+      v705ConsumeRemoteSportInputs(c.type);
+    }
+    c.timer=Math.max(0,c.timer-dt);
+    c.pointLock=Math.max(0,c.pointLock-dt);
+    if(c.timer===0){v705FinishCourt(c);return;}
+    if(c.state==='serve'){
+      v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,`${Math.ceil(c.timer)}s • ${c.serving===0?'AÇÃO para sacar':'Saque do computador'} • ${c.score[0]} × ${c.score[1]}`);
+      if(c.mode==='online')v705PublishSport({type:c.type});
+      return;
+    }
+    c.vy-=(c.foot?8.35:9.05)*dt;c.ball.position.x+=c.vx*dt;c.ball.position.y+=c.vy*dt;c.ball.position.z+=c.vz*dt;if(c.shadow){c.shadow.visible=true;c.shadow.position.set(c.ball.position.x,.24,c.ball.position.z);const scale=clamp(1.35-c.ball.position.y*.08,.55,1.18);c.shadow.scale.setScalar(scale);c.shadow.material.opacity=clamp(.4-c.ball.position.y*.045,.1,.34);}c.ball.rotation.x+=c.vz*dt;c.ball.rotation.z-=c.vx*dt;if(Math.abs(c.ball.position.z-c.cz)<.26&&c.ball.position.y<c.netH+.13){c.ball.position.z=c.cz+(c.vz>0?-.3:.3);c.vz*=-.42;c.vy*=.58;}
     const partner=c.team[0],ball=c.ball.position,partnerTargetX=clamp(ball.x,c.cx-c.w/2+1,c.cx+c.w/2-1),partnerTargetZ=clamp(ball.z,c.cz-c.d/2+2,c.cz-2.0);v705AnimateAthlete(partner,dt,partnerTargetX,partnerTargetZ,.92);if(ball.z<c.cz&&Math.hypot(ball.x-partner.group.position.x,ball.z-partner.group.position.z)<1.4&&ball.y<(c.foot?2.25:3.1)&&c.vz<1){c.touches[0]=(c.lastSide===0?c.touches[0]+1:1);c.touches[1]=0;c.lastSide=0;if(c.touches[0]>3){v705CourtPoint(c,1);return;}const setForPlayer=c.touches[0]===1;v705CourtSend(c,c.foot?(setForPlayer?5.5:4.9):(setForPlayer?7.1:6.2),setForPlayer?-1.0:6.3,setForPlayer?player.x:c.cx+(Math.random()-.5)*4);}
     let ai=c.opponents[0],best=Infinity;for(const a of c.opponents){const d=Math.hypot(ball.x-a.group.position.x,ball.z-a.group.position.z);if(d<best){best=d;ai=a;}}for(const a of c.opponents){const chase=a===ai,tx=chase?clamp(ball.x,c.cx-c.w/2+1,c.cx+c.w/2-1):(a===c.opponents[0]?c.cx-2.2:c.cx+2.2),tz=chase?clamp(ball.z,c.cz+2,c.cz+c.d/2-2):(a===c.opponents[0]?c.cz+4:c.cz+6);v705AnimateAthlete(a,dt,tx,tz,chase?1:.76);}if(ball.z>c.cz&&best<1.4&&ball.y<(c.foot?2.25:3.1)&&c.vz>-.5){c.touches[1]=(c.lastSide===1?c.touches[1]+1:1);c.touches[0]=0;c.lastSide=1;if(c.touches[1]>3){v705CourtPoint(c,0);return;}const attack=c.touches[1]>=2;v705CourtSend(c,c.foot?(attack?5.0:5.5):(attack?6.1:7.0),attack?-6.8:-1.5,player.x+(Math.random()-.5)*2.4);}
-    const halfW=c.w/2,halfD=c.d/2;player.x=clamp(player.x,c.cx-halfW-.8,c.cx+halfW+.8);player.z=clamp(player.z,c.cz-halfD-.8,c.cz+.3);if(ball.y<=.25){const inside=Math.abs(ball.x-c.cx)<=halfW&&Math.abs(ball.z-c.cz)<=halfD,landedSide=ball.z>c.cz?1:0;v705CourtPoint(c,inside?(landedSide===1?0:1):(landedSide===1?1:0));return;}if(Math.abs(ball.x-c.cx)>halfW+1||Math.abs(ball.z-c.cz)>halfD+1){const side=ball.z>c.cz?1:0;v705CourtPoint(c,side===1?1:0);return;}const contact=v705CourtContactWindow(c)?' • AÇÃO AGORA':'';v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,`${c.score[0]} × ${c.score[1]} • toque ${c.touches[c.lastSide<0?0:c.lastSide]}/3${contact}`);v705PublishSport({type:c.type,score:c.score,touches:c.touches,ball:[+ball.x.toFixed(2),+ball.y.toFixed(2),+ball.z.toFixed(2)]});if(c.timer<=0)stopSportV704();}
+    const halfW=c.w/2,halfD=c.d/2;player.x=clamp(player.x,c.cx-halfW-.8,c.cx+halfW+.8);player.z=clamp(player.z,c.cz-halfD-.8,c.cz+.3);if(ball.y<=.25){const inside=Math.abs(ball.x-c.cx)<=halfW&&Math.abs(ball.z-c.cz)<=halfD,landedSide=ball.z>c.cz?1:0;v705CourtPoint(c,inside?(landedSide===1?0:1):(landedSide===1?1:0));return;}if(Math.abs(ball.x-c.cx)>halfW+1||Math.abs(ball.z-c.cz)>halfD+1){const side=ball.z>c.cz?1:0;v705CourtPoint(c,side===1?1:0);return;}const contact=v705CourtContactWindow(c)?' • AÇÃO AGORA':'';v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,`${Math.ceil(c.timer)}s • ${c.score[0]} × ${c.score[1]} • toque ${c.touches[c.lastSide<0?0:c.lastSide]}/3${contact}`);v705PublishSport({type:c.type,score:c.score,touches:c.touches,ball:[+ball.x.toFixed(2),+ball.y.toFixed(2),+ball.z.toFixed(2)]});}
   function v705KartVehicle(id,x,z,color,heading=0){const group=new THREE.Group();group.position.set(x,0,z);group.rotation.y=heading;group.userData.vehicleId=id;worldGroup.add(group);const chassis=renderMat(0x171f2b,{roughness:.52,metalness:.2}),body=renderMat(color,{roughness:.34,metalness:.18}),wheel=renderMat(0x0e1117,{roughness:.75});box(1.68,.18,2.28,chassis,0,.22,0,group);box(1.32,.3,.96,body,0,.4,.38,group);box(.78,.42,.7,0x27364a,0,.61,-.28,group);box(1.78,.16,.28,body,0,.29,1.15,group);box(1.72,.12,.22,body,0,.34,-1.1,group);box(.08,.52,.08,0xdce5eb,-.46,.62,.22,group);box(.08,.52,.08,0xdce5eb,.46,.62,.22,group);const steering=cylinder(.19,.06,0x202833,0,.88,.18,group,12);steering.rotation.x=Math.PI/2;for(const [wx,wz]of[[-.86,-.72],[.86,-.72],[-.86,.72],[.86,.72]]){const wh=cylinder(.32,.28,wheel,wx,.24,wz,group,14);wh.rotation.z=Math.PI/2;}const vehicle={id,x,z,heading,group,label:'Kart OTTHI',kind:'kart',serviceType:'kart',appearance:{primary:color,secondary:0xffffff,chassis:0x171f2b},occupied:false,radius:1.25};world.vehicles.push(vehicle);world.kartsV704=world.kartsV704||[];world.kartsV704.push(vehicle);registerInteractable({id:`vehicle-${id}`,type:'vehicle',icon:'🏎️',label:'Entrar no kart',radius:2.3,priority:170,getPos:()=>({x:group.position.x,z:group.position.z}),available:()=>!vehicle.occupied&&group.visible,action:()=>enterVehicle(vehicle)});return vehicle;}
   function v705CurvePoint(curve,t){const p=curve.getPointAt((t%1+1)%1);return{x:p.x,z:p.z};}
   function v705CurveHeading(curve,t){const q=curve.getTangentAt((t%1+1)%1);return Math.atan2(q.x,q.z);}
@@ -6044,13 +6095,13 @@
   function v705ApplyActorReplica(actor,row,dt){if(!actor?.group||!Array.isArray(row))return;const k=Math.min(1,dt*13);actor.group.position.x=lerp(actor.group.position.x,Number(row[0]||0),k);actor.group.position.y=lerp(actor.group.position.y,Number(row[1]||0),k);actor.group.position.z=lerp(actor.group.position.z,Number(row[2]||0),k);actor.group.rotation.y=lerpAngle(actor.group.rotation.y,Number(row[3]||0),k);}
   function v705ApplySportReplica(type,dt){const state=typeof multiplayerV2SportState==='function'?multiplayerV2SportState(type):null;if(!state||state.type!==type)return false;const age=clamp((Date.now()-Number(state.at||Date.now()))/1000,0,.14),k=Math.min(1,dt*15);
     if(type==='football'){const f=SPORTS_V705.football;if(!f)return false;f.countdown=Number(state.countdown??f.countdown);f.time=Number(state.time??f.time);f.score=[Number(state.score?.[0]||0),Number(state.score?.[1]||0)];f.finished=!!state.finished;const b=state.ball;if(Array.isArray(b)){f.ball.position.x=lerp(f.ball.position.x,Number(b[0]||0)+Number(b[3]||0)*age,k);f.ball.position.y=lerp(f.ball.position.y,Number(b[1]||.52),k);f.ball.position.z=lerp(f.ball.position.z,Number(b[2]||0)+Number(b[5]||0)*age,k);f.vx=Number(b[3]||0);f.vz=Number(b[5]||0);}for(let i=0;i<f.home.length;i++)v705ApplyActorReplica(f.home[i],state.home?.[i],dt);for(let i=0;i<f.away.length;i++)v705ApplyActorReplica(f.away[i],state.away?.[i],dt);v705UpdateScoreboard(f.score[0],f.score[1]);v705Hud('⚽ Teixeirão',f.countdown>0?String(Math.ceil(f.countdown)):`${Math.ceil(f.time)}s • ${f.score[0]} × ${f.score[1]} • ONLINE`);return true;}
-    if(type==='volley'||type==='footvolley'){const c=SPORTS_V705.courts.get(type);if(!c?.ball)return false;c.timer=Number(state.timer??c.timer);c.state=String(state.state||c.state);c.serving=Number(state.serving??c.serving);c.score=[Number(state.score?.[0]||0),Number(state.score?.[1]||0)];c.touches=[Number(state.touches?.[0]||0),Number(state.touches?.[1]||0)];c.lastSide=Number(state.lastSide??c.lastSide);const b=state.ball;if(Array.isArray(b)){c.ball.position.x=lerp(c.ball.position.x,Number(b[0]||0)+Number(b[3]||0)*age,k);c.ball.position.y=lerp(c.ball.position.y,Number(b[1]||0)+Number(b[4]||0)*age,k);c.ball.position.z=lerp(c.ball.position.z,Number(b[2]||0)+Number(b[5]||0)*age,k);c.vx=Number(b[3]||0);c.vy=Number(b[4]||0);c.vz=Number(b[5]||0);}for(let i=0;i<c.team.length;i++)v705ApplyActorReplica(c.team[i],state.team?.[i],dt);for(let i=0;i<c.opponents.length;i++)v705ApplyActorReplica(c.opponents[i],state.opponents?.[i],dt);if(c.shadow){c.shadow.visible=true;c.shadow.position.set(c.ball.position.x,.24,c.ball.position.z);}v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,`${c.score[0]} × ${c.score[1]} • ONLINE`);return true;}
+    if(type==='volley'||type==='footvolley'){const c=SPORTS_V705.courts.get(type);if(!c?.ball)return false;c.timer=Number(state.timer??c.timer);if(state.state==='finished'&&c.state!=='finished')c.resultRemaining=1.4;c.state=String(state.state||c.state);c.serving=Number(state.serving??c.serving);c.score=[Number(state.score?.[0]||0),Number(state.score?.[1]||0)];c.touches=[Number(state.touches?.[0]||0),Number(state.touches?.[1]||0)];c.lastSide=Number(state.lastSide??c.lastSide);const b=state.ball;if(Array.isArray(b)){c.ball.position.x=lerp(c.ball.position.x,Number(b[0]||0)+Number(b[3]||0)*age,k);c.ball.position.y=lerp(c.ball.position.y,Number(b[1]||0)+Number(b[4]||0)*age,k);c.ball.position.z=lerp(c.ball.position.z,Number(b[2]||0)+Number(b[5]||0)*age,k);c.vx=Number(b[3]||0);c.vy=Number(b[4]||0);c.vz=Number(b[5]||0);}for(let i=0;i<c.team.length;i++)v705ApplyActorReplica(c.team[i],state.team?.[i],dt);for(let i=0;i<c.opponents.length;i++)v705ApplyActorReplica(c.opponents[i],state.opponents?.[i],dt);if(c.shadow){c.shadow.visible=true;c.shadow.position.set(c.ball.position.x,.24,c.ball.position.z);}v705Hud(`${c.foot?'🏖️':'🏐'} ${c.label}`,`${c.score[0]} × ${c.score[1]} • ONLINE`);return true;}
     if(type==='kart'){const krt=SPORTS_V705.kart;if(!krt?.active)return false;krt.countdown=Number(state.countdown??krt.countdown);for(let i=0;i<krt.ai.length;i++){const src=state.ai?.[i];if(!src)continue;v705ApplyActorReplica(krt.ai[i],src.pose,dt);krt.ai[i].t=Number(src.t??krt.ai[i].t);krt.ai[i].lap=Number(src.lap??krt.ai[i].lap);krt.ai[i].finished=!!src.finished;}return true;}return false;
   }
   function v705GuestSportAction(type,action,data={}){if(typeof multiplayerV2SportOnline!=='function'||!multiplayerV2SportOnline(type)||typeof multiplayerV2SportIsHost!=='function'||multiplayerV2SportIsHost(type))return false;return typeof multiplayerV2SendSportInput==='function'&&multiplayerV2SendSportInput(type,action,data);}
   function v705ApplyRemoteSportInputV2(type,uid,input){const target=remotePresence.get(String(uid||'')),pose=typeof multiplayerV2RemotePose==='function'?multiplayerV2RemotePose(uid,target||{},false):target;if(!pose||!input)return false;const heading=Number(input.r??pose.r??0),fx=Math.sin(heading),fz=Math.cos(heading);
     if(type==='football'){const f=SPORTS_V705.football;if(!f||Math.hypot(f.ball.position.x-Number(pose.x||0),f.ball.position.z-Number(pose.z||0))>3.25)return false;const action=String(input.action||'');let power=action==='pass'?7.8:action==='tackle'?6.4:11.4;if(!['kick','pass','tackle'].includes(action))return false;f.vx=fx*power+Number(input.vx||0)*.18;f.vz=fz*power+Number(input.vz||0)*.18;f.cooldown=.28;f.possession=-1;return true;}
-    if(type==='volley'||type==='footvolley'){const c=SPORTS_V705.courts.get(type);if(!c?.ball||Math.hypot(c.ball.position.x-Number(pose.x||0),c.ball.position.z-Number(pose.z||0))>3.0)return false;const action=String(input.action||'');if(!['hit','serve','set','touch','header','kick','block','spike'].includes(action))return false;const attack=['spike','kick','hit','serve'].includes(action),set=action==='set',targetX=clamp(c.ball.position.x+fx*3,c.cx-c.w/2+1,c.cx+c.w/2-1);c.vx=clamp((targetX-c.ball.position.x)*.55,-4,4);c.vz=Math.abs(fz)*(attack?7.6:set?1.5:4.4);if(Number(pose.z||0)>c.cz)c.vz*=-1;c.vy=set?(c.foot?5.3:7.2):action==='block'?4.4:attack?(c.foot?5.5:6.5):4.8;c.state='play';c.lastSide=Number(pose.z||0)<c.cz?0:1;return true;}return false;
+    if(type==='volley'||type==='footvolley'){const c=SPORTS_V705.courts.get(type);if(!c?.ball||c.state==='finished'||Math.hypot(c.ball.position.x-Number(pose.x||0),c.ball.position.z-Number(pose.z||0))>3.0)return false;const action=String(input.action||'');if(!['hit','serve','set','touch','header','kick','block','spike'].includes(action))return false;const attack=['spike','kick','hit','serve'].includes(action),set=action==='set',targetX=clamp(c.ball.position.x+fx*3,c.cx-c.w/2+1,c.cx+c.w/2-1);c.vx=clamp((targetX-c.ball.position.x)*.55,-4,4);c.vz=Math.abs(fz)*(attack?7.6:set?1.5:4.4);if(Number(pose.z||0)>c.cz)c.vz*=-1;c.vy=set?(c.foot?5.3:7.2):action==='block'?4.4:attack?(c.foot?5.5:6.5):4.8;c.state='play';c.lastSide=Number(pose.z||0)<c.cz?0:1;return true;}return false;
   }
   function v705ConsumeRemoteSportInputs(type){if(typeof multiplayerV2ConsumeSportInputs!=='function')return;for(const event of multiplayerV2ConsumeSportInputs(type))v705ApplyRemoteSportInputV2(type,event.uid,event.input);}
   function stopSportV704(show=true){const f=SPORTS_V705.football,a0=SPORTS_V705.active,k0=SPORTS_V705.kart,leaving=[];if(f?.mode==='online')leaving.push('football');if(a0&&['volley','footvolley'].includes(a0.type)&&a0.mode==='online')leaving.push(a0.type);if(k0?.active&&k0.mode==='online')leaving.push('kart');if(f){worldGroup.remove(f.ball);for(const a of f.home.concat(f.away))worldGroup.remove(a.group);SPORTS_V705.football=null;}const a=SPORTS_V705.active;if(a&&['volley','footvolley'].includes(a.type)){if(a.ball){worldGroup.remove(a.ball);a.ball=null;}if(a.shadow){worldGroup.remove(a.shadow);a.shadow=null;}for(const p of a.team.concat(a.opponents))worldGroup.remove(p.group);a.team=[];a.opponents=[];a.state='idle';}if(SPORTS_V705.kart?.active){SPORTS_V705.kart.active=false;for(const ai of SPORTS_V705.kart.ai)worldGroup.remove(ai.group);SPORTS_V705.kart.ai=[];}SPORTS_V705.active=null;document.body.classList.remove('world-race-active');for(const type of new Set(leaving))if(typeof multiplayerV2LeaveSport==='function')multiplayerV2LeaveSport(type);clearSportControlsV705();v705HudOff();v705RestoreSpecial();if(show)toast('Atividade encerrada.','good',900);}
@@ -7567,7 +7618,18 @@
     const safe=safeBoatExitPoint();player.x=safe.x;player.z=safe.z;player.y=groundHeightAt(safe.x,safe.z);player.vx=player.vy=player.vz=0;player.grounded=true;rememberSafePlayerPosition(true);updateBoatPanel();updateVehicleControlsUI();auditPlayerMode('exit-boat');if(!silent)toast('Você desembarcou no píer.','good');saveState(true);return true;
   }
   function updateBoatPhysics(dt,ix,iz){
-    const boat=player.boat;if(boat.passengerOf){const ghost=world.ghosts.get(boat.passengerOf),target=ghost?.userData?.target;if(!ghost||!target){boat.hostMissingAt=boat.hostMissingAt||performance.now();if(performance.now()-boat.hostMissingAt>3500){toast('O motorista saiu. Você voltou ao píer.','warn');player.x=BOAT_DOCK.exitX;player.z=54;exitBoat(true);}player.vx=player.vz=0;return;}boat.hostMissingAt=0;const tx=Number(target.x||ghost.position.x),tz=Number(target.z||ghost.position.z);player.vx=clamp((tx-player.x)*8,-18,18);player.vz=clamp((tz-player.z)*8,-18,18);boat.heading=Number(target.r||boat.heading);player.facing=boat.heading;return;}
+    const boat=player.boat;
+    if(boat.passengerOf){
+      const ghost=world.ghosts.get(boat.passengerOf),target=ghost?.userData?.target;
+      if(!ghost||!target){boat.hostMissingAt=boat.hostMissingAt||performance.now();if(performance.now()-boat.hostMissingAt>3500){toast('O motorista saiu. Você voltou ao píer.','warn');player.x=BOAT_DOCK.exitX;player.z=54;exitBoat(true);}player.vx=player.vz=0;return;}
+      boat.hostMissingAt=0;
+      const pose=typeof multiplayerV2GhostControlled==='function'&&multiplayerV2GhostControlled(boat.passengerOf)?
+        multiplayerV2RemotePose(boat.passengerOf,target):target;
+      const tx=Number(pose.x??ghost.position.x),tz=Number(pose.z??ghost.position.z);
+      player.vx=clamp((tx-player.x)*8,-18,18);
+      player.vz=clamp((tz-player.z)*8,-18,18);
+      boat.heading=Number(pose.r??boat.heading);player.facing=boat.heading;return;
+    }
     // V643: mesma convenção do carro — manche para a direita vira para a direita.
     const steer=Math.abs(ix)<.07?0:-ix,command=mobilityThrottleIntent(iz,boat.speed),throttle=command.throttle;mobilityEngineLoad=command.brake?0:throttle;
     if(command.brake)boat.speed=approachNumber(boat.speed,0,(7.2+Math.abs(boat.speed)*.8)*dt);else{const crossing=boat.speed*throttle<-.08;boat.speed+=throttle*(world.boat?.acceleration??(world.boat?.seaGoing?11:8.5))*(crossing?1.8:1)*dt;if(world.boat?.kind==='surf'&&throttle>.1&&player.z<563){const shoreward=Math.max(0,-Math.cos(boat.heading)),wave=Math.max(0,Math.sin((player.z-513)*.34-performance.now()*.0017));boat.speed+=wave*shoreward*2.7*dt;}}
@@ -8592,7 +8654,9 @@
       driftSoundCooldown-=dt;if(driftSoundCooldown<=0){driftSoundCooldown=.5;beep(180,55,'sawtooth');}
     }
     const serviceKind=String(car.kind||'car'),serviceIcon=serviceVehicleIcon(serviceKind),siren=!!car.sirenActive,turbo=performance.now()<Number(car.turboUntil||0);for(const [index,light] of (vehicleVisual.userData.serviceLights||[]).entries())light.material.emissiveIntensity=siren?(.32+(Math.floor(performance.now()/180)+index)%2*1.2):.08;if(siren&&performance.now()>Number(car.sirenBeepAt||0)){car.sirenBeepAt=performance.now()+620;beep(serviceKind==='paramedic'?740:serviceKind==='police'?610:520,135,'square');setTimeout(()=>{if(player.vehicle&&player.car.sirenActive)beep(serviceKind==='paramedic'?560:760,120,'square');},175);}setVehicleBadgeText(`${serviceIcon} ${car.label||'Veículo'} • ${Math.round(Math.abs(car.speed)*6)} km/h${turbo?' • TURBO':siren?' • SIRENE':''} — SAIR sempre disponível`);
-    updateEngineSound(car.speed,car.kind||'car',currentVehicleRef()?.brazilModel||car.id||'');
+    const vehicle=currentVehicleRef();
+    if(rioRoadEnginePowerless(vehicle))stopEngineSound();
+    else updateEngineSound(car.speed,car.kind||'car',vehicle?.brazilModel||car.id||'');
   }
 
   function mobilityDriverActive(){return(player.vehicle&&!player.car.passengerOf)||(player.boating&&!player.boat.passengerOf);}
@@ -9946,7 +10010,23 @@
   function multiplayerV2Hermite(a,b,u,duration,preferVehicle=false){const pa=multiplayerV2MotionCoordinates(a,preferVehicle),pb=multiplayerV2MotionCoordinates(b,preferVehicle),u2=u*u,u3=u2*u,h00=2*u3-3*u2+1,h10=u3-2*u2+u,h01=-2*u3+3*u2,h11=u3-u2;return{x:h00*pa.x+h10*duration*pa.vx+h01*pb.x+h11*duration*pb.vx,y:lerp(pa.y,pb.y,u),z:h00*pa.z+h10*duration*pa.vz+h01*pb.z+h11*duration*pb.vz,r:lerpAngle(pa.r,pb.r,u),vx:lerp(pa.vx,pb.vx,u),vy:lerp(pa.vy,pb.vy,u),vz:lerp(pa.vz,pb.vz,u),vehicle:pb.vehicle,vehicleRole:pb.vehicleRole,vehiclePassengerOf:pb.vehiclePassengerOf,boating:pb.boating,boatRole:pb.boatRole,passengerOf:pb.passengerOf,seq:pb.seq,mode:pb.mode,source:'interpolated'};}
   function multiplayerV2FallbackPose(fallback={},preferVehicle=false){const vehicle=preferVehicle&&fallback?.vehicle&&fallback?.vehicleRole!=='passenger';return{x:Number(vehicle?fallback.vehicleX:fallback?.x||0),y:Number(vehicle?fallback.vehicleY:fallback?.y||0),z:Number(vehicle?fallback.vehicleZ:fallback?.z||0),r:Number(vehicle?fallback.vehicleR:fallback?.r||0),vx:0,vy:0,vz:0,vehicle:!!fallback?.vehicle,vehicleRole:String(fallback?.vehicleRole||''),vehiclePassengerOf:String(fallback?.vehiclePassengerOf||''),boating:!!fallback?.boating,boatRole:String(fallback?.boatRole||''),passengerOf:String(fallback?.passengerOf||''),source:'legacy'};}
   function multiplayerV2RemotePose(uid,fallback={},preferVehicle=false){
-    const channel=multiplayerV2Runtime.motion.get(String(uid||''));if(!channel?.items?.length)return multiplayerV2FallbackPose(fallback,preferVehicle);const now=performance.now(),avg=channel.intervals.length?channel.intervals.reduce((a,b)=>a+b,0)/channel.intervals.length:95,jitter=Number(channel.jitter||0),delay=clamp(72+avg*.32+jitter*1.35,85,165),renderAt=now-delay,items=channel.items;multiplayerV2Runtime.renderSamples++;
+    const id=String(uid||''),channel=multiplayerV2Runtime.motion.get(id),now=performance.now();
+    if(!channel?.items?.length||now-Number(channel.lastRecv||0)>=1800){
+      const ghostData=typeof world!=='undefined'?world.ghosts?.get(id)?.userData:null;
+      const target=ghostData?.target,key=ghostData?.v2PresencePositionKey;
+      const hasNewPosition=target&&!target.connectionUnstable&&key!==undefined&&key!==multiplayerV2PresencePositionKey(target);
+      // The host and riders must agree while motion V2 is missing. RTDB can
+      // remove that buffer during reconnect grace, before presence is renewed.
+      if(ghostData?.v2LegacyFallback||hasNewPosition){
+        ghostData.v2LegacyFallback=true;
+        ghostData.v2PoseActive=false;
+        ghostData.v2Pose=null;
+        return multiplayerV2FallbackPose(fallback,preferVehicle);
+      }
+      if(ghostData?.v2Pose)return {...ghostData.v2Pose,vx:0,vy:0,vz:0,source:'held'};
+      if(!channel?.items?.length)return multiplayerV2FallbackPose(fallback,preferVehicle);
+    }
+    const avg=channel.intervals.length?channel.intervals.reduce((a,b)=>a+b,0)/channel.intervals.length:95,jitter=Number(channel.jitter||0),delay=clamp(72+avg*.32+jitter*1.35,85,165),renderAt=now-delay,items=channel.items;multiplayerV2Runtime.renderSamples++;
     if(items.length===1){const one=items[0],p=multiplayerV2MotionCoordinates(one,preferVehicle),age=Math.max(0,Math.min(.16,(renderAt-one.recv)/1000));if(age>0){p.x+=p.vx*age;p.y+=p.vy*age;p.z+=p.vz*age;multiplayerV2Runtime.extrapolated++;}return{...p,source:age>0?'extrapolated':'sample'};}
     let a=items[0],b=null;for(let i=1;i<items.length;i++){if(items[i].recv>=renderAt){b=items[i];a=items[i-1];break;}a=items[i];}if(b){const span=Math.max(8,b.recv-a.recv),u=clamp((renderAt-a.recv)/span,0,1);return multiplayerV2Hermite(a,b,u,span/1000,preferVehicle);}
     const last=items[items.length-1],p=multiplayerV2MotionCoordinates(last,preferVehicle),age=Math.max(0,Math.min(.18,(renderAt-last.recv)/1000));if(age>0){p.x+=p.vx*age;p.y+=p.vy*age;p.z+=p.vz*age;multiplayerV2Runtime.extrapolated++;}return{...p,source:age>0?'extrapolated':'latest'};
@@ -9955,7 +10035,7 @@
   function multiplayerV2GhostControlled(uid){const channel=multiplayerV2Runtime.motion.get(String(uid||''));if(channel?.items?.length&&performance.now()-Number(channel.lastRecv||0)<1800)return true;const ghost=world.ghosts.get(String(uid||'')),target=ghost?.userData?.target;return !!(ghost?.userData?.v2Pose&&target&&(target.connectionUnstable||ghost.userData.v2PresencePositionKey===multiplayerV2PresencePositionKey(target)));}
   function updateMultiplayerRenderV2(dt){
     if(!multiplayerV2Enabled())return false;for(const[uid,ghost]of world.ghosts){const target=ghost?.userData?.target;if(!target)continue;const ownChannel=multiplayerV2Runtime.motion.get(String(uid)),fresh=ownChannel&&performance.now()-Number(ownChannel.lastRecv||0)<1800;if(!fresh){ghost.userData.v2PoseActive=false;continue;}const carDriver=!!target.vehicle&&target.vehicleRole!=='passenger',carPassenger=!!target.vehicle&&target.vehicleRole==='passenger',boatDriver=!!target.boating&&target.boatRole!=='passenger',boatPassenger=!!target.boating&&target.boatRole==='passenger';let pose=null;if(carPassenger&&target.vehiclePassengerOf){const hostUid=String(target.vehiclePassengerOf||'');if(hostUid===multiplayerV2OwnUid()&&player.vehicle&&!player.car.passengerOf){const local=multiplayerV2VehiclePose();pose={...local,vx:Number(player.vx||0),vy:Number(player.vy||0),vz:Number(player.vz||0),source:'local-host'};}else{const host=remotePresence.get(hostUid);pose=multiplayerV2RemotePose(hostUid,host||target,true);}}else if(boatPassenger&&target.passengerOf){const hostUid=String(target.passengerOf||'');if(hostUid===multiplayerV2OwnUid()&&player.boating&&!player.boat.passengerOf)pose={x:player.x,y:player.y,z:player.z,r:player.facing,vx:player.vx||0,vy:player.vy||0,vz:player.vz||0,source:'local-boat-host'};else{const host=remotePresence.get(hostUid);pose=multiplayerV2RemotePose(hostUid,host||target,false);}}else pose=multiplayerV2RemotePose(uid,target,carDriver);
-      const oldX=ghost.position.x,oldZ=ghost.position.z,error=Math.hypot(ghost.position.x-pose.x,ghost.position.z-pose.z);if(error>7){ghost.position.set(pose.x,pose.y,pose.z);multiplayerV2Runtime.corrected++;}else{ghost.position.x=pose.x;ghost.position.y=pose.y;ghost.position.z=pose.z;}ghost.rotation.y=pose.r;ghost.userData.v2PoseActive=true;ghost.userData.v2Pose=pose;ghost.userData.v2PresencePositionKey=multiplayerV2PresencePositionKey(target);
+      const oldX=ghost.position.x,oldZ=ghost.position.z,error=Math.hypot(ghost.position.x-pose.x,ghost.position.z-pose.z);if(error>7){ghost.position.set(pose.x,pose.y,pose.z);multiplayerV2Runtime.corrected++;}else{ghost.position.x=pose.x;ghost.position.y=pose.y;ghost.position.z=pose.z;}ghost.rotation.y=pose.r;ghost.userData.v2LegacyFallback=false;ghost.userData.v2PoseActive=true;ghost.userData.v2Pose=pose;ghost.userData.v2PresencePositionKey=multiplayerV2PresencePositionKey(target);
       const moving=Math.hypot(pose.vx||0,pose.vz||0)>.18||Math.hypot(ghost.position.x-oldX,ghost.position.z-oldZ)>.0015,walk=moving?Math.sin(animTime*9+Number(ghost.userData.phase||0))*.45:0,t=target,emote=performance.now()<Number(ghost.userData.emoteUntil||0)?ghost.userData.emoteType:String(t.actionMode||'');if(ghost.userData.limbs){const l=ghost.userData.limbs;l.leftArm.rotation.x=emote==='dance'?-1.35:emote==='play'?-1.9:emote==='hug'?-1.45:emote==='attack'?-1.15:emote==='tool'?-1.72:walk;l.rightArm.rotation.x=emote==='wave'?-2.2:emote==='highfive'?-2.5:emote==='dance'?-1.35:emote==='play'?-1.9:emote==='hug'?-1.45:emote==='attack'?-2.25:emote==='tool'?-2.05:-walk;l.leftLeg.rotation.x=-walk*.75;l.rightLeg.rotation.x=walk*.75;}}
     return true;
   }
@@ -17332,6 +17412,9 @@ function precompile(T,renderer,scene,camera,timings){
  }
  function phoneTravelClear(vehicle,from,to,traffic=true){
   const dx=to.x-from.x,dz=to.z-from.z,distance=Math.hypot(dx,dz),yaw=distance>.01?Math.atan2(dx,dz):from.yaw||0;
+  // The route applies this heading immediately, before a vehicle can advance
+  // to the first sweep sample. Check the turn at the curb as well.
+  if(Math.cos(yaw-(from.yaw||0))<.998&&!phoneVehiclePoseClear(vehicle,from.x,from.z,yaw,traffic))return false;
   for(let i=1,n=Math.max(1,Math.ceil(distance/.55));i<=n;i++){const t=i/n,x=from.x+dx*t,z=from.z+dz*t;
    // A short driveway connector is permitted. Detours remain on the road.
    if(distance>1&&!v704RoadAt(x,z,.15,true)&&Math.hypot(x-vehicle.group.position.x,z-vehicle.group.position.z)>6)return false;
@@ -17352,7 +17435,7 @@ function precompile(T,renderer,scene,camera,timings){
   const search=job.pathSearch,result=search.steps.next();job.searchSlices=(job.searchSlices||0)+1;if(!result.done)return false;
   job.pathSearch=null;job.replanIn=3;const detour=result.value;if(!detour){job.searchFailed=true;return false;}
   const rejoin=search.goals[detour.goalIndex],points=compactRoute([...detour.points,...search.motion.points.slice(rejoin.index)]);
-  job.route=new PhoneDriveRoute(points,search.motion.yaw);job.reroutes=(job.reroutes||0)+1;job.blockedFor=0;job.waiting=false;return true;
+  job.route=new PhoneDriveRoute(points,search.motion.yaw);job.reroutes=(job.reroutes||0)+1;job.blockedFor=0;return true;
  }
 
  const phoneProbeCache=new WeakMap();
@@ -17381,12 +17464,12 @@ function precompile(T,renderer,scene,camera,timings){
   }
   return true;
  }
- function phoneGroundDestination(vehicle,includeTraffic=false,avoid=null){
-  const projection=groundServiceRoadProjection(player);if(!projection||projection.distance>90)return null;
+ function phoneGroundDestination(vehicle,includeTraffic=false,avoid=[],destination=player){
+  const projection=groundServiceRoadProjection(destination);if(!projection||projection.distance>90)return null;
   const {a,b}=projection,length=Math.hypot(b.x-a.x,b.z-a.z)||1,fx=(b.x-a.x)/length,fz=(b.z-a.z)/length,yaw=Math.atan2(fx,fz);
   for(const along of[8,-8,14,-14,22,-22,32,-32])for(const side of[2.5,-2.5,0]){
    const x=projection.point.x+fx*along+fz*side,z=projection.point.z+fz*along-fx*side;
-   if(Math.hypot(player.x-x,player.z-z)<5||avoid&&Math.hypot(avoid.x-x,avoid.z-z)<5||!v704RoadAt(x,z,inRioMap()?.05:1.5,!inRioMap()))continue;
+   if(Math.hypot(destination.x-x,destination.z-z)<5||avoid.some(p=>Math.hypot(p.x-x,p.z-z)<5)||!v704RoadAt(x,z,inRioMap()?.05:1.5,!inRioMap()))continue;
    if(phoneVehiclePoseClear(vehicle,x,z,yaw,includeTraffic))return{x,z,yaw};
   }
   return null;
@@ -17567,18 +17650,58 @@ function precompile(T,renderer,scene,camera,timings){
   ctx.save();ctx.strokeStyle='#ffbd45';ctx.lineWidth=4;ctx.setLineDash([5,3]);ctx.beginPath();for(const [i,p]of t.route.entries()){const q=miniPoint(p.x,p.z,scale,w,h);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);}ctx.stroke();ctx.setLineDash([]);
   const q=miniPoint(t.x,t.z,scale,w,h),x=clamp(q.x,12,w-12),y=clamp(q.y,36,h-12);ctx.translate(x,y);ctx.rotate(Math.atan2(q.x-x,-(q.y-y))||t.yaw);ctx.fillStyle='#ffbd45';ctx.strokeStyle='#102936';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(7,7);ctx.lineTo(-7,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
  }
+ function phoneRouteProgress(job,motion,dt){
+  const distance=Math.hypot(motion.x-job.target.x,motion.z-job.target.z);
+  let progress=job.routeProgress;
+  if(!progress||progress.target!==job.target){
+   if(progress&&progress.kind!==job.kind)job.recentStops=[];
+   progress=job.routeProgress={target:job.target,kind:job.kind,distance,waited:0,detours:0,retryIn:0};
+  }
+  progress.retryIn=Math.max(0,progress.retryIn-dt);
+  if(distance<progress.distance-1.25){
+   progress.distance=distance;
+   progress.waited=0;
+   progress.detours=0;
+  }else if(motion.blocked||progress.waited>0)progress.waited+=dt;
+  return progress;
+ }
+ function phoneJobFuelOrder(job){
+  return job.kind==='parcel'?phoneOrders().find(order=>order.id===job.orderId&&order.kind==='fuel'):null;
+ }
+ function phoneAlternateStop(job){
+  const v=job.vehicle,returning=job.kind==='return',fuel=phoneJobFuelOrder(job);
+  const avoid=[...(job.recentStops||[]),job.target].slice(-4);
+  const target=returning?phonePickupPoint(v,job.origin,avoid)
+   :fuel?phoneFuelDestination(v,fuel,avoid)
+   :phoneGroundDestination(v,true,avoid,job.caller||player);
+  if(!target||avoid.some(p=>Math.hypot(p.x-target.x,p.z-target.z)<2))return false;
+  const points=phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target);
+  if(points.length<2)return false;
+  job.recentStops=avoid;
+  job.target=target;
+  job.route=new PhoneDriveRoute(points,v.heading);
+  job.pathSearch=null;
+  job.replanIn=0;
+  job.blockedFor=0;
+  job.reroutes=(job.reroutes||0)+1;
+  if(!returning&&state.waypoint?.id==='phone-delivery')phoneWaypoint(target,fuel?'Socorro de combustível':job.kind==='parcel'?'Receber encomenda':'Entrega até você');
+  return true;
+ }
  function phoneAdvanceJob(job,dt){
   if(job.ready)return;if(job.vehicle.incidentLocked){job.route.blocked=true;job.route.speed=0;job.waiting=true;return;}const motion=job.route.step(dt,(x,z,yaw)=>phoneVehiclePoseClear(job.vehicle,x,z,yaw,true),brazilDepotVehicle(job.id)?4:7),v=job.vehicle,oldX=v.group.position.x,oldZ=v.group.position.z;
   v.group.position.set(motion.x,groundHeightAt(motion.x,motion.z),motion.z);v.group.rotation.y=motion.yaw;v.x=motion.x;v.z=motion.z;v.heading=motion.yaw;v.currentSpeed=motion.speed;v.speed=7;
   const travel=Math.hypot(motion.x-oldX,motion.z-oldZ);for(const wheel of v.group.userData.wheels||[])wheel.rotation.x-=travel*3;animateBrazilTransport(v.group);world.trafficSnapshot=null;
-  if(motion.blocked&&!job.waiting){job.waiting=true;toast('O motorista está buscando passagem para continuar a entrega.','info',2500);}else if(!motion.blocked)job.waiting=false;
-  const recovered=phoneRecoverRoute(job,dt);
-  if(!recovered&&job.blockedFor>12&&job.searchFailed){
-   // A customer may occupy the courier's original return curb while it is
-   // away. Find another real stop at the shop instead of holding every paid
-   // order behind that one occupied destination indefinitely.
-   const returning=job.kind==='return',target=returning?phonePickupPoint(v,job.origin):phoneGroundDestination(v,true,job.target);
-   if(target){job.target=target;job.route=new PhoneDriveRoute(phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target),v.heading);job.blockedFor=0;job.reroutes=(job.reroutes||0)+1;if(!returning&&state.waypoint?.id==='phone-delivery')phoneWaypoint(target,'Entrega até você');}
+  job.blockedNoticeIn=Math.max(0,(job.blockedNoticeIn||0)-dt);
+  if(motion.blocked&&!job.waiting&&job.blockedNoticeIn===0){job.blockedNoticeIn=8;toast('O motorista está buscando passagem para continuar a entrega.','info',2500);}
+  job.waiting=motion.blocked;
+  if(motion.arrived)return;
+  const progress=phoneRouteProgress(job,motion,dt),recovered=phoneRecoverRoute(job,dt);
+  if(recovered)progress.detours++;
+  // A spliced route is only a plan. Repeated detours that move no closer
+  // must eventually test another physical stop near the customer or shop.
+  if(motion.blocked&&progress.retryIn===0&&(job.blockedFor>12&&job.searchFailed||progress.waited>12&&progress.detours>=3)){
+   progress.retryIn=6;
+   phoneAlternateStop(job);
   }
  }
  function updateWorldPhone(simulationStep=Number(typeof perf!=='undefined'?perf.expansionStep||0:0)){
@@ -17592,7 +17715,18 @@ function precompile(T,renderer,scene,camera,timings){
    phoneAdvanceJob(job,dt);const v=job.vehicle;
    // Follow a walking caller, retaining a safe roadside stop rather than the
    // stale position where the request was originally made.
-   job.targetCheck=(job.targetCheck||0)+dt;if(job.targetCheck>2){job.targetCheck=0;if(!job.ready&&!player.vehicle&&!currentHouse&&job.caller&&Math.hypot(player.x-job.caller.x,player.z-job.caller.z)>18){const target=phoneGroundDestination(v);if(target){job.target=target;job.caller={x:player.x,z:player.z};job.route=new PhoneDriveRoute(phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target),v.heading);if(state.waypoint?.id==='phone-delivery')phoneWaypoint(target,'Entrega até você');}}}
+   job.targetCheck=(job.targetCheck||0)+dt;
+   if(job.targetCheck>2){
+    job.targetCheck=0;
+    if(!job.ready&&!player.vehicle&&!currentHouse&&job.caller&&Math.hypot(player.x-job.caller.x,player.z-job.caller.z)>18&&!phoneJobFuelOrder(job)){
+     const target=phoneGroundDestination(v),points=target&&phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target);
+     if(points?.length>=2){
+      job.target=target;job.caller={x:player.x,z:player.z};job.route=new PhoneDriveRoute(points,v.heading);
+      job.pathSearch=null;job.recentStops=[];
+      if(state.waypoint?.id==='phone-delivery')phoneWaypoint(target,job.kind==='parcel'?'Receber encomenda':'Entrega até você');
+     }
+    }
+   }
    if(now-job.saveAt>5000&&(!job.savedPose||Math.hypot(v.x-job.savedPose.x,v.z-job.savedPose.z)>.5)){job.saveAt=now;job.savedPose={x:v.x,z:v.z};if(job.kind==='parcel')phoneSaveParcelPose(job);else persistParkedVehicle(v);saveState();}
    if(job.route.arrived&&!job.ready)phoneFinishGround();
   }
@@ -17678,29 +17812,247 @@ function precompile(T,renderer,scene,camera,timings){
 
   // ===== MODULE: 75-phone-orders.js =====
  function phoneOrders(){const v=state.vehicles;if(!Array.isArray(v.phoneOrders))v.phoneOrders=[];return v.phoneOrders;}
- function phoneOrderItem(order){return worldShopItems().find(i=>(i.tool||i.key)===order.itemKey)||null;}
+ function phoneOrderItem(order){return order.kind==='fuel'?{name:'Socorro de combustível',fuel:true,amount:order.litres}:worldShopItems().find(i=>(i.tool||i.key)===order.itemKey)||null;}
  function phoneItemUnavailable(item){return !!(item.tool&&state.tools.owned.includes(item.tool)||item.unique&&(state.inventory[item.key]||0)>0||phoneOrders().some(o=>o.kind==='parcel'&&o.itemKey===(item.tool||item.key)&&['queued','en-route','ready'].includes(o.status)&&(item.tool||item.unique)));}
- function phonePickupPoint(vehicle,origin){
+ function phonePickupPoint(vehicle,origin,avoid=[]){
   const road=groundServiceRoadProjection(origin);if(!road)return null;const {a,b}=road,d=Math.hypot(b.x-a.x,b.z-a.z)||1,fx=(b.x-a.x)/d,fz=(b.z-a.z)/d,yaw=Math.atan2(fx,fz);
-  for(const along of[0,6,-6,12,-12,20,-20,30,-30])for(const side of[1.35,-1.35,0]){const p={x:road.point.x+fx*along-fz*side,z:road.point.z+fz*along+fx*side,yaw};if(v704RoadAt(p.x,p.z,.1,false)&&phoneVehiclePoseClear(vehicle,p.x,p.z,yaw,true))return p;}return null;
+  for(const along of[0,6,-6,12,-12,20,-20,30,-30])for(const side of[1.35,-1.35,0]){const p={x:road.point.x+fx*along-fz*side,z:road.point.z+fz*along+fx*side,yaw};if(!avoid.some(previous=>distance2D(previous,p)<2)&&v704RoadAt(p.x,p.z,.1,false)&&phoneVehiclePoseClear(vehicle,p.x,p.z,yaw,true))return p;}return null;
  }
  function phoneOrderOnMap(order){return inRioMap()?order.map==='rio-preto':!order.map||typeof rioCompactWorld==='function'&&rioCompactWorld()&&order.map==='rio-preto';}
  function phoneNewOrder(kind,label,price){return{id:'order-'+crypto.randomUUID(),kind,label,price,status:'queued',at:Date.now(),owner:sharedWorldOwnId(),...(inRioMap()?{map:'rio-preto'}:{})};}
+ function phoneFuelSupported(){return typeof rioFuelCapacity==='function'&&(inRioMap()||typeof rioCompactWorld==='function'&&rioCompactWorld());}
+ function phoneFuelVehicle(order,restore=false){
+  if(!phoneFuelSupported()||!state.vehicles.owned.includes(order.fuelVehicleId)||vehicleStoredOnMap(order.fuelVehicleId))return null;
+  let v=vehicleById(order.fuelVehicleId);
+  if(!v&&restore){
+   const pose=inRioMap()?rioMapSave().roadVehicles?.[order.fuelVehicleId]:state.vehicles.parked?.[order.fuelVehicleId];
+   if(pose&&Number.isFinite(pose.x)&&Number.isFinite(pose.z))v=ensureCatalogVehicle(order.fuelVehicleId,1,pose);
+  }
+  return v?.group.visible&&rioFuelCapacity(v)?v:null;
+ }
+ function phoneFuelDestination(courier,order,avoid=[]){
+  const v=phoneFuelVehicle(order,true);if(!v||v.occupied||v.phoneDelivery)return null;
+  const p=phonePickupPoint(courier,v.group.position,avoid);
+  return p&&distance2D(p,v.group.position)<=28?p:null;
+ }
+ function phoneFuelOrders(){return phoneOrders().filter(o=>o.kind==='fuel'&&phoneOrderOnMap(o)&&o.owner===sharedWorldOwnId()&&['queued','en-route','ready'].includes(o.status));}
+ function phoneCanBuyFuel(vehicle){
+  return !!vehicle&&!vehicle.occupied&&!vehicle.phoneDelivery&&phoneDispatchAllowed()&&!worldPhone.job&&!worldPhone.pending&&
+   !worldPhone.purchasePending&&!worldPhone.returning.length&&!phoneFuelOrders().length&&distance2D(player,vehicle.group.position)<=18;
+ }
+ function phoneBuyFuel(vehicleId,requested){
+  const probe={fuelVehicleId:vehicleId},vehicle=phoneFuelVehicle(probe),owner=sharedWorldOwnId();
+  if(!phoneCanBuyFuel(vehicle))return false;
+  const q=rioFuelQuote(rioFuelCapacity(vehicle),rioFuelLevel(vehicle),Number(state.profile.coins),Number(requested));if(q.litres<=0)return false;
+  openModal('Socorro de combustível',`<p>${q.litres.toFixed(1)} L para ${escapeHtml(vehicle.label)} · ${q.price} moedas.</p><p>Aproxime-se da van quando chegar. Desembarque e mantenha o carro parado.</p><div class="modal-actions"><button class="btn primary" data-yes>CHAMAR SOCORRO</button><button class="btn" data-no>VOLTAR</button></div>`,root=>{
+   root.querySelector('[data-no]').onclick=openPhoneFuel;
+   const confirm=root.querySelector('[data-yes]');
+   confirm.onclick=()=>{
+    if(!confirm.isConnected)return;
+    if(owner!==sharedWorldOwnId()||phoneFuelVehicle(probe)!==vehicle||!phoneCanBuyFuel(vehicle))return;
+    const available=rioFuelQuote(rioFuelCapacity(vehicle),rioFuelLevel(vehicle),Number(state.profile.coins),q.litres);
+    if(available.litres!==q.litres||available.price!==q.price){openPhoneFuel();toast('Confira o saldo e o espaço no tanque antes de chamar o socorro.','warn',3000);return;}
+    const order=phoneNewOrder('fuel',`${q.litres.toFixed(1)} L · ${vehicle.label}`,q.price);
+    Object.assign(order,{fuelVehicleId:vehicleId,litres:q.litres,fuelUnitPrice:RIO_FUEL_PRICE});
+    phoneOrders().push(order);
+    if(!phoneStartParcel(order,q.price)){
+     phoneOrders().pop();
+     toast('Não há trajeto ou parada segura para o socorro. Nada foi cobrado.','warn',3500);return;
+    }
+    closeModal();toast('Socorro a caminho. O combustível entra no tanque durante o atendimento junto ao carro.','good',3800);
+   };
+  });
+  return true;
+ }
+ function phoneRefundFuel(order){
+  if(order.kind!=='fuel'||order.owner!==sharedWorldOwnId()||!['queued','en-route','ready'].includes(order.status))return false;
+  order.status='cancelled';order.fuelService='cancelled';order.refundedAt=Date.now();
+  if(order.paidAt&&Number.isFinite(order.price)&&order.price>0)addCoins(order.price);
+  saveState(true);return true;
+ }
+ function phoneCancelFuelOrder(id){
+  const order=phoneFuelOrders().find(o=>o.id===id);if(!order)return false;
+  if(!phoneRefundFuel(order))return false;
+  const job=worldPhone.job;
+  if(job?.orderId===id){
+   if(!phoneFuelSendDriverBack(job,job.fuelTransfer,true))phoneReturnCourier(job);
+  }
+  toast('Socorro cancelado e moedas devolvidas.','good',2500);return true;
+ }
+ function openPhoneFuel(){
+  if(!phoneFuelSupported())return;
+  const vehicles=(world.vehicles||[]).filter(v=>phoneFuelVehicle({fuelVehicleId:v.id})===v&&distance2D(player,v.group.position)<=18),orders=phoneFuelOrders(),busy=!!worldPhone.job||worldPhone.pending||worldPhone.purchasePending||worldPhone.returning.length>0||orders.length>0;
+  openModal('⛽ Socorro de combustível',`<section class="world-phone"><p>A equipe parte do posto e leva combustível até o seu carro. Desembarque e mantenha-o parado. A cobrança ocorre uma vez ao aceitar uma rota; cancelar antes de abastecer devolve as moedas.</p><p>Saldo: <b>${state.profile.coins} moedas</b> · ${RIO_FUEL_PRICE} moedas/L.</p>${orders.map(o=>`<p role="status">${escapeHtml(o.label)} · ${o.status==='ready'?'Equipe chegou — aproxime-se da van':'Equipe a caminho'}</p><button class="btn" data-phone-fuel-cancel="${escapeHtml(o.id)}">CANCELAR SOCORRO E DEVOLVER MOEDAS</button>`).join('')}${!phoneDispatchAllowed()?'<p>Saia do veículo e fique em uma área externa para chamar o socorro.</p>':''}${vehicles.map(v=>`<div class="world-phone-vehicle"><label>${escapeHtml(v.label)} · ${rioFuelLevel(v).toFixed(1)} / ${rioFuelCapacity(v)} L<input data-phone-fuel-litres="${escapeHtml(v.id)}" type="number" min="0.1" max="${Math.min(20,rioFuelCapacity(v)-rioFuelLevel(v))}" step="0.1" value="${Math.min(5,rioFuelCapacity(v)-rioFuelLevel(v))}" inputmode="decimal"></label><button class="btn primary" data-phone-fuel-buy="${escapeHtml(v.id)}" ${busy||!phoneDispatchAllowed()||v.occupied||rioFuelCapacity(v)-rioFuelLevel(v)<.1?'disabled':''}>SOLICITAR COMBUSTÍVEL</button></div>`).join('')||'<p>Aproxime-se de um veículo próprio fora da garagem. Bicicletas, aeronaves e embarcações não usam este serviço.</p>'}<button class="btn" data-phone-fuel-back>VOLTAR AO CELULAR</button></section>`,root=>{
+   root.querySelector('[data-phone-fuel-back]').onclick=openWorldPhone;
+   root.querySelectorAll('[data-phone-fuel-buy]').forEach(b=>b.onclick=()=>phoneBuyFuel(b.dataset.phoneFuelBuy,Number([...root.querySelectorAll('[data-phone-fuel-litres]')].find(i=>i.dataset.phoneFuelLitres===b.dataset.phoneFuelBuy)?.value)));
+   root.querySelectorAll('[data-phone-fuel-cancel]').forEach(b=>b.onclick=()=>{phoneCancelFuelOrder(b.dataset.phoneFuelCancel);openPhoneFuel();});
+  });
+ }
+ function phoneFuelFootBlocked(x,z,courier,boarding=false){
+  const traffic=nearbyTrafficActors(x,z,5).filter(actor=>actor.ref!==courier);
+  return positionBlockedForPlayer(x,z,.25,{trafficCandidates:traffic,ignoreActor:boarding?courier:undefined});
+ }
+ function phoneFuelFootClear(courier,a,b,boarding=false){
+  const length=distance2D(a,b),steps=Math.max(1,Math.ceil(length/.24)),ground=groundHeightAt(a.x,a.z);
+  for(let i=1;i<=steps;i++){const t=i/steps,x=lerp(a.x,b.x,t),z=lerp(a.z,b.z,t);if(phoneFuelFootBlocked(x,z,courier,boarding)||Math.abs(groundHeightAt(x,z)-ground)>.5)return false;}return true;
+ }
+ function phoneFuelServicePoints(courier,vehicle,longitudinal,spacings){
+  const {position:p,rotation}=vehicle.group,yaw=rotation.y,data=vehicle.group.userData.brazilRoot?.userData;
+  const width=Number(data?.halfWidth)||.9,fx=Math.sin(yaw),fz=Math.cos(yaw),found=[];
+  for(const offset of longitudinal)for(const spacing of spacings)for(const side of[1,-1]){
+   const x=p.x+fx*offset+fz*(width+spacing)*side,z=p.z+fz*offset-fx*(width+spacing)*side;
+   if(!phoneFuelFootBlocked(x,z,courier))found.push({x,z,y:groundHeightAt(x,z),capX:p.x+fx*offset+fz*width*side,capZ:p.z+fz*offset-fx*width*side});
+  }
+  return found;
+ }
+ function phoneFuelFootRoute(courier,from,goals,yaw=0){
+  return phoneDetourSteps({x:from.x,z:from.z,yaw},goals,(a,b)=>phoneFuelFootClear(courier,a,b),{step:.75,maxNodes:700,radius:36});
+ }
+ function phoneFuelVanExits(courier,seat){
+  return phoneFuelServicePoints(courier,courier,[.65,0,-.65],[.55,1])
+   .filter(exit=>phoneFuelFootClear(courier,exit,seat,true));
+ }
+ function phoneFuelRetryReturn(t){
+  t.phase='return-search';t.elapsed=2;t.returnSearch=null;
+ }
+ function phoneFuelDisposeTransfer(job){
+  const t=job?.fuelTransfer;if(!t)return;
+  for(const root of[t.kit,t.visual]){root?.parent?.remove(root);if(root)disposeDetachedVisual(root);}job.fuelTransfer=null;
+ }
+ function phoneFuelStartTransfer(job,order){
+  if(job.fuelTransfer||!phoneDispatchAllowed()||order.status!=='ready'||order.owner!==sharedWorldOwnId())return false;
+  const v=phoneFuelVehicle(order);if(!v||v.occupied||distance2D(player,v.group.position)>30||distance2D(job.vehicle.group.position,v.group.position)>28){toast('Deixe o carro parado perto da equipe e desembarque antes de abastecer.','warn',3000);return false;}
+  const initial=rioFuelLevel(v),litres=Math.floor(Math.min(order.litres,rioFuelCapacity(v)-initial)*10+1e-6)/10;if(litres<=0){toast('O tanque não tem espaço. Cancele o pedido para receber as moedas de volta.','warn',3200);return false;}
+  const seat=job.driver.group.getWorldPosition(new THREE.Vector3());
+  const exits=phoneFuelVanExits(job.vehicle,seat),goals=phoneFuelServicePoints(job.vehicle,v,[-.7,0,.7],[.42,.65]);
+  if(!exits.length||!goals.length){toast('Não há acesso seguro a pé para a equipe. Libere a lateral do carro.','warn',2800);return false;}
+  const exit=exits.sort((a,b)=>distance2D(a,v.group.position)-distance2D(b,v.group.position))[0];
+  job.fuelTransfer={phase:'planning',vehicleId:v.id,initial,litres,pose:{x:v.group.position.x,z:v.group.position.z,yaw:v.group.rotation.y},seat,exit,goals,elapsed:0,progress:0,walked:[exit],search:phoneFuelFootRoute(job.vehicle,exit,goals,job.route.yaw)};
+  order.fuelService='preparing';saveState(true);closeModal();toast('A equipe está preparando o acesso e o galão. O tanque ainda não foi abastecido.','info',3000);return true;
+ }
+ function phoneFuelMakeKit(job,t){
+  t.kit=new THREE.Group();t.kit.name='OT_ROADSIDE_FUEL_CAN';job.driver.group.add(t.kit);t.kit.position.set(.48,.9,.1);
+  const red=campaignMaterial(0xd84727,.08),black=campaignMaterial(0x242a2c,.18);
+  campaignBox(t.kit,red,0,0,0,.32,.42,.19);campaignBox(t.kit,black,0,.27,0,.22,.06,.08);campaignBox(t.kit,black,.12,.22,0,.12,.08,.08);
+  t.visual=new THREE.Group();t.visual.name='OT_ROADSIDE_FUEL_TRANSFER';worldGroup.add(t.visual);
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+  t.stream=new THREE.Line(geometry,new THREE.LineBasicMaterial({color:0xe4c44d,transparent:true,opacity:.8}));t.stream.visible=false;t.visual.add(t.stream);
+ }
+ function phoneReturnCourier(job){
+  phoneFuelDisposeTransfer(job);if(job.vehicle.group.userData.phoneParcel)job.vehicle.group.userData.phoneParcel.visible=false;
+  job.ready=false;job.kind='return';job.target=job.origin;job.route=new PhoneDriveRoute(phoneGroundRoute(job.vehicle,{x:job.route.x,z:job.route.z,yaw:job.route.yaw},job.origin),job.route.yaw);worldPhone.returning.push(job);worldPhone.job=null;
+ }
+ function phoneFuelFinish(job,order,t,v){
+  if(worldPhone.job!==job||job.fuelTransfer!==t||!job.ready||t.phase!=='pour'||t.progress<1||order.status!=='ready'||!order.paidAt||order.owner!==sharedWorldOwnId()||v.id!==order.fuelVehicleId||Math.abs(rioFuelLevel(v)-t.initial)>.001)return false;
+  const after=Math.min(rioFuelCapacity(v),t.initial+t.litres),unitPrice=order.fuelUnitPrice||RIO_FUEL_PRICE,amount=Math.min(order.price,Math.ceil(unitPrice*t.litres-1e-9)),refund=order.price-amount;
+  order.status='delivered';order.receivedAt=Date.now();order.deliveredLitres=t.litres;order.fuelBefore=t.initial;order.fuelAfter=after;order.fuelService='completed';order.chargedPrice=amount;order.refundedPrice=refund;
+  rioRoadVehicleSave(v.id).fuel=order.fuelAfter;
+  if(refund>0)addCoins(refund);
+  addXP(5);saveState(true);updateHUD();toast(t.litres.toFixed(1)+' L abastecidos. O tanque e o recibo foram salvos.','good',3500);return true;
+ }
+ function phoneFuelSendDriverBack(job,t,release=false){
+  if(!t)return false;
+  t.release=release||t.release;t.unwinding=true;
+  if(t.phase==='planning'){phoneFuelDisposeTransfer(job);return false;}
+  if(['exit','back','return-search','embark'].includes(t.phase))return true;
+  const driver=job.driver;
+  t.stream.visible=false;t.kit.rotation.z=0;
+  driver.rightArm.rotation.x=0;
+  t.phase='back';t.points=t.walked.slice().reverse();t.index=0;t.elapsed=0;t.blockedFor=0;
+  return true;
+ }
+ function phoneFuelInterrupt(job,order,t,why){
+  order.fuelService='interrupted';phoneFuelSendDriverBack(job,t);
+  saveState(true);toast(why+' Nenhum litro foi creditado. Tente novamente ou cancele para receber as moedas.','warn',4500);
+ }
+ function phoneFuelUpdateTransfer(job,dt){
+  const t=job.fuelTransfer,order=phoneOrders().find(o=>o.id===job.orderId);if(!t||!order||order.owner!==sharedWorldOwnId()||job.owner!==order.owner)return;
+  const v=phoneFuelVehicle(order),yaw=(v?.group.rotation.y??0)-t.pose.yaw;
+  if(!t.unwinding&&(!v||v.occupied||distance2D(v.group.position,t.pose)>.35||Math.abs(Math.atan2(Math.sin(yaw),Math.cos(yaw)))>.12||Math.abs(rioFuelLevel(v)-t.initial)>.001||distance2D(player,t.pose)>32)){
+   phoneFuelInterrupt(job,order,t,'Mantenha o carro parado e permaneça perto da equipe.');return;
+  }
+  const driver=job.driver,p=driver.group.position;t.elapsed+=dt;
+  if(t.phase==='planning'){
+   const result=t.search.next();if(!result.done)return;
+   if(!result.value||!phoneFuelFootClear(job.vehicle,t.seat,t.exit,true)){phoneFuelInterrupt(job,order,t,'Libere a passagem até a lateral do carro.');return;}
+   t.points=result.value.points;t.goal=t.goals[result.value.goalIndex];t.index=1;
+   worldGroup.attach(driver.group);driver.group.scale.setScalar(.65);driver.leftLeg.rotation.x=driver.rightLeg.rotation.x=0;driver.leftArm.rotation.x=driver.rightArm.rotation.x=0;
+   t.phase='exit';t.elapsed=0;phoneFuelMakeKit(job,t);return;
+  }
+  if(t.phase==='exit'){
+   const f=clamp(t.elapsed/.85,0,1);p.set(lerp(t.seat.x,t.exit.x,f),lerp(t.seat.y,t.exit.y,f),lerp(t.seat.z,t.exit.z,f));
+   if(f>=1){t.phase=t.unwinding?'embark':'walk';t.elapsed=0;}return;
+  }
+  if(t.phase==='return-search'){
+   if(!t.returnSearch){
+    if(t.elapsed<2)return;
+    const exits=phoneFuelVanExits(job.vehicle,t.seat);
+    t.elapsed=0;if(!exits.length)return;
+    t.returnSearch={exits,steps:phoneFuelFootRoute(job.vehicle,p,exits,driver.group.rotation.y)};
+   }
+   const search=t.returnSearch,result=search.steps.next();if(!result.done)return;
+   t.returnSearch=null;t.elapsed=0;
+   if(result.value){t.exit=search.exits[result.value.goalIndex];t.points=result.value.points;t.index=1;t.phase='back';t.blockedFor=0;}
+   return;
+  }
+  if(t.phase==='walk'||t.phase==='back'){
+   const point=t.points[t.index];if(!point){
+    if(t.phase==='back'&&!phoneFuelFootClear(job.vehicle,p,t.seat,true)){phoneFuelRetryReturn(t);return;}
+    t.phase=t.phase==='back'?'embark':'pour';t.elapsed=0;driver.leftLeg.rotation.x=driver.rightLeg.rotation.x=0;return;
+   }
+   const d=distance2D(p,point),step=Math.min(d,dt*1.7),next=d>.001?{x:p.x+(point.x-p.x)/d*step,z:p.z+(point.z-p.z)/d*step}:{x:p.x,z:p.z};
+   if(!phoneFuelFootClear(job.vehicle,p,next)){
+    t.blockedFor=(t.blockedFor||0)+dt;
+    if(t.blockedFor>=2){
+     if(t.phase==='walk')phoneFuelInterrupt(job,order,t,'A passagem a pé ficou bloqueada.');
+     else phoneFuelRetryReturn(t);
+    }
+    return;
+   }
+   t.blockedFor=0;
+   if(d>.001)driver.group.rotation.y=Math.atan2(point.x-p.x,point.z-p.z);
+   p.set(next.x,groundHeightAt(next.x,next.z),next.z);const swing=Math.sin(t.elapsed*9)*.4;driver.leftLeg.rotation.x=swing;driver.rightLeg.rotation.x=-swing;
+   if(step>=d-.001){if(t.phase==='walk')t.walked.push({x:p.x,z:p.z});t.index++;}return;
+  }
+  if(t.phase==='pour'){
+   t.progress=clamp(t.elapsed/Math.max(4,t.litres*.7),0,1);driver.group.rotation.y=Math.atan2(v.group.position.x-p.x,v.group.position.z-p.z);driver.rightArm.rotation.x=-.8;t.kit.rotation.z=-.65;t.stream.visible=true;
+   const from=t.kit.getWorldPosition(new THREE.Vector3()),a=t.stream.geometry.attributes.position.array;
+   a.set([from.x,from.y+.2,from.z,t.goal.capX,groundHeightAt(v.group.position.x,v.group.position.z)+.8,t.goal.capZ]);t.stream.geometry.attributes.position.needsUpdate=true;t.stream.geometry.computeBoundingSphere();
+   if(t.progress>=1){
+    if(phoneFuelFinish(job,order,t,v))phoneFuelSendDriverBack(job,t,true);
+    else phoneFuelInterrupt(job,order,t,'A equipe não conseguiu concluir o abastecimento.');
+   }
+   return;
+  }
+  if(t.phase==='embark'){
+   const f=clamp(t.elapsed/.85,0,1),next={x:lerp(t.exit.x,t.seat.x,f),z:lerp(t.exit.z,t.seat.z,f)};
+   if(!phoneFuelFootClear(job.vehicle,p,next,true)){
+    if(t.elapsed<=dt)phoneFuelRetryReturn(t);else t.elapsed-=dt;
+    return;
+   }
+   p.set(next.x,lerp(groundHeightAt(t.exit.x,t.exit.z),t.seat.y,f),next.z);
+   if(f>=1){phoneDriverInVehicle(driver,job.vehicle);if(t.release)phoneReturnCourier(job);else phoneFuelDisposeTransfer(job);}
+  }
+ }
  function phoneCourierVehicle(){
   const pose=inRioMap()?RIO_GARAGE_BAY:null;
   const v=vehicleById('phone-parcel-courier')||createToyCar(pose?.x??-30,pose?.z??-20,{id:'phone-parcel-courier',label:inRioMap()?'Entrega do comércio local':'Entrega do Mercadinho',brazilModel:'kombi',bodyType:'utility',primary:0xe3b344,secondary:0x28596a,parkedPose:pose,garageStored:true});v.phoneCourier=true;return v;
  }
  function phoneReleaseCourier(job){
+  phoneFuelDisposeTransfer(job);
   phoneRemoveDriver(job.driver);const v=job.vehicle;v.occupied=false;v.phoneDelivery=false;v.garageStored=true;v.group.visible=false;v.currentSpeed=0;if(!inRioMap())delete state.vehicles.parked[v.id];world.trafficSnapshot=null;
  }
  function phoneStartParcel(order,payment=0){
   if(worldPhone.job||worldPhone.pending||worldPhone.returning.length||!phoneDispatchAllowed()||!phoneOrderOnMap(order)||order.owner!==sharedWorldOwnId())return false;
+  const fuel=order.kind==='fuel';
+  if(fuel&&(!Number.isFinite(order.litres)||order.litres<=0||!Number.isFinite(order.price)||order.price<=0||
+   (payment>0?(payment!==order.price||order.paidAt||state.profile.coins<payment):!order.paidAt)))return false;
   const vehicle=phoneCourierVehicle();vehicle.garageStored=true;vehicle.group.visible=false;
   const shop=MAP_LOCATIONS.find(l=>l.id==='shop')||{x:-30,z:-20},origin={x:Number(shop.navX??shop.x),z:Number(shop.navZ??shop.z)};
   let from=order.pose&&[order.pose.x,order.pose.z,order.pose.yaw].every(Number.isFinite)?{...order.pose}:null;
   if(from&&!phoneVehiclePoseClear(vehicle,from.x,from.z,from.yaw,true))return false;
-  const target=order.status==='ready'&&order.target?order.target:phoneGroundDestination(vehicle);if(!target)return false;
-  const sources=inRioMap()?rioFunctionalSites().filter(s=>s.kind==='market'||s.kind==='mall').sort((a,b)=>distance2D(a,target)-distance2D(b,target)):[origin];
+  const target=order.status==='ready'&&order.target?order.target:fuel?phoneFuelDestination(vehicle,order):phoneGroundDestination(vehicle);if(!target)return false;
+  const sources=fuel?rioFunctionalSites().filter(s=>s.kind==='fuel').sort((a,b)=>distance2D(a,target)-distance2D(b,target)):inRioMap()?rioFunctionalSites().filter(s=>s.kind==='market'||s.kind==='mall').sort((a,b)=>distance2D(a,target)-distance2D(b,target)):[origin];
   let points=[];
   for(const source of from?[from]:sources){
    const start=from||phonePickupPoint(vehicle,source);if(!start)continue;
@@ -17709,32 +18061,49 @@ function precompile(T,renderer,scene,camera,timings){
   }
   if(!points.length)return false;
   const driver=phoneMakeDriver();vehicle.occupied=true;vehicle.phoneDelivery=true;vehicle.garageStored=false;vehicle.group.position.set(from.x,groundHeightAt(from.x,from.z),from.z);vehicle.group.rotation.y=from.yaw;vehicle.group.visible=true;phoneDriverInVehicle(driver,vehicle);
-  const job={id:vehicle.id,kind:'parcel',orderId:order.id,vehicle,driver,target,origin:order.origin||from,route:new PhoneDriveRoute(points,from.yaw),owner:sharedWorldOwnId(),saveAt:0,waiting:false,caller:{x:player.x,z:player.z}};
+  const job={id:vehicle.id,kind:'parcel',orderId:order.id,vehicle,driver,target,origin:order.origin||from,route:new PhoneDriveRoute(points,from.yaw),owner:sharedWorldOwnId(),saveAt:0,waiting:false,caller:fuel?null:{x:player.x,z:player.z}};
   worldPhone.job=job;order.origin=job.origin;order.target=target;if(order.status!=='ready')order.status='en-route';phoneSaveParcelPose(job);
-  if(payment>0)addCoins(-payment);
-  if(inRioMap())phoneWaypoint(target,'Receber encomenda');
+  if(payment>0){if(fuel)order.paidAt=Date.now();addCoins(-payment);}
+  if(inRioMap()||fuel)phoneWaypoint(target,fuel?'Receber socorro de combustível':'Receber encomenda');
   saveState(true);world.trafficSnapshot=null;
   if(order.status==='ready')phoneParcelArrived(job);return true;
  }
  function phoneSaveParcelPose(job){const order=phoneOrders().find(o=>o.id===job.orderId);if(order){order.pose={x:job.vehicle.group.position.x,z:job.vehicle.group.position.z,yaw:job.vehicle.group.rotation.y};order.target={...job.target};}}
  function phoneParcelArrived(job){
-  if(job.ready)return;const order=phoneOrders().find(o=>o.id===job.orderId);if(!order)return;job.ready=true;order.status='ready';phoneSaveParcelPose(job);
-  const v=job.vehicle;let parcel=v.group.userData.phoneParcel;if(!parcel){parcel=campaignBox(v.group,campaignMaterial(0xae793f,.05),0,.5,-2.5,.8,.8,.8);v.group.userData.phoneParcel=parcel;}parcel.visible=true;
-  const id='phone-parcel-pickup';let access=world.interactables.find(i=>i.id===id);if(!access){registerInteractable({id,type:'shop',icon:'📦',label:'Receber minha encomenda',actionLabel:'RECEBER ENCOMENDA',getPos:()=>{const j=worldPhone.job;return j?{x:j.vehicle.group.position.x,z:j.vehicle.group.position.z}:{x:0,z:0};},radius:6,priority:820,available:()=>!!worldPhone.job?.ready&&worldPhone.job.kind==='parcel',action:phoneReceiveParcel});}
-  saveState(true);toast('Sua encomenda chegou. Aproxime-se da van e use RECEBER ENCOMENDA.','good',4000);
+  if(job.ready)return;const order=phoneOrders().find(o=>o.id===job.orderId);if(!order)return;
+  const fuel=order.kind==='fuel';job.ready=true;job.fuelOrder=fuel;order.status='ready';
+  // Only a completed receipt survives a restart. A partial animation always
+  // starts again from the arrived van without debiting or adding any fuel.
+  if(fuel)order.fuelService='waiting';
+  phoneSaveParcelPose(job);
+  const v=job.vehicle;let parcel=v.group.userData.phoneParcel;if(!parcel){parcel=campaignBox(v.group,campaignMaterial(0xae793f,.05),0,.5,-2.5,.8,.8,.8);v.group.userData.phoneParcel=parcel;}parcel.material?.color?.setHex(fuel?0xd84727:0xae793f);parcel.visible=true;
+  const id='phone-parcel-pickup';
+  if(!world.interactables.some(i=>i.id===id))registerInteractable({
+   id,type:'shop',icon:'📦',
+   getLabel:()=>worldPhone.job?.fuelOrder?'Equipe de combustível':'Receber minha encomenda',
+   getActionLabel:()=>worldPhone.job?.fuelOrder?'Abastecer':'Receber encomenda',
+   getPos:()=>worldPhone.job?.vehicle.group.position||{x:0,z:0},radius:6,priority:820,
+   available:()=>!!worldPhone.job?.ready&&worldPhone.job.kind==='parcel'&&!worldPhone.job.fuelTransfer,
+   action:phoneReceiveParcel
+  });
+  world.interactables.find(i=>i.id===id).icon=fuel?'⛽':'📦';
+  saveState(true);toast(order.kind==='fuel'?'O socorro chegou. Aproxime-se da van e use ABASTECER VEÍCULO.':'Sua encomenda chegou. Aproxime-se da van e use RECEBER ENCOMENDA.','good',4000);
  }
  function phoneReceiveParcel(){
   const job=worldPhone.job;if(!job?.ready||job.kind!=='parcel'||Math.hypot(player.x-job.vehicle.group.position.x,player.z-job.vehicle.group.position.z)>6)return false;
   const order=phoneOrders().find(o=>o.id===job.orderId),item=order&&phoneOrderItem(order);if(!item||order.status!=='ready'||order.owner!==sharedWorldOwnId())return false;
+  if(item.fuel)return phoneFuelStartTransfer(job,order);
   // Receipt and item grant are saved in one synchronous transaction. Repeating
   // the pickup, reopening a menu, or reloading cannot grant the order twice.
   order.status='delivered';order.receivedAt=Date.now();
   if(item.tool){state.tools.owned=[...new Set([...state.tools.owned,item.tool])];state.tools.equipped=item.tool;refreshEquippedToolVisual();}else state.inventory[item.key]=(state.inventory[item.key]||0)+item.amount;
   addXP(5);saveState(true);updateHUD();if(job.vehicle.group.userData.phoneParcel)job.vehicle.group.userData.phoneParcel.visible=false;
-  job.ready=false;job.kind='return';job.target=job.origin;job.route=new PhoneDriveRoute(phoneGroundRoute(job.vehicle,{x:job.route.x,z:job.route.z,yaw:job.route.yaw},job.origin),job.route.yaw);worldPhone.returning.push(job);worldPhone.job=null;toast(item.name+' recebido!','good',2600);return true;
+  phoneReturnCourier(job);toast(item.name+' recebido!','good',2600);return true;
  }
  function phoneCancelParcel(job){
-  const order=phoneOrders().find(o=>o.id===job.orderId);if(order&&['queued','en-route','ready'].includes(order.status)){order.status='cancelled';order.refundedAt=Date.now();addCoins(order.price);saveState(true);}phoneReleaseCourier(job);worldPhone.job=null;toast('Compra cancelada e moedas devolvidas.','good',2800);
+  const order=phoneOrders().find(o=>o.id===job.orderId);if(order?.owner&&order.owner!==sharedWorldOwnId())return false;
+  if(order?.kind==='fuel')return phoneCancelFuelOrder(order.id);
+  if(order&&['queued','en-route','ready'].includes(order.status)){order.status='cancelled';order.refundedAt=Date.now();addCoins(order.price);saveState(true);}phoneReleaseCourier(job);worldPhone.job=null;toast(order?.status==='delivered'?'Atendimento concluído; equipe liberada.':'Compra cancelada e moedas devolvidas.','good',2800);
  }
  async function phoneBuyParcel(key){
   const item=worldShopItems().find(i=>(i.tool||i.key)===key);if(!item||worldPhone.pending||worldPhone.purchasePending||worldPhone.job||!phoneDispatchAllowed()||phoneItemUnavailable(item)||state.profile.coins<item.price)return false;
@@ -17774,10 +18143,24 @@ function precompile(T,renderer,scene,camera,timings){
   });
  }
  function updatePhoneOrders(dt){
+  if(worldPhone.job?.fuelTransfer)phoneFuelUpdateTransfer(worldPhone.job,dt);
   for(const job of [...worldPhone.returning]){if(job.owner!==sharedWorldOwnId()){phoneReleaseCourier(job);worldPhone.returning=worldPhone.returning.filter(j=>j!==job);continue;}phoneAdvanceJob(job,dt);if(job.route.arrived){phoneReleaseCourier(job);worldPhone.returning=worldPhone.returning.filter(j=>j!==job);}}
   if(worldPhone.job||worldPhone.pending||worldPhone.returning.length||!phoneDispatchAllowed())return;
-  const order=phoneOrders().find(o=>phoneOrderOnMap(o)&&o.kind==='parcel'&&['queued','en-route','ready'].includes(o.status)&&o.owner===sharedWorldOwnId());if(order){const now=performance.now();if(now-Number(worldPhone.restoreAt||0)<3000)return;worldPhone.restoreAt=now;phoneStartParcel(order);}
+  const order=phoneOrders().find(o=>phoneOrderOnMap(o)&&['parcel','fuel'].includes(o.kind)&&['queued','en-route','ready'].includes(o.status)&&o.owner===sharedWorldOwnId());if(order){const now=performance.now();if(now-Number(worldPhone.restoreAt||0)<3000)return;worldPhone.restoreAt=now;phoneStartParcel(order);}
  }
+ const phoneFuelUiBefore=phoneUpdateTrackingUI;
+ phoneUpdateTrackingUI=function(){
+  phoneFuelUiBefore();const root=els.modalBody;if(!root?.querySelector('.world-phone'))return;
+  if(phoneFuelSupported()&&root.querySelector('[data-phone-shop]')&&!root.querySelector('[data-phone-fuel-open]')){const b=document.createElement('button');b.type='button';b.className='btn';b.dataset.phoneFuelOpen='';b.textContent='SOCORRO DE COMBUSTÍVEL';b.onclick=openPhoneFuel;root.querySelector('.world-phone-actions').prepend(b);}
+  const job=worldPhone.job,order=job&&phoneOrders().find(o=>o.id===job.orderId);if(order?.kind!=='fuel')return;
+  let button=root.querySelector('[data-phone-parcel-receive]');const status=root.querySelector('[data-phone-status]'),t=job.fuelTransfer,tracking=phoneDeliveryTracking();
+  if(button){
+   if(!button.hasAttribute('data-roadside-receive')){const next=button.cloneNode(true);next.dataset.roadsideReceive='';next.onclick=phoneReceiveParcel;button.replaceWith(next);button=next;}
+   button.disabled=!!t||!job.ready||distance2D(player,job.vehicle.group.position)>6;button.textContent=t?'EQUIPE EM ATENDIMENTO':job.ready?'ABASTECER VEÍCULO':'AGUARDE O SOCORRO';
+  }
+  if(status)status.textContent=t?t.unwinding?'Equipe retornando à van':t.phase==='pour'?'Abastecendo · '+Math.round(t.progress*100)+'%':'Equipe preparando o galão e caminhando até o carro':job.ready?'Socorro chegou · aproxime-se da van para abastecer':`Socorro a caminho · ${Math.round(tracking?.distance||0)} m${tracking?.waiting?' · aguardando passagem':''}`;
+ };
+ if(typeof window!=='undefined')window.OT_WORLD_PHONE_FUEL={open:openPhoneFuel,diagnostics:()=>({orders:phoneOrders().filter(o=>o.kind==='fuel').map(o=>({...o})),service:worldPhone.job?.fuelTransfer?{phase:worldPhone.job.fuelTransfer.phase,progress:worldPhone.job.fuelTransfer.progress,vehicleId:worldPhone.job.fuelTransfer.vehicleId,litres:worldPhone.job.fuelTransfer.litres}:null})};
 
   // ===== MODULE: 76-player-journey.js =====
  const PLAYER_JOURNEY_ROUTE=Object.freeze([
@@ -20269,7 +20652,7 @@ function precompile(T,renderer,scene,camera,timings){
     function collider(x,z,w,d,height){
       const ring=[point(x-w/2,z-d/2),point(x+w/2,z-d/2),point(x+w/2,z+d/2),point(x-w/2,z+d/2)].map(p=>[p.x,p.z]);
       const [x0,z0,x1,z1]=rioCoordinateBounds(ring);
-      const c={x:(x0+x1)/2,z:(z0+z1)/2,w:x1-x0,d:z1-z0,height,rioRings:[ring]};
+      const c={x:(x0+x1)/2,z:(z0+z1)/2,w:x1-x0,d:z1-z0,height,rioSiteId:site.id,rioRings:[ring]};
       world.colliders.push(c);colliders.push(c);
     }
     function object(x,y,z,w,h,d,color){
@@ -20897,6 +21280,7 @@ function precompile(T,renderer,scene,camera,timings){
     }
     room.sign('PARE JUNTO À BOMBA',0,2.52,-.76,8.4,.38);
     const p=room.point(lane,-.42);
+    room.fuelPump={parking:p,dock:room.point(2.86,-.49),staff:room.point(3.38,-1.52)};
     room.action('pump','Pare ao lado da bomba',lane,-.42,()=>rioOpenFuel(site,room,p),
       {vehicleOnly:true,icon:'⛽',actionLabel:'Abastecer',radius:2.35});
   }
@@ -21417,6 +21801,17 @@ function precompile(T,renderer,scene,camera,timings){
       }
       return;
     }
+    if(player.vehicle&&rioStationFuelSession?.vehicle===currentVehicleRef()){
+      // Frame both the vehicle and attendant while keeping orbit and zoom inputs active.
+      const stand=rioStationFuelSession.stand;
+      const focusX=lerp(x,stand.x,.46),focusZ=lerp(z,stand.z,.46);
+      const distance=clamp(8.4+cameraZoom*.55,6.3,13.5);
+      const height=clamp(3.6+cameraPitch*1.25+cameraZoom*.10,3.0,5.7);
+      desired.set(focusX-Math.sin(cameraYaw)*distance,player.y+height,focusZ+Math.cos(cameraYaw)*distance);
+      look.set(focusX,player.y+1.05,focusZ);
+      camera.fov=innerHeight>innerWidth?63:58;
+      return;
+    }
     const fuelSite=player.vehicle&&rioSiteByKey('posto_brasilia');
     if(fuelSite&&rioSiteContains(fuelSite,x,z,.8)){
       const distance=clamp(6.6+cameraZoom*.28,5.3,8.4),heading=player.car.heading;
@@ -21503,11 +21898,154 @@ function precompile(T,renderer,scene,camera,timings){
     const tenths=Math.max(0,Math.min(Math.floor((tank-fuel)*10+1e-6),Math.floor(coins/RIO_FUEL_PRICE*10+1e-6),Math.floor(requested*10+1e-6)));
     return{litres:tenths/10,price:Math.ceil(tenths*RIO_FUEL_PRICE/10-1e-9)};
   }
+  let rioStationFuelSession=null;
+
+  function rioStationFuelRig(site,room){
+    if(room.fuelRig)return room.fuelRig;
+    const {staff,dock}=room.fuelPump;
+    const attendant=createNPC('rio-frentista-'+site.key,'Frentista',staff.x,staff.z,0x217a63,0);
+    attendant.stationary=true;
+    attendant.cityLifeManaged=true;
+    attendant.group.position.y=groundHeightAt(staff.x,staff.z);
+    room.root.add(attendant.group);
+    (room.npcs??=[]).push(attendant);
+    room.actions.push('npc-'+attendant.id);
+
+    const props=new THREE.Group();props.name='RIO_FUEL_HOSE_AND_NOZZLE';props.visible=false;room.root.add(props);
+    const hoseGeometry=new THREE.CylinderGeometry(.035,.035,1,8);
+    const hoseMaterial=renderMat(0x282d30);
+    const hose=Array.from({length:7},()=>{
+      const link=new THREE.Mesh(hoseGeometry,hoseMaterial);props.add(link);return link;
+    });
+    const nozzle=new THREE.Group();props.add(nozzle);
+    for(const [w,h,d,color,y,z] of [[.12,.13,.29,0x25765c,0,0],[.052,.052,.20,0xc7d4d8,.017,.22],[.065,.16,.095,0x26353a,-.09,-.082]]){
+      const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),renderMat(color));
+      part.position.set(0,y,z);nozzle.add(part);
+    }
+    return room.fuelRig={attendant,props,hose,nozzle,
+      origin:new THREE.Vector3(dock.x,groundHeightAt(dock.x,dock.z)+1.08,dock.z),
+      hand:new THREE.Vector3(),direction:new THREE.Vector3(),up:new THREE.Vector3(0,1,0),
+      a:new THREE.Vector3(),b:new THREE.Vector3()};
+  }
+
+  function rioParkedAtPump(room,pump,vehicle){
+    return running&&player.vehicle&&!player.car.passengerOf&&currentVehicleRef()===vehicle&&
+      rioFuelCapacity(vehicle)>0&&Math.abs(player.car.speed)<.55&&room.root.visible&&
+      Math.hypot(player.x-pump.x,player.z-pump.z)<2.65;
+  }
+
+  function rioStopStationFuel(session){
+    if(rioStationFuelSession!==session)return false;
+    rioStationFuelSession=null;
+    session.panel.remove();
+    const {attendant,props}=session.rig,{staff}=session.room.fuelPump;
+    props.visible=false;
+    attendant.group.position.set(staff.x,groundHeightAt(staff.x,staff.z),staff.z);
+    for(const limb of Object.values(attendant.limbs))limb.rotation.x=0;
+    return true;
+  }
+
+  function rioStationFuelMotion(session,phase,progress){
+    const {rig,room,port,stand}=session,{staff}=room.fuelPump,{attendant,nozzle}=rig;
+    const walk=phase==='approach'?progress:phase==='return'?1-progress:1;
+    const atX=lerp(staff.x,stand.x,walk),atZ=lerp(staff.z,stand.z,walk);
+    const towards=phase==='return'?staff:walk<1?stand:port;
+    const stepping=(phase==='approach'||phase==='return')&&progress<1;
+    attendant.group.position.set(atX,groundHeightAt(atX,atZ),atZ);
+    attendant.group.rotation.y=stepping?Math.atan2(towards.x-atX,towards.z-atZ):Math.atan2(port.x-atX,port.z-atZ);
+    const stride=stepping?Math.sin(session.elapsed*.013)*.42:0;
+    attendant.limbs.leftLeg.rotation.x=stride;attendant.limbs.rightLeg.rotation.x=-stride;
+    attendant.limbs.leftArm.rotation.x=-stride*.65;
+    attendant.limbs.rightArm.rotation.x=phase==='flow'?-1.12:-.52;
+    rig.hand.set(0,-.58,0);
+    attendant.limbs.rightArm.localToWorld(rig.hand);
+    const mix=phase==='approach'?Math.min(1,progress*4):phase==='return'?clamp((1-progress)*4,0,1):1;
+    if(phase==='flow')nozzle.position.copy(port);
+    else if(phase==='connect')nozzle.position.copy(rig.hand).lerp(port,progress);
+    else if(phase==='disconnect')nozzle.position.copy(port).lerp(rig.hand,progress);
+    else nozzle.position.copy(rig.origin).lerp(rig.hand,mix);
+    nozzle.rotation.y=phase==='flow'||phase==='connect'||phase==='disconnect'?
+      Math.atan2(port.x-stand.x,port.z-stand.z):attendant.group.rotation.y;
+    rig.a.copy(rig.origin);
+    for(let index=0;index<rig.hose.length;index++){
+      const part=(index+1)/rig.hose.length;
+      rig.b.copy(rig.origin).lerp(nozzle.position,part);
+      rig.b.y-=Math.sin(Math.PI*part)*.40*mix;
+      const link=rig.hose[index],length=rig.direction.subVectors(rig.b,rig.a).length();
+      link.visible=length>.001;
+      if(link.visible){
+        link.position.copy(rig.a).lerp(rig.b,.5);
+        link.quaternion.setFromUnitVectors(rig.up,rig.direction.multiplyScalar(1/length));
+        link.scale.y=length+.025;
+      }
+      rig.a.copy(rig.b);
+    }
+  }
+
+  function rioBeginStationFuel(site,room,pump,vehicle,quote){
+    if(rioStationFuelSession||!room.fuelPump||!rioParkedAtPump(room,pump,vehicle)||quote.litres<=0)return false;
+    const initial=rioFuelLevel(vehicle),tank=rioFuelCapacity(vehicle);
+    const heading=player.car.heading,sideX=Math.cos(heading),sideZ=-Math.sin(heading);
+    const dock=room.fuelPump.dock;
+    const side=(dock.x-player.x)*sideX+(dock.z-player.z)*sideZ<0?-1:1;
+    const width=vehicle.kind==='moto'?.35:tank===130?1.19:.91;
+    const rear=vehicle.kind==='moto'?.1:tank===130?.38:-.83;
+    const port=new THREE.Vector3(player.x+Math.sin(heading)*rear+sideX*side*width,
+      groundHeightAt(player.x,player.z)+(tank===130?1.20:.90),player.z+Math.cos(heading)*rear+sideZ*side*width);
+    const stand={x:port.x+sideX*side*.63,z:port.z+sideZ*side*.63};
+    if(Math.abs(Math.cos(heading-site.yaw))<.70||Math.hypot(port.x-dock.x,port.z-dock.z)>5.4||
+      positionBlockedForPlayer(stand.x,stand.z,.26,{ignoreTraffic:true,ignoreParkedVehicles:true})){
+      toast('Deixe espaço para o frentista ao lado da bomba.','warn',2100);return false;
+    }
+    const rig=rioStationFuelRig(site,room);
+    const panel=document.createElement('section');panel.id='rioFuelService';
+    panel.innerHTML='<span role="status" data-rio-fuel-phase></span><progress data-rio-fuel-progress max="1" value="0" aria-label="Litros abastecidos"></progress><button type="button" class="btn" data-rio-fuel-cancel>Cancelar</button>';
+    const label=panel.querySelector('[data-rio-fuel-phase]'),meter=panel.querySelector('progress');
+    const phases=[{id:'approach',text:'Frentista a caminho do veículo',duration:1150},
+      {id:'connect',text:'Conectando o bico ao tanque',duration:450},
+      {id:'flow',text:'Abastecendo',duration:Math.max(1700,Math.min(6800,quote.litres*120))},
+      {id:'disconnect',text:'Retirando o bico do tanque',duration:450},
+      {id:'return',text:'Devolvendo o bico à bomba',duration:1000}];
+    const session={room,vehicle,rig,panel,port,stand,elapsed:0};let phaseIndex=0,previous=performance.now();
+    const cancel=()=>{
+      if(rioStopStationFuel(session))toast('Abastecimento cancelado. Nenhuma moeda foi cobrada.','info',2200);
+    };
+    panel.querySelector('button').onclick=cancel;
+    closeModal();clearMovementInputs();stopEngineSound();
+    rioStationFuelSession=session;
+    label.textContent=phases[0].text;
+    document.body.append(panel);rig.props.visible=true;
+    const tick=now=>{
+      if(rioStationFuelSession!==session)return;
+      if(!rioParkedAtPump(room,pump,vehicle)||Math.abs(rioFuelLevel(vehicle)-initial)>.001||Number(state.profile.coins)<quote.price){cancel();return;}
+      const dt=Math.min(100,Math.max(0,now-previous));previous=now;
+      if(paused||document.hidden){requestAnimationFrame(tick);return;}
+      const phase=phases[phaseIndex];session.elapsed+=dt;
+      const progress=Math.min(1,session.elapsed/phase.duration);
+      rioStationFuelMotion(session,phase.id,progress);
+      if(phase.id==='flow'){
+        meter.value=progress;
+        const text=(quote.litres*progress).toFixed(1)+' / '+quote.litres.toFixed(1)+' L';
+        if(label.textContent!==text)label.textContent=text;
+      }
+      if(progress===1){
+        if(++phaseIndex===phases.length){
+          if(!rioStopStationFuel(session))return;
+          rioRoadVehicleSave(vehicle.id).fuel=Math.min(tank,initial+quote.litres);
+          addCoins(-quote.price);rioCountVisit(site);saveState(true);updateHUD();
+          toast(quote.litres.toFixed(1)+' litros abastecidos.','good',2200);return;
+        }
+        session.elapsed=0;label.textContent=phases[phaseIndex].text;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);return true;
+  }
+
   function rioOpenFuel(site,room,pump){
     const vehicle=currentVehicleRef(),tank=rioFuelCapacity(vehicle);
-    const parked=()=>player.vehicle&&!player.car.passengerOf&&currentVehicleRef()===vehicle&&tank&&Math.abs(player.car.speed)<.55&&
-      room.root.visible&&Math.hypot(player.x-pump.x,player.z-pump.z)<2.65;
-    if(!parked()){
+    if(rioStationFuelSession)return false;
+    if(!rioParkedAtPump(room,pump,vehicle)){
       toast('Pare um veículo a motor na faixa ao lado da bomba.','warn',2000);return false;
     }
     const fuel=rioFuelLevel(vehicle),max=rioFuelQuote(tank,fuel,Number(state.profile.coins),tank).litres;
@@ -21516,43 +22054,31 @@ function precompile(T,renderer,scene,camera,timings){
     openModal(site.name,'<p>'+escapeHtml(vehicle.label)+' · tanque '+fuel.toFixed(1)+' / '+tank+' L</p>'+
       '<label class="field">Quantidade em litros<input data-rio-litres type="number" min="0.1" max="'+max+'" step="0.1" inputmode="decimal" value="'+Math.min(10,max)+'"></label>'+
       '<div class="modal-actions"><button class="btn" data-rio-fill>Completar tanque</button></div>'+
-      '<p data-rio-fuel-total></p><progress data-rio-fuel-progress max="1" value="0" style="width:100%"></progress>'+
-      '<div class="modal-actions"><button class="btn primary" data-rio-refuel>Abastecer</button><button class="btn" data-rio-fuel-cancel>Cancelar</button></div>',root=>{
-      const amount=root.querySelector('[data-rio-litres]'),total=root.querySelector('[data-rio-fuel-total]'),progress=root.querySelector('[data-rio-fuel-progress]'),button=root.querySelector('[data-rio-refuel]'),fill=root.querySelector('[data-rio-fill]');
-      let active=false,cancelled=false;
+      '<p data-rio-fuel-total></p><div class="modal-actions"><button class="btn primary" data-rio-refuel>Abastecer</button><button class="btn" data-rio-fuel-cancel>Cancelar</button></div>',root=>{
+      const amount=root.querySelector('[data-rio-litres]'),total=root.querySelector('[data-rio-fuel-total]'),button=root.querySelector('[data-rio-refuel]');
       const quote=()=>rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),Number(amount.value));
-      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price+' moedas';button.disabled=q.litres<=0||active;};
-      amount.oninput=refresh;fill.onclick=()=>{amount.value=String(rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),tank).litres);refresh();};
-      root.querySelector('[data-rio-fuel-cancel]').onclick=()=>{cancelled=true;closeModal();};
+      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price+' moedas';button.disabled=q.litres<=0;};
+      amount.oninput=refresh;
+      root.querySelector('[data-rio-fill]').onclick=()=>{amount.value=String(rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),tank).litres);refresh();};
+      root.querySelector('[data-rio-fuel-cancel]').onclick=closeModal;
+      button.onclick=()=>{if(button.isConnected)rioBeginStationFuel(site,room,pump,vehicle,quote());};
       refresh();
-      button.onclick=()=>{
-        if(active||cancelled||!parked())return;
-        const q=quote(),initial=rioFuelLevel(vehicle);
-        if(q.litres<=0)return;
-        active=true;button.disabled=amount.disabled=fill.disabled=true;
-        const start=performance.now(),duration=Math.max(1500,Math.min(6500,q.litres*120));
-        const tick=now=>{
-          if(cancelled||!button.isConnected||els.modal.hidden)return;
-          if(!parked()||Math.abs(rioFuelLevel(vehicle)-initial)>.001||Number(state.profile.coins)<q.price){
-            active=false;amount.disabled=fill.disabled=false;refresh();toast('Abastecimento interrompido; nada foi cobrado.','warn',2200);return;
-          }
-          const fraction=clamp((now-start)/duration,0,1);progress.value=fraction;
-          total.textContent=(q.litres*fraction).toFixed(1)+' / '+q.litres.toFixed(1)+' L · '+Math.floor(q.price*fraction)+' moedas';
-          if(fraction<1){requestAnimationFrame(tick);return;}
-          cancelled=true;rioRoadVehicleSave(vehicle.id).fuel=Math.min(tank,initial+q.litres);addCoins(-q.price);
-          rioCountVisit(site);saveState(true);updateHUD();closeModal();toast(q.litres.toFixed(1)+' litros abastecidos.','good',2200);
-        };
-        requestAnimationFrame(tick);
-      };
     });
     return true;
+  }
+
+  function rioRoadEnginePowerless(vehicle){
+    return !!vehicle&&(rioStationFuelSession?.vehicle===vehicle||
+      ((inRioMap()||rioCompactWorld())&&rioFuelCapacity(vehicle)>0&&rioFuelLevel(vehicle)<=.001));
   }
 
   // A dry tank is a genuine mobility constraint, not merely a HUD number.
   const rioVehiclePhysicsBeforeFuel=updateVehiclePhysics;
   updateVehiclePhysics=function(dt,...args){
-    if((inRioMap()||rioCompactWorld())&&player.vehicle&&!player.car.passengerOf&&rioFuelCapacity(currentVehicleRef())&&rioFuelLevel()<=.001){
-      player.car.speed=0;player.vx=player.vz=0;
+    const vehicle=player.vehicle&&!player.car.passengerOf?currentVehicleRef():null;
+    if(rioRoadEnginePowerless(vehicle)){
+      player.car.speed=0;player.vx=player.vz=0;mobilityEngineLoad=0;
+      if(rioStationFuelSession?.vehicle===vehicle)return;
       const now=performance.now();if(now-(rioVehiclePhysicsBeforeFuel.emptyTankNotice||0)>5000){
         rioVehiclePhysicsBeforeFuel.emptyTankNotice=now;toast('Sem combustível. Solicite socorro ou abasteça no posto.','warn',2400);
       }

@@ -12,23 +12,15 @@ import {installCityInspection} from './helpers/world-city-inspection.mjs';
 const mode = process.env.OT_PHONE_RETURN_MODE || 'after';
 const out = 'test-results/phone-return-' + mode;
 fs.mkdirSync(out, {recursive: true});
-const baseline = 'fed801c';
-let source = execFileSync('git', ['show', baseline + ':games/otthi/app.js'], {encoding: 'utf8', maxBuffer: 8e6});
-if (mode !== 'before') {
-  for (const name of ['73-world-phone-dispatch.js', '75-phone-orders.js']) {
-    const marker = '  // ===== MODULE: ' + name + ' =====\n';
-    const start = source.indexOf(marker) + marker.length;
-    assert(start >= marker.length, 'module in compiled baseline: ' + name);
-    let end = source.indexOf('\n  // ===== MODULE:', start);
-    if (end < 0) end = source.lastIndexOf('\n})();');
-    const body = fs.readFileSync('games/otthi/src/modules/' + name, 'utf8').split('// @otthi-module-body')[1].replace(/^[\r\n]+/, '');
-    source = source.slice(0, start) + body + source.slice(end);
-  }
-}
+const baseline = process.env.OT_PHONE_RETURN_BASELINE || 'fed801c';
+const revision = mode === 'before' ? baseline : null;
+const source = revision
+  ? execFileSync('git', ['show', revision + ':games/otthi/app.js'], {encoding: 'utf8', maxBuffer: 8e6})
+  : fs.readFileSync('games/otthi/app.js', 'utf8');
 const report = {mode, baseline, appSha256: createHash('sha256').update(source).digest('hex'), limits: [
   'Native engine, geometry, buying, payments, receiving, driver movement and save/reload; disposable local realtime fixture. No production account.',
   'Clock is advanced at 60 simulation steps per second. Rendering is capped during the inspection; this is not a frame-rate or physical-device measurement.',
-  'Before uses the compiled version26. After substitutes only modules73 and75 from the working tree in that same compiled baseline.'
+  'Before uses the selected historical bundle. After uses the complete generated working-tree bundle with its matching runtime assets.'
 ]};
 const hook = `
  const returnQaGifts=JSON.parse(sessionStorage.getItem('return-qa-gifts')||'[]'),returnQaSociety=updateNpcSociety;
@@ -68,7 +60,7 @@ try {
   page.setDefaultTimeout(60000);
   page.on('pageerror', e => errors.push(e.stack));
   const end = source.lastIndexOf('})();');
-  await installCityInspection(page, {appSource: source.slice(0, end) + hook + source.slice(end), capDuringBoot: true, revision: baseline});
+  await installCityInspection(page, {appSource: source.slice(0, end) + hook + source.slice(end), capDuringBoot: true, revision});
   const boot=async()=>{await page.goto(server.origin+'/games/otthi/');await page.locator('#playBtn').click();await page.waitForFunction(()=>window.__CITY_QA?.cap()&&OTTHOS_TEST_API.getGame().running&&document.getElementById('modal').hidden,null,{timeout:120000});await page.evaluate(()=>__RETURN_QA.advance(4));};
   const buy=async()=>{await page.locator('#quickToggleBtn').click();await page.locator('#worldPhoneBtn').click();await page.locator('[data-phone-shop]').click();await page.locator('[data-phone-buy-item="food"]').click();await page.locator('[data-yes]').click();await page.waitForFunction(()=>OT_WORLD_PHONE.diagnostics().orders.length>0);};
   const receive=async()=>{await page.evaluate(()=>__RETURN_QA.approach());await page.locator('#quickToggleBtn').click();await page.locator('#worldPhoneBtn').click();await page.locator('[data-phone-parcel-receive]').click();await page.locator('#modalClose').click();};

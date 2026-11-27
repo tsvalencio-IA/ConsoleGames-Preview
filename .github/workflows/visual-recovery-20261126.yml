@@ -26,7 +26,7 @@ jobs:
           npx playwright install chromium
       - name: Comparar quadros reais de represa aeroporto e serra
         env:
-          OT_RENDER_BASELINE: 4bacc1bd104a2f7c1f0bf7c9a2734451cf53f569
+          OT_RENDER_BASELINE: a791268ec4486520bb2c43fcc02c0cdadaac9c43
         run: node tests/world-render-stability-browser.mjs
       - name: Validar embarque voo e pouso reais
         run: node tests/world-airport-balloon-browser.mjs
@@ -58,7 +58,7 @@ jobs:
           node --test tests/*.test.mjs
       - name: Comparar jogo em movimento e rotacao da camera
         env:
-          OT_LIVE_BASELINE: 4bacc1bd104a2f7c1f0bf7c9a2734451cf53f569
+          OT_LIVE_BASELINE: a791268ec4486520bb2c43fcc02c0cdadaac9c43
           OT_LIVE_QUALITY: auto
           OT_LIVE_SECONDS: '20'
           OT_LIVE_TURN: '1'
@@ -74,3 +74,46 @@ jobs:
         with:
           name: render-stability-performance
           path: test-results/world-live-performance/
+  servicos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Preparar pacote e navegador
+        id: preparar
+        run: |
+          python3 games/otthi/tools/build_project.py
+          git diff --exit-code -- games/otthi
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+      - name: Conferir abastecimento físico e persistência no posto
+        run: node tests/world-station-fuel-browser.mjs
+      - name: Conferir socorro de combustível solicitado pelo celular
+        if: ${{ !cancelled() && steps.preparar.outcome == 'success' }}
+        run: node tests/world-phone-fuel-browser.mjs
+      - name: Conferir Jornada, rotação e persistência de recompensas
+        if: ${{ !cancelled() && steps.preparar.outcome == 'success' }}
+        run: node tests/world-player-journey-browser.mjs
+      - name: Acompanhar trânsito, entregas e socorro por quinze minutos
+        if: ${{ !cancelled() && steps.preparar.outcome == 'success' }}
+        env:
+          OT_ENDURANCE_CASE: both
+          OT_ENDURANCE_BASELINE: a791268ec4486520bb2c43fcc02c0cdadaac9c43
+          OT_ENDURANCE_SECONDS: '900'
+          OT_ENDURANCE_RESIDENTS_BEFORE: '208'
+          OT_ENDURANCE_RESIDENTS_AFTER: '208'
+        run: node tests/world-native-endurance-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: otthi-servicos-e-sessao-prolongada
+          path: |
+            test-results/station-fuel/
+            test-results/phone-fuel/
+            test-results/world-player-journey/
+            test-results/world-native-endurance/

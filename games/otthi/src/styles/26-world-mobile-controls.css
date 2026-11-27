@@ -1,5 +1,13 @@
 /* @otthi-style-body */
-html,body,.app,.screen{width:var(--otthi-width,100vw)!important;height:var(--otthi-height,100dvh)!important;min-height:0!important}
+/* The viewport manager updates its cached dimensions after the resize event. */
+html,body,.app,.screen{
+  width:var(--otthi-width,100vw)!important;
+  max-width:100vw!important;
+  height:var(--otthi-height,100dvh)!important;
+  max-height:100vh!important;
+  max-height:100dvh!important;
+  min-height:0!important;
+}
 /* One reserved row for destinations/menu and two rows for camera actions. */
 @media (pointer:coarse), (max-width:950px) {
   body.otthi-v705-world #game :is(.identity-box,.needs-box,.currency-box,.mission-card,.mini-nav,.quick-toggle,.camera-controls button,.round,.skills-toggle,.quick-bar,.secondary-actions){

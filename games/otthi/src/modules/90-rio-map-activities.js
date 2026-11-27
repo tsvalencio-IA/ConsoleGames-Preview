@@ -29,11 +29,154 @@
     const tenths=Math.max(0,Math.min(Math.floor((tank-fuel)*10+1e-6),Math.floor(coins/RIO_FUEL_PRICE*10+1e-6),Math.floor(requested*10+1e-6)));
     return{litres:tenths/10,price:Math.ceil(tenths*RIO_FUEL_PRICE/10-1e-9)};
   }
+  let rioStationFuelSession=null;
+
+  function rioStationFuelRig(site,room){
+    if(room.fuelRig)return room.fuelRig;
+    const {staff,dock}=room.fuelPump;
+    const attendant=createNPC('rio-frentista-'+site.key,'Frentista',staff.x,staff.z,0x217a63,0);
+    attendant.stationary=true;
+    attendant.cityLifeManaged=true;
+    attendant.group.position.y=groundHeightAt(staff.x,staff.z);
+    room.root.add(attendant.group);
+    (room.npcs??=[]).push(attendant);
+    room.actions.push('npc-'+attendant.id);
+
+    const props=new THREE.Group();props.name='RIO_FUEL_HOSE_AND_NOZZLE';props.visible=false;room.root.add(props);
+    const hoseGeometry=new THREE.CylinderGeometry(.035,.035,1,8);
+    const hoseMaterial=renderMat(0x282d30);
+    const hose=Array.from({length:7},()=>{
+      const link=new THREE.Mesh(hoseGeometry,hoseMaterial);props.add(link);return link;
+    });
+    const nozzle=new THREE.Group();props.add(nozzle);
+    for(const [w,h,d,color,y,z] of [[.12,.13,.29,0x25765c,0,0],[.052,.052,.20,0xc7d4d8,.017,.22],[.065,.16,.095,0x26353a,-.09,-.082]]){
+      const part=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),renderMat(color));
+      part.position.set(0,y,z);nozzle.add(part);
+    }
+    return room.fuelRig={attendant,props,hose,nozzle,
+      origin:new THREE.Vector3(dock.x,groundHeightAt(dock.x,dock.z)+1.08,dock.z),
+      hand:new THREE.Vector3(),direction:new THREE.Vector3(),up:new THREE.Vector3(0,1,0),
+      a:new THREE.Vector3(),b:new THREE.Vector3()};
+  }
+
+  function rioParkedAtPump(room,pump,vehicle){
+    return running&&player.vehicle&&!player.car.passengerOf&&currentVehicleRef()===vehicle&&
+      rioFuelCapacity(vehicle)>0&&Math.abs(player.car.speed)<.55&&room.root.visible&&
+      Math.hypot(player.x-pump.x,player.z-pump.z)<2.65;
+  }
+
+  function rioStopStationFuel(session){
+    if(rioStationFuelSession!==session)return false;
+    rioStationFuelSession=null;
+    session.panel.remove();
+    const {attendant,props}=session.rig,{staff}=session.room.fuelPump;
+    props.visible=false;
+    attendant.group.position.set(staff.x,groundHeightAt(staff.x,staff.z),staff.z);
+    for(const limb of Object.values(attendant.limbs))limb.rotation.x=0;
+    return true;
+  }
+
+  function rioStationFuelMotion(session,phase,progress){
+    const {rig,room,port,stand}=session,{staff}=room.fuelPump,{attendant,nozzle}=rig;
+    const walk=phase==='approach'?progress:phase==='return'?1-progress:1;
+    const atX=lerp(staff.x,stand.x,walk),atZ=lerp(staff.z,stand.z,walk);
+    const towards=phase==='return'?staff:walk<1?stand:port;
+    const stepping=(phase==='approach'||phase==='return')&&progress<1;
+    attendant.group.position.set(atX,groundHeightAt(atX,atZ),atZ);
+    attendant.group.rotation.y=stepping?Math.atan2(towards.x-atX,towards.z-atZ):Math.atan2(port.x-atX,port.z-atZ);
+    const stride=stepping?Math.sin(session.elapsed*.013)*.42:0;
+    attendant.limbs.leftLeg.rotation.x=stride;attendant.limbs.rightLeg.rotation.x=-stride;
+    attendant.limbs.leftArm.rotation.x=-stride*.65;
+    attendant.limbs.rightArm.rotation.x=phase==='flow'?-1.12:-.52;
+    rig.hand.set(0,-.58,0);
+    attendant.limbs.rightArm.localToWorld(rig.hand);
+    const mix=phase==='approach'?Math.min(1,progress*4):phase==='return'?clamp((1-progress)*4,0,1):1;
+    if(phase==='flow')nozzle.position.copy(port);
+    else if(phase==='connect')nozzle.position.copy(rig.hand).lerp(port,progress);
+    else if(phase==='disconnect')nozzle.position.copy(port).lerp(rig.hand,progress);
+    else nozzle.position.copy(rig.origin).lerp(rig.hand,mix);
+    nozzle.rotation.y=phase==='flow'||phase==='connect'||phase==='disconnect'?
+      Math.atan2(port.x-stand.x,port.z-stand.z):attendant.group.rotation.y;
+    rig.a.copy(rig.origin);
+    for(let index=0;index<rig.hose.length;index++){
+      const part=(index+1)/rig.hose.length;
+      rig.b.copy(rig.origin).lerp(nozzle.position,part);
+      rig.b.y-=Math.sin(Math.PI*part)*.40*mix;
+      const link=rig.hose[index],length=rig.direction.subVectors(rig.b,rig.a).length();
+      link.visible=length>.001;
+      if(link.visible){
+        link.position.copy(rig.a).lerp(rig.b,.5);
+        link.quaternion.setFromUnitVectors(rig.up,rig.direction.multiplyScalar(1/length));
+        link.scale.y=length+.025;
+      }
+      rig.a.copy(rig.b);
+    }
+  }
+
+  function rioBeginStationFuel(site,room,pump,vehicle,quote){
+    if(rioStationFuelSession||!room.fuelPump||!rioParkedAtPump(room,pump,vehicle)||quote.litres<=0)return false;
+    const initial=rioFuelLevel(vehicle),tank=rioFuelCapacity(vehicle);
+    const heading=player.car.heading,sideX=Math.cos(heading),sideZ=-Math.sin(heading);
+    const dock=room.fuelPump.dock;
+    const side=(dock.x-player.x)*sideX+(dock.z-player.z)*sideZ<0?-1:1;
+    const width=vehicle.kind==='moto'?.35:tank===130?1.19:.91;
+    const rear=vehicle.kind==='moto'?.1:tank===130?.38:-.83;
+    const port=new THREE.Vector3(player.x+Math.sin(heading)*rear+sideX*side*width,
+      groundHeightAt(player.x,player.z)+(tank===130?1.20:.90),player.z+Math.cos(heading)*rear+sideZ*side*width);
+    const stand={x:port.x+sideX*side*.63,z:port.z+sideZ*side*.63};
+    if(Math.abs(Math.cos(heading-site.yaw))<.70||Math.hypot(port.x-dock.x,port.z-dock.z)>5.4||
+      positionBlockedForPlayer(stand.x,stand.z,.26,{ignoreTraffic:true,ignoreParkedVehicles:true})){
+      toast('Deixe espaço para o frentista ao lado da bomba.','warn',2100);return false;
+    }
+    const rig=rioStationFuelRig(site,room);
+    const panel=document.createElement('section');panel.id='rioFuelService';
+    panel.innerHTML='<span role="status" data-rio-fuel-phase></span><progress data-rio-fuel-progress max="1" value="0" aria-label="Litros abastecidos"></progress><button type="button" class="btn" data-rio-fuel-cancel>Cancelar</button>';
+    const label=panel.querySelector('[data-rio-fuel-phase]'),meter=panel.querySelector('progress');
+    const phases=[{id:'approach',text:'Frentista a caminho do veículo',duration:1150},
+      {id:'connect',text:'Conectando o bico ao tanque',duration:450},
+      {id:'flow',text:'Abastecendo',duration:Math.max(1700,Math.min(6800,quote.litres*120))},
+      {id:'disconnect',text:'Retirando o bico do tanque',duration:450},
+      {id:'return',text:'Devolvendo o bico à bomba',duration:1000}];
+    const session={room,vehicle,rig,panel,port,stand,elapsed:0};let phaseIndex=0,previous=performance.now();
+    const cancel=()=>{
+      if(rioStopStationFuel(session))toast('Abastecimento cancelado. Nenhuma moeda foi cobrada.','info',2200);
+    };
+    panel.querySelector('button').onclick=cancel;
+    closeModal();clearMovementInputs();stopEngineSound();
+    rioStationFuelSession=session;
+    label.textContent=phases[0].text;
+    document.body.append(panel);rig.props.visible=true;
+    const tick=now=>{
+      if(rioStationFuelSession!==session)return;
+      if(!rioParkedAtPump(room,pump,vehicle)||Math.abs(rioFuelLevel(vehicle)-initial)>.001||Number(state.profile.coins)<quote.price){cancel();return;}
+      const dt=Math.min(100,Math.max(0,now-previous));previous=now;
+      if(paused||document.hidden){requestAnimationFrame(tick);return;}
+      const phase=phases[phaseIndex];session.elapsed+=dt;
+      const progress=Math.min(1,session.elapsed/phase.duration);
+      rioStationFuelMotion(session,phase.id,progress);
+      if(phase.id==='flow'){
+        meter.value=progress;
+        const text=(quote.litres*progress).toFixed(1)+' / '+quote.litres.toFixed(1)+' L';
+        if(label.textContent!==text)label.textContent=text;
+      }
+      if(progress===1){
+        if(++phaseIndex===phases.length){
+          if(!rioStopStationFuel(session))return;
+          rioRoadVehicleSave(vehicle.id).fuel=Math.min(tank,initial+quote.litres);
+          addCoins(-quote.price);rioCountVisit(site);saveState(true);updateHUD();
+          toast(quote.litres.toFixed(1)+' litros abastecidos.','good',2200);return;
+        }
+        session.elapsed=0;label.textContent=phases[phaseIndex].text;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);return true;
+  }
+
   function rioOpenFuel(site,room,pump){
     const vehicle=currentVehicleRef(),tank=rioFuelCapacity(vehicle);
-    const parked=()=>player.vehicle&&!player.car.passengerOf&&currentVehicleRef()===vehicle&&tank&&Math.abs(player.car.speed)<.55&&
-      room.root.visible&&Math.hypot(player.x-pump.x,player.z-pump.z)<2.65;
-    if(!parked()){
+    if(rioStationFuelSession)return false;
+    if(!rioParkedAtPump(room,pump,vehicle)){
       toast('Pare um veículo a motor na faixa ao lado da bomba.','warn',2000);return false;
     }
     const fuel=rioFuelLevel(vehicle),max=rioFuelQuote(tank,fuel,Number(state.profile.coins),tank).litres;
@@ -42,43 +185,31 @@
     openModal(site.name,'<p>'+escapeHtml(vehicle.label)+' · tanque '+fuel.toFixed(1)+' / '+tank+' L</p>'+
       '<label class="field">Quantidade em litros<input data-rio-litres type="number" min="0.1" max="'+max+'" step="0.1" inputmode="decimal" value="'+Math.min(10,max)+'"></label>'+
       '<div class="modal-actions"><button class="btn" data-rio-fill>Completar tanque</button></div>'+
-      '<p data-rio-fuel-total></p><progress data-rio-fuel-progress max="1" value="0" style="width:100%"></progress>'+
-      '<div class="modal-actions"><button class="btn primary" data-rio-refuel>Abastecer</button><button class="btn" data-rio-fuel-cancel>Cancelar</button></div>',root=>{
-      const amount=root.querySelector('[data-rio-litres]'),total=root.querySelector('[data-rio-fuel-total]'),progress=root.querySelector('[data-rio-fuel-progress]'),button=root.querySelector('[data-rio-refuel]'),fill=root.querySelector('[data-rio-fill]');
-      let active=false,cancelled=false;
+      '<p data-rio-fuel-total></p><div class="modal-actions"><button class="btn primary" data-rio-refuel>Abastecer</button><button class="btn" data-rio-fuel-cancel>Cancelar</button></div>',root=>{
+      const amount=root.querySelector('[data-rio-litres]'),total=root.querySelector('[data-rio-fuel-total]'),button=root.querySelector('[data-rio-refuel]');
       const quote=()=>rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),Number(amount.value));
-      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price+' moedas';button.disabled=q.litres<=0||active;};
-      amount.oninput=refresh;fill.onclick=()=>{amount.value=String(rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),tank).litres);refresh();};
-      root.querySelector('[data-rio-fuel-cancel]').onclick=()=>{cancelled=true;closeModal();};
+      const refresh=()=>{const q=quote();total.textContent=q.litres.toFixed(1)+' L · '+q.price+' moedas';button.disabled=q.litres<=0;};
+      amount.oninput=refresh;
+      root.querySelector('[data-rio-fill]').onclick=()=>{amount.value=String(rioFuelQuote(tank,rioFuelLevel(vehicle),Number(state.profile.coins),tank).litres);refresh();};
+      root.querySelector('[data-rio-fuel-cancel]').onclick=closeModal;
+      button.onclick=()=>{if(button.isConnected)rioBeginStationFuel(site,room,pump,vehicle,quote());};
       refresh();
-      button.onclick=()=>{
-        if(active||cancelled||!parked())return;
-        const q=quote(),initial=rioFuelLevel(vehicle);
-        if(q.litres<=0)return;
-        active=true;button.disabled=amount.disabled=fill.disabled=true;
-        const start=performance.now(),duration=Math.max(1500,Math.min(6500,q.litres*120));
-        const tick=now=>{
-          if(cancelled||!button.isConnected||els.modal.hidden)return;
-          if(!parked()||Math.abs(rioFuelLevel(vehicle)-initial)>.001||Number(state.profile.coins)<q.price){
-            active=false;amount.disabled=fill.disabled=false;refresh();toast('Abastecimento interrompido; nada foi cobrado.','warn',2200);return;
-          }
-          const fraction=clamp((now-start)/duration,0,1);progress.value=fraction;
-          total.textContent=(q.litres*fraction).toFixed(1)+' / '+q.litres.toFixed(1)+' L · '+Math.floor(q.price*fraction)+' moedas';
-          if(fraction<1){requestAnimationFrame(tick);return;}
-          cancelled=true;rioRoadVehicleSave(vehicle.id).fuel=Math.min(tank,initial+q.litres);addCoins(-q.price);
-          rioCountVisit(site);saveState(true);updateHUD();closeModal();toast(q.litres.toFixed(1)+' litros abastecidos.','good',2200);
-        };
-        requestAnimationFrame(tick);
-      };
     });
     return true;
+  }
+
+  function rioRoadEnginePowerless(vehicle){
+    return !!vehicle&&(rioStationFuelSession?.vehicle===vehicle||
+      ((inRioMap()||rioCompactWorld())&&rioFuelCapacity(vehicle)>0&&rioFuelLevel(vehicle)<=.001));
   }
 
   // A dry tank is a genuine mobility constraint, not merely a HUD number.
   const rioVehiclePhysicsBeforeFuel=updateVehiclePhysics;
   updateVehiclePhysics=function(dt,...args){
-    if((inRioMap()||rioCompactWorld())&&player.vehicle&&!player.car.passengerOf&&rioFuelCapacity(currentVehicleRef())&&rioFuelLevel()<=.001){
-      player.car.speed=0;player.vx=player.vz=0;
+    const vehicle=player.vehicle&&!player.car.passengerOf?currentVehicleRef():null;
+    if(rioRoadEnginePowerless(vehicle)){
+      player.car.speed=0;player.vx=player.vz=0;mobilityEngineLoad=0;
+      if(rioStationFuelSession?.vehicle===vehicle)return;
       const now=performance.now();if(now-(rioVehiclePhysicsBeforeFuel.emptyTankNotice||0)>5000){
         rioVehiclePhysicsBeforeFuel.emptyTankNotice=now;toast('Sem combustível. Solicite socorro ou abasteça no posto.','warn',2400);
       }

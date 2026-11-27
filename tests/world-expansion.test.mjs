@@ -14,3 +14,21 @@ test('expanded world: original vehicle assets are valid binary glTF with four in
 test('expanded world: all ten personal home placements keep activity buildings, roads and challenge passages separated',()=>{
  const placements=new Set();for(let i=0;i<100&&placements.size<10;i++){const api=layout('layout-'+i),p=api.point('home');placements.add(p.x+':'+p.z);assert(api.staticAudit().passed,JSON.stringify(api.staticAudit().problems));}assert.equal(placements.size,10);
 });
+
+test('the stadium stands and town hall walls are accepted only on their own protected lots',()=>{
+ const world={colliders:[]},c=vm.createContext({window:{},state:{profile:{playerId:'layout-qa'}},
+   world,worldGroup:null,console:{error(){}}});
+ vm.runInContext(fs.readFileSync('games/otthi/src/modules/05a-world-layout-v704.js','utf8'),c);
+ const api=c.window.OTTHI_WORLD_LAYOUT_V704,stadium=api.structure('stadium'),hall=api.structure('castle');
+ const part=(lot,owner)=>({x:lot.x,z:lot.z,w:.5,d:.5,...owner});
+ world.colliders.push(part(stadium,{sportsStructure:true}),part(hall,{rioSiteId:'regional-prefeitura_andalo'}));
+ assert(api.runtimeAudit().passed);
+ world.colliders.push(part(stadium,{buildId:'unauthorized-stall'}),part(hall,{sportsStructure:true}),
+   part(stadium,{rioSiteId:'regional-prefeitura_andalo'}));
+ const problems=api.runtimeAudit().problems;
+ assert.deepEqual(Array.from(problems,p=>[p.type,p.a,p.b]),[
+   ['collider-in-protected-area','unauthorized-stall','stadium'],
+   ['collider-in-protected-area','collider','castle'],
+   ['collider-in-protected-area','regional-prefeitura_andalo','stadium']
+ ]);
+});

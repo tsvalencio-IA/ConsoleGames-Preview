@@ -383,6 +383,17 @@
       }
       return;
     }
+    if(player.vehicle&&rioStationFuelSession?.vehicle===currentVehicleRef()){
+      // Frame both the vehicle and attendant while keeping orbit and zoom inputs active.
+      const stand=rioStationFuelSession.stand;
+      const focusX=lerp(x,stand.x,.46),focusZ=lerp(z,stand.z,.46);
+      const distance=clamp(8.4+cameraZoom*.55,6.3,13.5);
+      const height=clamp(3.6+cameraPitch*1.25+cameraZoom*.10,3.0,5.7);
+      desired.set(focusX-Math.sin(cameraYaw)*distance,player.y+height,focusZ+Math.cos(cameraYaw)*distance);
+      look.set(focusX,player.y+1.05,focusZ);
+      camera.fov=innerHeight>innerWidth?63:58;
+      return;
+    }
     const fuelSite=player.vehicle&&rioSiteByKey('posto_brasilia');
     if(fuelSite&&rioSiteContains(fuelSite,x,z,.8)){
       const distance=clamp(6.6+cameraZoom*.28,5.3,8.4),heading=player.car.heading;

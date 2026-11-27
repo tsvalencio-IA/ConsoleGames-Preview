@@ -11,7 +11,7 @@
   })();
   window.OTTHI_CONFIG = {
     version: 705,
-    build: '705.28.53-camera-multiplayer',
+    build: '705.28.54-simulador-servicos',
     repository: repo,
     baseUrl,
     firebaseRoot: 'otthosWorld',

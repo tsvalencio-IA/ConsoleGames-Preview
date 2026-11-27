@@ -538,7 +538,18 @@
     for(const house of houses)for(const road of roads)if(!(house.allowedRoads||[]).includes(road.id)&&v704RectOverlap(house,road,1.0))add('house-on-road',house.id,road.id);for(const house of houses)for(const highway of WORLD_LAYOUT_V704.highways||[])if(!(house.allowedHighways||[]).includes(highway.id)&&v704HighwayIntersectsRect(highway.id,house,1.0))add('house-on-highway',house.id,highway.id);
     for(let i=0;i<houses.length;i++)for(let j=i+1;j<houses.length;j++)if(v704RectOverlap(houses[i],houses[j],1.0))add('house-overlap',houses[i].id,houses[j].id);
     for(const house of houses)for(const hazard of hazards)if(Number.isFinite(hazard.w)&&v704RectOverlap(house,hazard,.25))add('house-in-hazard',house.id,hazard.type);
-    const protectedGameplay=protectedRects.filter(rect=>['sport','kart','farm','castle'].includes(rect.kind));for(const collider of world?.colliders||[]){const rect={x:Number(collider.x),z:Number(collider.z),w:Number(collider.w),d:Number(collider.d)};if(!Number.isFinite(rect.x)||collider.sportsV704||collider.kartV704)continue;for(const protectedRect of protectedGameplay){if(protectedRect.kind==='castle'&&collider.castle)continue;if(v704RectOverlap(rect,protectedRect,.15))add('collider-in-protected-area',collider.houseId||collider.buildId||collider.landmark||'collider',protectedRect.id);}}
+    const protectedGameplay=protectedRects.filter(rect=>['sport','kart','farm','castle'].includes(rect.kind));
+    for(const collider of world?.colliders||[]){
+      const rect={x:Number(collider.x),z:Number(collider.z),w:Number(collider.w),d:Number(collider.d)};
+      if(!Number.isFinite(rect.x)||collider.sportsV704||collider.kartV704)continue;
+      for(const protectedRect of protectedGameplay){
+        const stadiumPart=protectedRect.id==='stadium'&&collider.sportsStructure;
+        const civicPart=protectedRect.id==='castle'&&(collider.castle||collider.rioSiteId==='regional-prefeitura_andalo');
+        if(stadiumPart||civicPart)continue;
+        if(v704RectOverlap(rect,protectedRect,.15))
+          add('collider-in-protected-area',collider.houseId||collider.buildId||collider.rioSiteId||collider.landmark||'collider',protectedRect.id);
+      }
+    }
     for(const vehicle of vehicles){const x=Number(vehicle.group?.position?.x??vehicle.x),z=Number(vehicle.group?.position?.z??vehicle.z),id=String(vehicle.id||'vehicle');if(!Number.isFinite(x)||!Number.isFinite(z)){add('vehicle-invalid-position',id);continue;}const isKart=String(vehicle.kind||'')==='kart',owned=Array.isArray(state?.vehicles?.owned)&&state.vehicles.owned.includes(id);if(!isKart)for(const road of roads)if(v704PointInRect({x,z},road,Number(vehicle.radius||1.35)))add('vehicle-on-road',id,road.id);for(const structure of protectedRects){if(isKart&&(structure.kind==='kart'||structure.kind==='kart-inner'))continue;if(structure.kind==='garage'&&owned)continue;if(structure.id==='workshop'&&(world.workshopLifts||[]).some(l=>String(l.vehicleId)===id&&Math.hypot(x-l.x,z-l.z)<.65))continue;if(v704PointInRect({x,z},structure,1.2))add('vehicle-inside-structure',id,structure.id);}}
     const signLots=v704SignReservations();
     for(const sign of world?.navigationSigns||[]){

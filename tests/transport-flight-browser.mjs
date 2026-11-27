@@ -9,6 +9,17 @@ const original=fs.readFileSync('games/otthi/app.js','utf8'),end=original.lastInd
 const hook=`
 window.__TRANSPORT_QA={
  snapshot:()=>({near:camera.near,body:otGames.body&&{...otGames.body},ground:{x:player.x,z:player.z},riders:Object.values(familyWorld.actors).filter(a=>a.ridePose).map(a=>({id:a.id,visible:a.group.visible,position:a.group.position.toArray(),expected:[a.ridePose.x,a.ridePose.y,a.ridePose.z],error:a.group.position.distanceTo(new THREE.Vector3(a.ridePose.x,a.ridePose.y,a.ridePose.z))}))}),
+ sampleRiderFrame:()=>{
+   const capped=renderer.render;
+   __TRANSPORT_QA.riderFrame=null;
+   // Compare each seat and its visible rider in the same native drawing frame.
+   renderer.render=function(...args){
+     renderer.render=capped;
+     const result=(cityQaRender||capped.bind(this))(...args);
+     __TRANSPORT_QA.riderFrame=__TRANSPORT_QA.snapshot();
+     return result;
+   };
+ },
  // Travel setup places the already boarded vehicle far beyond its launch point.
  // Both carry and visual transforms then run through the original world step.
  distant:()=>{const b=otGames.body;b.x=player.x+260;b.z=player.z+180;b.y=Math.max(130,groundHeightAt(b.x,b.z)+100);b.pitch=.10;b.roll=.12;b.vx=b.vy=b.vz=0;otGames.onGround=false;otGamesCamera(2);},
@@ -35,6 +46,11 @@ try{
  report.car=await page.evaluate(()=>({audio:GameAudio.diagnostics(),family:OTTHI_FAMILY.diagnostics(),vehicle:OTTHOS_TEST_API.vehicle()}));assert.equal(report.car.audio.engineVersion,'20261029-continuity5');assert.equal(report.car.audio.activeEngines,1);assert.deepEqual(report.car.audio.decodedEngineFiles.sort(),['engine-classic-idle','engine-classic-load']);
  await page.locator('#actionBtn').tap({force:true});await page.waitForFunction(()=>!OTTHOS_TEST_API.vehicle().active);console.log('PASS native Fusca with family and real recorded engine');
 
+ const captureRiderFrame=async()=>{
+  await page.evaluate(()=>__TRANSPORT_QA.sampleRiderFrame());
+  const frame=await page.waitForFunction(()=>__TRANSPORT_QA.riderFrame);
+  return frame.jsonValue();
+ };
  for(const mode of (process.env.TRANSPORT_QA_ONLY_CABLE?[]:['helicopter','plane','balloon'])){
   const craft=await page.evaluate(mode=>OTTHI_CAMPAIGN.parked().find(p=>p.mode===mode),mode);assert(craft,mode+' physical boarding point');
   await page.evaluate(p=>OTTHOS_TEST_API.teleport(p.x+4,p.z),craft);
@@ -47,9 +63,9 @@ try{
    takeoff=await page.evaluate(()=>OT_GAMES.diagnostics());assert(!takeoff.onGround&&takeoff.body.y>2,'native collective takeoff');
   }
   await page.evaluate(()=>__TRANSPORT_QA.distant());await page.evaluate(()=>__CITY_QA.simulate(18));
-  const first=await page.evaluate(()=>__TRANSPORT_QA.snapshot());assert.equal(first.riders.length,4);assert(first.near>=1);
+  const first=await captureRiderFrame();assert.equal(first.riders.length,4);assert(first.near>=1);
   for(const rider of first.riders){assert(rider.visible,mode+' hidden '+rider.id);assert(rider.error<1e-6,mode+' detached '+rider.id);assert(rider.position[1]>50,mode+' fell '+rider.id);}
-  await page.evaluate(()=>__CITY_QA.simulate(18));const second=await page.evaluate(()=>__TRANSPORT_QA.snapshot());for(const rider of second.riders)assert(rider.error<1e-6&&rider.visible);
+  await page.evaluate(()=>__CITY_QA.simulate(18));const second=await captureRiderFrame();for(const rider of second.riders)assert(rider.error<1e-6&&rider.visible);
   if(mode==='helicopter'){
    await page.evaluate(()=>__TRANSPORT_QA.watchBuffer());await page.evaluate(()=>__TRANSPORT_QA.forceResize());await page.waitForTimeout(350);
    const repeated=await page.evaluate(()=>__TRANSPORT_QA.buffers());assert.equal(repeated.filter(e=>e.type==='buffer').length,0,'unchanged viewport cleared canvas');

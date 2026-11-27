@@ -238,7 +238,18 @@
     const safe=safeBoatExitPoint();player.x=safe.x;player.z=safe.z;player.y=groundHeightAt(safe.x,safe.z);player.vx=player.vy=player.vz=0;player.grounded=true;rememberSafePlayerPosition(true);updateBoatPanel();updateVehicleControlsUI();auditPlayerMode('exit-boat');if(!silent)toast('Você desembarcou no píer.','good');saveState(true);return true;
   }
   function updateBoatPhysics(dt,ix,iz){
-    const boat=player.boat;if(boat.passengerOf){const ghost=world.ghosts.get(boat.passengerOf),target=ghost?.userData?.target;if(!ghost||!target){boat.hostMissingAt=boat.hostMissingAt||performance.now();if(performance.now()-boat.hostMissingAt>3500){toast('O motorista saiu. Você voltou ao píer.','warn');player.x=BOAT_DOCK.exitX;player.z=54;exitBoat(true);}player.vx=player.vz=0;return;}boat.hostMissingAt=0;const tx=Number(target.x||ghost.position.x),tz=Number(target.z||ghost.position.z);player.vx=clamp((tx-player.x)*8,-18,18);player.vz=clamp((tz-player.z)*8,-18,18);boat.heading=Number(target.r||boat.heading);player.facing=boat.heading;return;}
+    const boat=player.boat;
+    if(boat.passengerOf){
+      const ghost=world.ghosts.get(boat.passengerOf),target=ghost?.userData?.target;
+      if(!ghost||!target){boat.hostMissingAt=boat.hostMissingAt||performance.now();if(performance.now()-boat.hostMissingAt>3500){toast('O motorista saiu. Você voltou ao píer.','warn');player.x=BOAT_DOCK.exitX;player.z=54;exitBoat(true);}player.vx=player.vz=0;return;}
+      boat.hostMissingAt=0;
+      const pose=typeof multiplayerV2GhostControlled==='function'&&multiplayerV2GhostControlled(boat.passengerOf)?
+        multiplayerV2RemotePose(boat.passengerOf,target):target;
+      const tx=Number(pose.x??ghost.position.x),tz=Number(pose.z??ghost.position.z);
+      player.vx=clamp((tx-player.x)*8,-18,18);
+      player.vz=clamp((tz-player.z)*8,-18,18);
+      boat.heading=Number(pose.r??boat.heading);player.facing=boat.heading;return;
+    }
     // V643: mesma convenção do carro — manche para a direita vira para a direita.
     const steer=Math.abs(ix)<.07?0:-ix,command=mobilityThrottleIntent(iz,boat.speed),throttle=command.throttle;mobilityEngineLoad=command.brake?0:throttle;
     if(command.brake)boat.speed=approachNumber(boat.speed,0,(7.2+Math.abs(boat.speed)*.8)*dt);else{const crossing=boat.speed*throttle<-.08;boat.speed+=throttle*(world.boat?.acceleration??(world.boat?.seaGoing?11:8.5))*(crossing?1.8:1)*dt;if(world.boat?.kind==='surf'&&throttle>.1&&player.z<563){const shoreward=Math.max(0,-Math.cos(boat.heading)),wave=Math.max(0,Math.sin((player.z-513)*.34-performance.now()*.0017));boat.speed+=wave*shoreward*2.7*dt;}}

@@ -1,6 +1,6 @@
 {
   "version": 705,
-  "build": "705.28.53-camera-multiplayer",
+  "build": "705.28.54-simulador-servicos",
   "name": "OTTHI World",
   "sourceArchitecture": "modular-source-with-generated-runtime-bundle",
   "runtimeBundle": "app.js",
@@ -42,6 +42,7 @@
     }
   },
   "changes": [
+    "R28.54 candidata: abastecimento físico no posto e na rua, retomada de socorro pelo celular, retorno de prestadores, Jornada responsiva, recuperação de posições multiplayer e encerramento único das partidas de rede.",
     "R28.49: três lagos físicos separados, pista superior e corrida original Represa/Damha com seis checkpoints e chave histórica de recordes, rampas livres do guarda-corpo, auditoria de 10 lotes pessoais e todos os setores ativos.",
     "R28.48: rampas da ponte com superfície física contínua, pista de corrida sinalizada na Represa, vendedores de coco e milho, acesso Damha, piscinas realmente exteriores e retirada dos prédios urbanos de cenário da neve no mapa Rio Preto.",
     "R28.47: loja de móveis integrada ao catálogo e entrega por imóvel, interiores regionais carregados somente na entrada, identidade de serviços públicos, verificação de pisos e compras no cenário real.",
@@ -317,7 +318,7 @@
     "Firebase, regras, contas e multiplayer permanecem preservados."
   ],
   "hotfix": "705.7",
-  "assetVersion": 70677,
+  "assetVersion": 70678,
   "revisionLabel": "Rio Preto no mundo original, com Represa e clima",
   "consolidationBase": {
     "repository": "tsvalencio-IA/OTTHI-World",

@@ -48,6 +48,9 @@
  }
  function phoneTravelClear(vehicle,from,to,traffic=true){
   const dx=to.x-from.x,dz=to.z-from.z,distance=Math.hypot(dx,dz),yaw=distance>.01?Math.atan2(dx,dz):from.yaw||0;
+  // The route applies this heading immediately, before a vehicle can advance
+  // to the first sweep sample. Check the turn at the curb as well.
+  if(Math.cos(yaw-(from.yaw||0))<.998&&!phoneVehiclePoseClear(vehicle,from.x,from.z,yaw,traffic))return false;
   for(let i=1,n=Math.max(1,Math.ceil(distance/.55));i<=n;i++){const t=i/n,x=from.x+dx*t,z=from.z+dz*t;
    // A short driveway connector is permitted. Detours remain on the road.
    if(distance>1&&!v704RoadAt(x,z,.15,true)&&Math.hypot(x-vehicle.group.position.x,z-vehicle.group.position.z)>6)return false;
@@ -68,7 +71,7 @@
   const search=job.pathSearch,result=search.steps.next();job.searchSlices=(job.searchSlices||0)+1;if(!result.done)return false;
   job.pathSearch=null;job.replanIn=3;const detour=result.value;if(!detour){job.searchFailed=true;return false;}
   const rejoin=search.goals[detour.goalIndex],points=compactRoute([...detour.points,...search.motion.points.slice(rejoin.index)]);
-  job.route=new PhoneDriveRoute(points,search.motion.yaw);job.reroutes=(job.reroutes||0)+1;job.blockedFor=0;job.waiting=false;return true;
+  job.route=new PhoneDriveRoute(points,search.motion.yaw);job.reroutes=(job.reroutes||0)+1;job.blockedFor=0;return true;
  }
 
  const phoneProbeCache=new WeakMap();
@@ -97,12 +100,12 @@
   }
   return true;
  }
- function phoneGroundDestination(vehicle,includeTraffic=false,avoid=null){
-  const projection=groundServiceRoadProjection(player);if(!projection||projection.distance>90)return null;
+ function phoneGroundDestination(vehicle,includeTraffic=false,avoid=[],destination=player){
+  const projection=groundServiceRoadProjection(destination);if(!projection||projection.distance>90)return null;
   const {a,b}=projection,length=Math.hypot(b.x-a.x,b.z-a.z)||1,fx=(b.x-a.x)/length,fz=(b.z-a.z)/length,yaw=Math.atan2(fx,fz);
   for(const along of[8,-8,14,-14,22,-22,32,-32])for(const side of[2.5,-2.5,0]){
    const x=projection.point.x+fx*along+fz*side,z=projection.point.z+fz*along-fx*side;
-   if(Math.hypot(player.x-x,player.z-z)<5||avoid&&Math.hypot(avoid.x-x,avoid.z-z)<5||!v704RoadAt(x,z,inRioMap()?.05:1.5,!inRioMap()))continue;
+   if(Math.hypot(destination.x-x,destination.z-z)<5||avoid.some(p=>Math.hypot(p.x-x,p.z-z)<5)||!v704RoadAt(x,z,inRioMap()?.05:1.5,!inRioMap()))continue;
    if(phoneVehiclePoseClear(vehicle,x,z,yaw,includeTraffic))return{x,z,yaw};
   }
   return null;
@@ -283,18 +286,58 @@
   ctx.save();ctx.strokeStyle='#ffbd45';ctx.lineWidth=4;ctx.setLineDash([5,3]);ctx.beginPath();for(const [i,p]of t.route.entries()){const q=miniPoint(p.x,p.z,scale,w,h);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);}ctx.stroke();ctx.setLineDash([]);
   const q=miniPoint(t.x,t.z,scale,w,h),x=clamp(q.x,12,w-12),y=clamp(q.y,36,h-12);ctx.translate(x,y);ctx.rotate(Math.atan2(q.x-x,-(q.y-y))||t.yaw);ctx.fillStyle='#ffbd45';ctx.strokeStyle='#102936';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(7,7);ctx.lineTo(-7,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
  }
+ function phoneRouteProgress(job,motion,dt){
+  const distance=Math.hypot(motion.x-job.target.x,motion.z-job.target.z);
+  let progress=job.routeProgress;
+  if(!progress||progress.target!==job.target){
+   if(progress&&progress.kind!==job.kind)job.recentStops=[];
+   progress=job.routeProgress={target:job.target,kind:job.kind,distance,waited:0,detours:0,retryIn:0};
+  }
+  progress.retryIn=Math.max(0,progress.retryIn-dt);
+  if(distance<progress.distance-1.25){
+   progress.distance=distance;
+   progress.waited=0;
+   progress.detours=0;
+  }else if(motion.blocked||progress.waited>0)progress.waited+=dt;
+  return progress;
+ }
+ function phoneJobFuelOrder(job){
+  return job.kind==='parcel'?phoneOrders().find(order=>order.id===job.orderId&&order.kind==='fuel'):null;
+ }
+ function phoneAlternateStop(job){
+  const v=job.vehicle,returning=job.kind==='return',fuel=phoneJobFuelOrder(job);
+  const avoid=[...(job.recentStops||[]),job.target].slice(-4);
+  const target=returning?phonePickupPoint(v,job.origin,avoid)
+   :fuel?phoneFuelDestination(v,fuel,avoid)
+   :phoneGroundDestination(v,true,avoid,job.caller||player);
+  if(!target||avoid.some(p=>Math.hypot(p.x-target.x,p.z-target.z)<2))return false;
+  const points=phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target);
+  if(points.length<2)return false;
+  job.recentStops=avoid;
+  job.target=target;
+  job.route=new PhoneDriveRoute(points,v.heading);
+  job.pathSearch=null;
+  job.replanIn=0;
+  job.blockedFor=0;
+  job.reroutes=(job.reroutes||0)+1;
+  if(!returning&&state.waypoint?.id==='phone-delivery')phoneWaypoint(target,fuel?'Socorro de combustível':job.kind==='parcel'?'Receber encomenda':'Entrega até você');
+  return true;
+ }
  function phoneAdvanceJob(job,dt){
   if(job.ready)return;if(job.vehicle.incidentLocked){job.route.blocked=true;job.route.speed=0;job.waiting=true;return;}const motion=job.route.step(dt,(x,z,yaw)=>phoneVehiclePoseClear(job.vehicle,x,z,yaw,true),brazilDepotVehicle(job.id)?4:7),v=job.vehicle,oldX=v.group.position.x,oldZ=v.group.position.z;
   v.group.position.set(motion.x,groundHeightAt(motion.x,motion.z),motion.z);v.group.rotation.y=motion.yaw;v.x=motion.x;v.z=motion.z;v.heading=motion.yaw;v.currentSpeed=motion.speed;v.speed=7;
   const travel=Math.hypot(motion.x-oldX,motion.z-oldZ);for(const wheel of v.group.userData.wheels||[])wheel.rotation.x-=travel*3;animateBrazilTransport(v.group);world.trafficSnapshot=null;
-  if(motion.blocked&&!job.waiting){job.waiting=true;toast('O motorista está buscando passagem para continuar a entrega.','info',2500);}else if(!motion.blocked)job.waiting=false;
-  const recovered=phoneRecoverRoute(job,dt);
-  if(!recovered&&job.blockedFor>12&&job.searchFailed){
-   // A customer may occupy the courier's original return curb while it is
-   // away. Find another real stop at the shop instead of holding every paid
-   // order behind that one occupied destination indefinitely.
-   const returning=job.kind==='return',target=returning?phonePickupPoint(v,job.origin):phoneGroundDestination(v,true,job.target);
-   if(target){job.target=target;job.route=new PhoneDriveRoute(phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target),v.heading);job.blockedFor=0;job.reroutes=(job.reroutes||0)+1;if(!returning&&state.waypoint?.id==='phone-delivery')phoneWaypoint(target,'Entrega até você');}
+  job.blockedNoticeIn=Math.max(0,(job.blockedNoticeIn||0)-dt);
+  if(motion.blocked&&!job.waiting&&job.blockedNoticeIn===0){job.blockedNoticeIn=8;toast('O motorista está buscando passagem para continuar a entrega.','info',2500);}
+  job.waiting=motion.blocked;
+  if(motion.arrived)return;
+  const progress=phoneRouteProgress(job,motion,dt),recovered=phoneRecoverRoute(job,dt);
+  if(recovered)progress.detours++;
+  // A spliced route is only a plan. Repeated detours that move no closer
+  // must eventually test another physical stop near the customer or shop.
+  if(motion.blocked&&progress.retryIn===0&&(job.blockedFor>12&&job.searchFailed||progress.waited>12&&progress.detours>=3)){
+   progress.retryIn=6;
+   phoneAlternateStop(job);
   }
  }
  function updateWorldPhone(simulationStep=Number(typeof perf!=='undefined'?perf.expansionStep||0:0)){
@@ -308,7 +351,18 @@
    phoneAdvanceJob(job,dt);const v=job.vehicle;
    // Follow a walking caller, retaining a safe roadside stop rather than the
    // stale position where the request was originally made.
-   job.targetCheck=(job.targetCheck||0)+dt;if(job.targetCheck>2){job.targetCheck=0;if(!job.ready&&!player.vehicle&&!currentHouse&&job.caller&&Math.hypot(player.x-job.caller.x,player.z-job.caller.z)>18){const target=phoneGroundDestination(v);if(target){job.target=target;job.caller={x:player.x,z:player.z};job.route=new PhoneDriveRoute(phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target),v.heading);if(state.waypoint?.id==='phone-delivery')phoneWaypoint(target,'Entrega até você');}}}
+   job.targetCheck=(job.targetCheck||0)+dt;
+   if(job.targetCheck>2){
+    job.targetCheck=0;
+    if(!job.ready&&!player.vehicle&&!currentHouse&&job.caller&&Math.hypot(player.x-job.caller.x,player.z-job.caller.z)>18&&!phoneJobFuelOrder(job)){
+     const target=phoneGroundDestination(v),points=target&&phoneGroundRoute(v,{x:v.x,z:v.z,yaw:v.heading},target);
+     if(points?.length>=2){
+      job.target=target;job.caller={x:player.x,z:player.z};job.route=new PhoneDriveRoute(points,v.heading);
+      job.pathSearch=null;job.recentStops=[];
+      if(state.waypoint?.id==='phone-delivery')phoneWaypoint(target,job.kind==='parcel'?'Receber encomenda':'Entrega até você');
+     }
+    }
+   }
    if(now-job.saveAt>5000&&(!job.savedPose||Math.hypot(v.x-job.savedPose.x,v.z-job.savedPose.z)>.5)){job.saveAt=now;job.savedPose={x:v.x,z:v.z};if(job.kind==='parcel')phoneSaveParcelPose(job);else persistParkedVehicle(v);saveState();}
    if(job.route.arrived&&!job.ready)phoneFinishGround();
   }

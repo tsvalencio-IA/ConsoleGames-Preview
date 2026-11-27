@@ -52,7 +52,7 @@
     function collider(x,z,w,d,height){
       const ring=[point(x-w/2,z-d/2),point(x+w/2,z-d/2),point(x+w/2,z+d/2),point(x-w/2,z+d/2)].map(p=>[p.x,p.z]);
       const [x0,z0,x1,z1]=rioCoordinateBounds(ring);
-      const c={x:(x0+x1)/2,z:(z0+z1)/2,w:x1-x0,d:z1-z0,height,rioRings:[ring]};
+      const c={x:(x0+x1)/2,z:(z0+z1)/2,w:x1-x0,d:z1-z0,height,rioSiteId:site.id,rioRings:[ring]};
       world.colliders.push(c);colliders.push(c);
     }
     function object(x,y,z,w,h,d,color){
@@ -680,6 +680,7 @@
     }
     room.sign('PARE JUNTO À BOMBA',0,2.52,-.76,8.4,.38);
     const p=room.point(lane,-.42);
+    room.fuelPump={parking:p,dock:room.point(2.86,-.49),staff:room.point(3.38,-1.52)};
     room.action('pump','Pare ao lado da bomba',lane,-.42,()=>rioOpenFuel(site,room,p),
       {vehicleOnly:true,icon:'⛽',actionLabel:'Abastecer',radius:2.35});
   }

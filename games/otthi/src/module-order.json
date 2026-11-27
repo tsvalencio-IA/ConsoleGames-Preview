@@ -1,13 +1,13 @@
 {
   "version": 705,
-  "build": "705.28.53-camera-multiplayer",
+  "build": "705.28.54-simulador-servicos",
   "javascript": [
     {
       "file": "src/modules/00-runtime-foundation.js",
       "startLine": 4,
       "endLine": 49,
       "description": "Runtime, utilitários, versão, storage e chaves de migração",
-      "sha256Body": "a5a018b1ae54b6d1b5602c046648c21de3fbf0d59a20cb7e92a88d7fa2cb09b7"
+      "sha256Body": "9c6b7f2c4a42d1f786118555b8b8ec1fe6044039a935a28a2a9a803948e8fd0c"
     },
     {
       "file": "src/modules/00a-visual-foundation-avatar-v2.js",
@@ -80,7 +80,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Fonte central de verdade do layout mundial V704",
-      "sha256Body": "1211b520afebf11144d7406ae58fcc73c82d98d3981d20ae7d87d7f22fa8cefa"
+      "sha256Body": "0f368d6dffe6775cbb3e5afe09a9b06025b9fb3448ba25f06688f1e30b099f20"
     },
     {
       "file": "src/modules/06-missions-profile-hud-inventory-tools.js",
@@ -150,7 +150,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Esportes jogáveis 3v3/2v2 e kartódromo de circuito técnico V705",
-      "sha256Body": "1d74edcb5ed3a71e86a44f67f1c7b7a70e7b6c855d6cbcb78ff425a0ed611c16"
+      "sha256Body": "2c0dad09c72d62004504a7b750e1456e51991e1882cb6d0e41e08f9f7d2924cb"
     },
     {
       "file": "src/modules/14-world-district-decoration.js",
@@ -192,7 +192,7 @@
       "startLine": 3559,
       "endLine": 3717,
       "description": "Água, câmera e animação da pesca, barco e física náutica",
-      "sha256Body": "8474c7823f970604807fd9a6d20e6fe4d33387ee3fcb874ab918abef133b2eac"
+      "sha256Body": "29f5e05be1bba1810838da807818385e49a50b08c97bcf76aef412a34d4a3d72"
     },
     {
       "file": "src/modules/19-campfire-hunting-house-extensions.js",
@@ -227,7 +227,7 @@
       "startLine": 4245,
       "endLine": 4381,
       "description": "Poeira, som, efeitos, controles, direção, passageiros e ponte",
-      "sha256Body": "1e75de5a0cc577da7ef4bf52f4d043fcd634547b6d6dda3d86fbb7b142c756ea"
+      "sha256Body": "4d4d5dcbfa95adfc89846b33c15460b46ffcafc39dd995e85bf088064e7a0693"
     },
     {
       "file": "src/modules/24-construction-system.js",
@@ -269,7 +269,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Multiplayer Core V2: movimento interpolado, autoridade, eventos e partidas autoritativas",
-      "sha256Body": "434fd9690b8c26a389036aeb30390a9caca52f8bf0108173d89b94d65f7ee877"
+      "sha256Body": "7144de8f9d57d29d029eed5e82f496bad348710d1f41ed6da3b49ce451596428"
     },
     {
       "file": "src/modules/28-multiplayer-social-online.js",
@@ -633,7 +633,7 @@
     {
       "file": "src/modules/73-world-phone-dispatch.js",
       "description": "Celular do personagem e entrega física de veículos por NPC",
-      "sha256Body": "efd474175dd840c4bdec19ca85510e2684e858190220a91b9fc873eba1fb8115"
+      "sha256Body": "4b249ba187c9bbdcbe180ae34fa1f40bc902cd73e0cf8a82a3f2797896816e48"
     },
     {
       "file": "src/modules/74-workshop-npc-service.js",
@@ -643,7 +643,7 @@
     {
       "file": "src/modules/75-phone-orders.js",
       "description": "Compras pelo celular, recibos persistentes e entrega física de encomendas",
-      "sha256Body": "bb2ff254e5b540b68a5ce024fc87dd441c6742ad961ff18e15f47c8bbcb0f266"
+      "sha256Body": "de3167c00d97495b515eb00acae529790aee5d3a5e66d6ee4d65ab25590715f1"
     },
     {
       "file": "src/modules/76-player-journey.js",
@@ -683,15 +683,15 @@
     },
     {
       "file": "src/modules/88-rio-places.js",
-      "sha256Body": "ecd1a1501467dd9fac74d67d77c39e07e6aff1d84af955e07a5944c17e968fcd"
+      "sha256Body": "013f724901484faf181cf4b8a432114595cef3b722f41cb2f6b9e8c22f4babc0"
     },
     {
       "file": "src/modules/89-rio-map-world.js",
-      "sha256Body": "1bf07d9d107a9c827e1388536c6248a3ae4cedda2b543337fc35b7e84c46d901"
+      "sha256Body": "2572abac7ba436522ec7d5fbdb053bf4c8ad426cf328d375d305bf4676eea216"
     },
     {
       "file": "src/modules/90-rio-map-activities.js",
-      "sha256Body": "8ced5b4a91fd65bbc03b4c6389018289fff8b72fd7f194bdc135bbb0eaa01ef0"
+      "sha256Body": "8979f910df47d680b854e17920225c4318fb35efe93c59247a3c4891e0ed0cc4"
     },
     {
       "file": "src/modules/91-rio-map-entry-and-ui.js",
@@ -935,7 +935,7 @@
     {
       "file": "src/styles/26-world-mobile-controls.css",
       "description": "Reserved mobile control zones and native HUD composition",
-      "sha256Body": "e01d1830538fd6f182c7b04e8b6869c223e5b7a8a13f42e7703b90f54ca2be8e"
+      "sha256Body": "3351674901df7ff6e749636be216295e14e71a4199494c92cd614f8dc46eec24"
     },
     {
       "file": "src/styles/27-world-phone.css",
@@ -950,7 +950,7 @@
     {
       "file": "src/styles/29-exploration-hud.css",
       "description": "Menu de exploração e HUD compacto sem remoção de funções",
-      "sha256Body": "ed64fc5caaa798af3d7c5e502446c66b7152d12ac08a657e9157af57b2175fef"
+      "sha256Body": "ea421bfe130f5c3304adf00d9a7b6274977419957c623521b9e7d19eb280888b"
     },
     {
       "file": "src/styles/30-rio-wardrobe.css",

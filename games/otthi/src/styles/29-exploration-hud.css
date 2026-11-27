@@ -118,3 +118,7 @@ body.otthi-v705-world.ui-landscape.mode-mobility-driver {
 .metro-planner{display:grid;gap:12px;min-width:0;max-width:100%;overflow-wrap:anywhere}.metro-network-svg{display:block;width:100%;height:auto;background:#12283b;border-radius:12px}.metro-legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:.82rem}.metro-planner select,.metro-planner [data-metro-board]{width:100%;max-width:100%;min-width:0;white-space:normal}.metro-planner [data-metro-plan]{padding:8px;border:1px solid #49677d;border-radius:10px}.metro-planner ol{padding-inline-start:24px;margin:.5em 0}.metro-planner li{margin:8px 0}.metro-planner [hidden]{display:none!important}
 .metro-network-svg [role=button]{cursor:pointer;outline:none}
 .metro-network-svg [role=button]:is(:hover,:focus-visible) .metro-map-target{fill:#355773;stroke:#c9edff;stroke-width:2}
+#rioFuelService{position:fixed;z-index:160;bottom:calc(148px + var(--safe-bottom,0px));left:50%;transform:translateX(-50%);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;width:min(370px,calc(100% - 32px));box-sizing:border-box;padding:8px 10px;border:1px solid #8ba993;border-radius:12px;background:#132e3f;color:#fff;font:600 14px/1.25 system-ui}
+#rioFuelService progress{width:100%;height:9px;grid-area:2 / 1;accent-color:#62ce83}
+#rioFuelService button{grid-area:1 / 2 / span 2;min-height:44px;font-size:13px}
+@media(orientation:landscape) and (max-height:480px){#rioFuelService{bottom:calc(12px + var(--safe-bottom,0px));max-width:48vw}}

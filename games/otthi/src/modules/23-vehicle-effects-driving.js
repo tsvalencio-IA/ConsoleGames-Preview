@@ -73,7 +73,9 @@
       driftSoundCooldown-=dt;if(driftSoundCooldown<=0){driftSoundCooldown=.5;beep(180,55,'sawtooth');}
     }
     const serviceKind=String(car.kind||'car'),serviceIcon=serviceVehicleIcon(serviceKind),siren=!!car.sirenActive,turbo=performance.now()<Number(car.turboUntil||0);for(const [index,light] of (vehicleVisual.userData.serviceLights||[]).entries())light.material.emissiveIntensity=siren?(.32+(Math.floor(performance.now()/180)+index)%2*1.2):.08;if(siren&&performance.now()>Number(car.sirenBeepAt||0)){car.sirenBeepAt=performance.now()+620;beep(serviceKind==='paramedic'?740:serviceKind==='police'?610:520,135,'square');setTimeout(()=>{if(player.vehicle&&player.car.sirenActive)beep(serviceKind==='paramedic'?560:760,120,'square');},175);}setVehicleBadgeText(`${serviceIcon} ${car.label||'Veículo'} • ${Math.round(Math.abs(car.speed)*6)} km/h${turbo?' • TURBO':siren?' • SIRENE':''} — SAIR sempre disponível`);
-    updateEngineSound(car.speed,car.kind||'car',currentVehicleRef()?.brazilModel||car.id||'');
+    const vehicle=currentVehicleRef();
+    if(rioRoadEnginePowerless(vehicle))stopEngineSound();
+    else updateEngineSound(car.speed,car.kind||'car',vehicle?.brazilModel||car.id||'');
   }
 
   function mobilityDriverActive(){return(player.vehicle&&!player.car.passengerOf)||(player.boating&&!player.boat.passengerOf);}
