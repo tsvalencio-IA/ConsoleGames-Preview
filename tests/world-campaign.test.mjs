@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source=readFileSync(new URL('../games/otthi/src/modules/43-world-campaign.js',import.meta.url),'utf8');
+const renderSource=readFileSync(new URL('../games/otthi/src/modules/09-responsive-ar-quality-diagnostics.js',import.meta.url),'utf8');
 function fixture(){
   const saved=new Map(),toastCalls=[],spawnCalls=[],nativeResults=[],waypoints=[];
   class Object3D {
@@ -50,6 +51,7 @@ function fixture(){
     otGamesLeave(){otGames.active=false;otGames.mode='peace';}
   };
   vm.createContext(context);
+  vm.runInContext(renderSource.slice(renderSource.indexOf('  function worldFlightBody('),renderSource.indexOf('  let previousFlightHorizon=')),context);
   vm.runInContext(source+'\n;globalThis.campaignTick=updateWorldCampaign;',context);
   return {context,player,otGames,saved,spawnCalls,toastCalls,nativeResults,waypoints,game,
     tick:()=>context.campaignTick(.25),api:context.window.OTTHI_CAMPAIGN};
