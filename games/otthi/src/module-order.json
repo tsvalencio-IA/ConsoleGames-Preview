@@ -262,7 +262,7 @@
       "startLine": 4767,
       "endLine": 4928,
       "description": "Sociedade NPC, inimigos, combate, câmera, contexto, ação e necessidades",
-      "sha256Body": "88f7ab36c8ed479380bddfd7bb87273835d4f45d0a7f80f1b9341e86925aeeb2"
+      "sha256Body": "1471f754c62ba8f896917a0e4c25862f6d5e6f734ced16a4b018c5002d10ae32"
     },
     {
       "file": "src/modules/28b-multiplayer-core-v2.js",
@@ -395,7 +395,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "OT Games: original map shared by peace, infantry and aircraft; separate combat body and save",
-      "sha256Body": "9230523c58d479034984a1f07522045f3853378d530b2420a65471431ba08f67"
+      "sha256Body": "8535364a07e1aed3d04c57e626e8fffaa38ab217acda5ae8713efe471e3305f5"
     },
     {
       "file": "src/modules/43-world-campaign.js",
@@ -555,7 +555,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "Aeroporto civil, várias aeronaves pilotáveis e balão nas montanhas",
-      "sha256Body": "6374ab3dc88bd52ec4a8bae2ecaf9ae6ed4dd2e5f8345267283eda8600483e8d"
+      "sha256Body": "8b9673e4ed861de54eca6792ae002f402bbfe4394465ba9c7e39eee200d12f3d"
     },
     {
       "file": "src/modules/61-world-air-operations.js",
@@ -714,7 +714,7 @@
     {
       "file": "src/modules/95-rio-open-buildings.js",
       "description": "Playable residences, shops, bakery and oil service",
-      "sha256Body": "077f031f6d82d87f7e5fe02367ef55f3dcdd4bdd6672e8cccef35e42aaa7bd3f"
+      "sha256Body": "7952269857e4fdb290dcb5d0a8caaff3eb3f61d766d18846361ac9f9aa07459f"
     },
     {
       "file": "src/modules/96-rio-airport.js",

@@ -22,15 +22,48 @@ const sha=b=>createHash('sha256').update(b).digest('hex');
 const readRevision=(revision,p)=>revision?execFileSync('git',['show',revision+':'+p],{maxBuffer:40e6}):fs.readFileSync(p);
 const mime={'.js':'application/javascript','.css':'text/css','.html':'text/html','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.glb':'model/gltf-binary','.wasm':'application/wasm'};
 
+function median(values){
+ const sorted=values.slice().sort((a,b)=>a-b),mid=Math.floor(sorted.length/2);
+ return sorted.length?(sorted[mid]+sorted[Math.floor((sorted.length-1)/2)])/2:null;
+}
+
+function summarizeWindows(windows){
+ return Object.fromEntries(['frame','work','render','simulation','longTask'].map(metric=>{
+  const rows=windows.map(window=>window.metrics[metric]).filter(row=>row.samples>0);
+  return [metric,{windows:rows.length,samples:rows.reduce((n,row)=>n+row.samples,0),
+   medianWindowP50:median(rows.map(row=>row.p50)),medianWindowP95:median(rows.map(row=>row.p95)),
+   max:rows.length?Math.max(...rows.map(row=>row.max)):null,atLeast2000:rows.reduce((n,row)=>n+row.atLeast2000,0)}];
+ }));
+}
+
 function instrumentEnduranceWorld(){
- const realNow=performance.now.bind(performance),telemetry={active:false,suspended:false,start:0,lastFrame:0,simSeconds:0,trafficSeconds:0,frames:0,windows:0,giftCoins:0,giftFood:0,createdIncidents:0,physicalIncidentCount:0,contingencyIncidentCount:0,events:[],activeIncidents:new Map(),jobs:new Map(),receipts:[],returns:0,metric:{frame:[],work:[],render:[],simulation:[],longTask:[],input:[]},traffic:new Map(),inputProbe:null,scenePreparation:null};
- const summary=values=>{const sorted=values.slice().sort((a,b)=>a-b),n=sorted.length;return{samples:n,mean:n?sorted.reduce((a,b)=>a+b,0)/n:0,p50:n?sorted[Math.floor(n*.5)]:0,p95:n?sorted[Math.min(n-1,Math.floor(n*.95))]:0,max:n?sorted[n-1]:0,over50:sorted.filter(v=>v>50).length,over100:sorted.filter(v=>v>100).length,over250:sorted.filter(v=>v>250).length};};
+ const realNow=performance.now.bind(performance),telemetry={active:false,suspended:false,start:0,lastFrame:0,simSeconds:0,trafficSeconds:0,frames:0,windows:0,giftCoins:0,giftFood:0,createdIncidents:0,physicalIncidentCount:0,contingencyIncidentCount:0,events:[],activeIncidents:new Map(),jobs:new Map(),receipts:[],returns:0,metric:{frame:[],work:[],render:[],simulation:[],longTask:[],input:[]},traffic:new Map(),inputProbe:null,inputSequence:0,scenePreparation:null};
+ const summary=values=>{const sorted=values.slice().sort((a,b)=>a-b),n=sorted.length;return{samples:n,mean:n?sorted.reduce((a,b)=>a+b,0)/n:0,p50:n?sorted[Math.floor(n*.5)]:0,p95:n?sorted[Math.min(n-1,Math.floor(n*.95))]:0,max:n?sorted[n-1]:0,over50:sorted.filter(v=>v>50).length,over100:sorted.filter(v=>v>100).length,over250:sorted.filter(v=>v>250).length,atLeast2000:sorted.filter(v=>v>=2000).length};};
  const enabled=()=>telemetry.active&&!telemetry.suspended;
  const event=(kind,data={})=>{if(telemetry.active)telemetry.events.push({kind,wallSeconds:(realNow()-telemetry.start)/1000,...data});};
  const oldLoop=gameLoop;
  gameLoop=function(...args){const begin=realNow();if(enabled()&&telemetry.lastFrame)telemetry.metric.frame.push(begin-telemetry.lastFrame);if(enabled())telemetry.lastFrame=begin;try{return oldLoop(...args);}finally{if(enabled()){telemetry.frames++;telemetry.metric.work.push(realNow()-begin);}}};
  const oldSimulation=stepWorldSimulation;
- stepWorldSimulation=function(dt,...args){const begin=realNow(),x=player.x,z=player.z;try{return oldSimulation(dt,...args);}finally{telemetry.simSeconds+=dt;if(enabled()){telemetry.metric.simulation.push(realNow()-begin);const probe=telemetry.inputProbe;if(probe&&Math.hypot(player.x-probe.x,player.z-probe.z)>.02){telemetry.metric.input.push(realNow()-probe.at);event('input-response',{latencyMs:realNow()-probe.at,distance:Math.hypot(player.x-probe.x,player.z-probe.z)});telemetry.inputProbe=null;}}}};
+ stepWorldSimulation=function(dt,...args){
+  const begin=realNow();
+  try{return oldSimulation(dt,...args);}finally{
+   telemetry.simSeconds+=dt;
+   if(enabled()){
+    const end=realNow(),probe=telemetry.inputProbe;
+    telemetry.metric.simulation.push(end-begin);
+    if(probe&&input.joyId===probe.pointerId){
+     probe.simulationSteps++;
+     const distance=Math.hypot(player.x-probe.x,player.z-probe.z);
+     if(distance>.02){
+      const latencyMs=end-probe.at;
+      telemetry.metric.input.push(latencyMs);
+      event('input-response',{probeId:probe.id,latencyMs,distance,simulationSteps:probe.simulationSteps});
+      telemetry.inputProbe=null;
+     }
+    }
+   }
+  }
+ };
  const oldTraffic=updateTrafficIncidents;
  updateTrafficIncidents=function(dt,...args){telemetry.trafficSeconds+=dt;return oldTraffic(dt,...args);};
  const oldInit=initThree;
@@ -55,7 +88,23 @@ function instrumentEnduranceWorld(){
  phoneReceiveParcel=function(...args){const job=worldPhone.job,order=job&&phoneOrders().find(o=>o.id===job.orderId),item=order&&phoneOrderItem(order),before={coins:state.profile.coins,food:Number(state.inventory.food||0)},result=oldReceive(...args);if(result){const receipt={id:order.id,price:order.price,itemKey:order.itemKey,amount:item?.amount||0,coinDelta:state.profile.coins-before.coins,foodDelta:Number(state.inventory.food||0)-before.food,receivedAt:order.receivedAt};telemetry.receipts.push(receipt);event('parcel-received',receipt);}return result;};
  const oldRelease=phoneReleaseCourier;
  phoneReleaseCourier=function(job,...args){const key=String(job.orderId||job.id),travel=telemetry.jobs.get(key),result=oldRelease(job,...args);if(job.kind==='return'){telemetry.returns++;event('courier-returned',{id:key,travel});}telemetry.jobs.delete(key);return result;};
- document.addEventListener('pointerdown',e=>{if(enabled()&&e.target.closest?.('#joystick'))telemetry.inputProbe={at:realNow(),x:player.x,z:player.z};},{capture:true});
+ const finishInputProbe=reason=>{
+  const probe=telemetry.inputProbe;if(!probe)return;
+  event('input-no-response',{probeId:probe.id,heldMs:realNow()-probe.at,reason,
+   nativeOwnership:input.joyId===probe.pointerId,simulationSteps:probe.simulationSteps,
+   distance:Math.hypot(player.x-probe.x,player.z-probe.z)});
+  telemetry.inputProbe=null;
+ };
+ document.addEventListener('pointerdown',e=>{
+  if(!enabled()||!e.target.closest?.('#joystick'))return;
+  finishInputProbe('replaced');
+  const id=++telemetry.inputSequence;
+  telemetry.inputProbe={id,pointerId:e.pointerId,at:realNow(),x:player.x,z:player.z,simulationSteps:0};
+  event('input-probe-start',{probeId:id,pointerType:e.pointerType,position:{x:player.x,z:player.z}});
+ },{capture:true});
+ for(const type of ['pointerup','pointercancel','lostpointercapture'])document.addEventListener(type,e=>{
+  if(telemetry.inputProbe?.pointerId===e.pointerId)finishInputProbe(type);
+ },{capture:true});
  const trafficSnapshot=()=>{const now=realNow(),rows=trafficActorList().filter(a=>!a.isPlayer).map(a=>{const previous=telemetry.traffic.get(a.id),pose={x:a.group.position.x,z:a.group.position.z};telemetry.traffic.set(a.id,pose);return{id:a.id,x:pose.x,z:pose.z,step:previous?Math.hypot(pose.x-previous.x,pose.z-previous.z):0,speed:Number(a.ref?.currentSpeed||a.speed||0),queueSeconds:a.ref?.trafficQueuedAt?(now-a.ref.trafficQueuedAt)/1000:0,locked:!!a.ref?.incidentLocked};});return{count:rows.length,longQueues:rows.filter(r=>r.queueSeconds>10&&r.speed<.5).length,locked:rows.filter(r=>r.locked).map(r=>r.id),progressSampleMetres:rows.reduce((n,r)=>n+r.step,0),rows};};
  const resources=()=>{const geometries=new Set(),materials=new Set(),textures=new Set();let objects=0;scene.traverse(o=>{objects++;if(o.geometry)geometries.add(o.geometry.uuid);for(const material of(o.material?Array.isArray(o.material)?o.material:[o.material]:[])){materials.add(material.uuid);for(const value of Object.values(material))if(value?.isTexture)textures.add(value.uuid);}});return{objects,geometries:geometries.size,materials:materials.size,textures:textures.size,outlines:world.outlines.length,actions:world.interactables.length,vehicles:world.vehicles.length,npcs:world.npcs.length,trafficModels:completeTraffic.created.size,activeIncident:world.activeIncident?.id||null,incidentObjects:world.trafficIncidents.length,incidentActions:world.interactables.filter(a=>String(a.id).startsWith('assist-')).length,returningCouriers:worldPhone.returning.length,phoneJob:worldPhone.job?{id:worldPhone.job.orderId,kind:worldPhone.job.kind,ready:worldPhone.job.ready}:null,rendererMemory:{...renderer.info.memory},programs:renderer.info.programs.length};};
  window.__ENDURANCE_QA={
@@ -69,7 +118,7 @@ function instrumentEnduranceWorld(){
   incident:(site,fire)=>{if(world.activeIncident)return{created:false,busy:world.activeIncident.id};const actors=trafficActorList().filter(a=>a.id.startsWith('npc-')&&!a.ref.incidentLocked&&a.group.visible!==false).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,2);if(actors.length!==2)return{created:false,reason:'missing-real-actors'};const prepared=actors.map((actor,index)=>{actor.group.position.set(site.x+(index?2:-2),groundHeightAt(site.x+(index?2:-2),site.z+1.35),site.z+1.35);actor.group.rotation.y=Math.PI/2;actor.ref.currentSpeed=0;return{id:actor.id,x:actor.group.position.x,z:actor.group.position.z};});let result;preparedIncident=true;try{result=createTrafficIncidentAt(site.x,site.z,fire?'fire':'minor',actors);}finally{preparedIncident=false;}return{created:!!result,id:result?.id,site,actors:prepared};},
   approachIntent:()=>{const job=worldPhone.job;if(!job?.ready)return null;const dx=job.vehicle.group.position.x-player.x,dz=job.vehicle.group.position.z-player.z,d=Math.hypot(dx,dz);if(d<=5.1)return{ready:true,distance:d};const bx=cameraRelativeVector(1,0,cameraYaw),bz=cameraRelativeVector(0,1,cameraYaw),scale=clamp((d-4.8)/6,.12,.45);return{ready:false,distance:d,x:(dx*bx.x+dz*bx.z)/d*scale,z:(dx*bz.x+dz*bz.z)/d*scale};},
   receiveAgain:()=>phoneReceiveParcel(),
-  probe:()=>{telemetry.inputProbe={at:realNow(),x:player.x,z:player.z};},
+  finishInputProbe:()=>finishInputProbe('end-of-session'),
   save:()=>saveState(true)
  };
 }
@@ -139,14 +188,26 @@ async function runCase(label,revision){
    if(elapsed>=nextGc){await collectResources(nextGc);nextGc+=300;}
    await page.waitForTimeout(800);
   }
-  await page.evaluate(()=>OTTHOS_TEST_API.joystickVector(0,0));const lastWindow=await page.evaluate(()=>__ENDURANCE_QA.window());report.windows.push(lastWindow);report.events.push(...lastWindow.events);await collectResources(duration);
+  const lastWindow=await page.evaluate(()=>{
+   __ENDURANCE_QA.finishInputProbe();OTTHOS_TEST_API.joystickVector(0,0);
+   return __ENDURANCE_QA.window();
+  });report.windows.push(lastWindow);report.events.push(...lastWindow.events);await collectResources(duration);
   report.final=await snap();report.wallDurationMs=Date.now()-started;report.nativeClock=await page.evaluate(()=>__ENDURANCE_QA.clock());report.paymentRows=paymentRows;report.schedulePlans={incidents,purchases,probes,sweeps};
+  const inputResponses=report.events.filter(event=>event.kind==='input-response');
+  const inputMissed=report.events.filter(event=>event.kind==='input-no-response');
+  report.performance={metrics:summarizeWindows(report.windows),input:{
+   scheduled:probes.length,dispatched:probes.filter(probe=>probe.done).length,
+   started:report.events.filter(event=>event.kind==='input-probe-start').length,
+   answered:inputResponses.length,missed:inputMissed.length,
+   medianResponseMs:median(inputResponses.map(event=>event.latencyMs)),
+   answers:inputResponses,misses:inputMissed
+  }};
   const incidentResults=report.events.filter(e=>e.kind==='incident-resolved'),scheduledResolved=incidentResults.filter(e=>e.scheduled),scheduledCreated=report.events.filter(e=>e.kind==='incident-created'&&e.scheduled),receipts=report.final.receipts;
   const checks={density:report.resourceSamples.every(r=>r.npcs===expectedResidents&&r.trafficModels===44),ownedPreserved:JSON.stringify(report.final.owned)===JSON.stringify(report.initial.owned),toolsPreserved:JSON.stringify(report.final.tools)===JSON.stringify(report.initial.tools),handsStillEmpty:report.final.equipped==='none',cleanHud:report.final.worldHud==='clean',paymentsExact:paymentRows.every(r=>r.netCoins===-r.price),receiptsUnique:new Set(receipts.map(r=>r.id)).size===receipts.length,receiptsExact:receipts.every(r=>r.coinDelta===0&&r.foodDelta===r.amount),inventoryExact:report.final.food-report.initial.food-(report.final.giftFood-report.initial.giftFood)===receipts.reduce((n,r)=>n+r.amount,0),coinsExact:report.final.coins-report.initial.coins-(report.final.giftCoins-report.initial.giftCoins)===-paymentRows.reduce((n,r)=>n+r.price,0),noPageErrors:errors.length===0};
   if(!smoke){checks.atLeastThreePaidReceipts=receipts.length>=3;checks.atLeastThreeCourierReturns=report.final.returnCount>=3;checks.scheduledIncidentsResolved=scheduledResolved.length===incidents.length;checks.scheduledIncidentsPhysicallyAttended=scheduledResolved.length===incidents.length&&scheduledResolved.every(e=>e.fullyPhysical);}
   report.checks=checks;report.rescue={created:report.events.filter(e=>e.kind==='incident-created').length,resolved:incidentResults.length,fullyPhysical:incidentResults.filter(e=>e.fullyPhysical).length,contingency:incidentResults.filter(e=>e.contingency.length||e.forcedClear).length,scheduledCreated:scheduledCreated.length,scheduledResolved:scheduledResolved.length,scheduledFullyPhysical:scheduledResolved.filter(e=>e.fullyPhysical).length,unresolved:report.final.activeIncident};
   const warm=report.resourceSamples.find(r=>r.mark===300)||report.resourceSamples[0],last=report.resourceSamples.at(-1);report.resourcesComparison={warmMark:warm.mark,lastMark:last.mark,objects:last.objects-warm.objects,geometries:last.geometries-warm.geometries,materials:last.materials-warm.materials,textures:last.textures-warm.textures,outlines:last.outlines-warm.outlines,actions:last.actions-warm.actions,heapUsedAfterGc:last.heapUsedAfterGc-warm.heapUsedAfterGc,warmPhase:{incident:warm.activeIncident,phone:warm.phoneJob,returning:warm.returningCouriers},lastPhase:{incident:last.activeIncident,phone:last.phoneJob,returning:last.returningCouriers}};
-  report.servedRuntimeAssets=[...served].map(([file,info])=>({file,...info}));report.errors=errors;report.violations=violations;report.measurementCompleted=true;report.passed=Object.values(checks).every(Boolean)&&violations.length===0;report.checkedAt=new Date().toISOString();save();await page.screenshot({path:path.join(caseOut,'final-native.png'),timeout:60000});console.log('ENDURANCE result',label,JSON.stringify({passed:report.passed,checks,rescue:report.rescue,resources:report.resourcesComparison,clock:report.nativeClock}));
+  report.servedRuntimeAssets=[...served].map(([file,info])=>({file,...info}));report.errors=errors;report.violations=violations;report.measurementCompleted=true;report.passed=Object.values(checks).every(Boolean)&&violations.length===0;report.checkedAt=new Date().toISOString();save();await page.screenshot({path:path.join(caseOut,'final-native.png'),timeout:60000});console.log('ENDURANCE result',label,JSON.stringify({passed:report.passed,checks,rescue:report.rescue,resources:report.resourcesComparison,performance:report.performance,clock:report.nativeClock}));
   return report;
  }catch(error){report.failure=error.stack;report.errors=errors;report.violations=violations;report.measurementCompleted=false;try{report.last=await page?.evaluate(()=>window.__ENDURANCE_QA?.snapshot());}catch{}save();throw error;}
  finally{await context?.close();await browser.close();await server.close();}
@@ -154,5 +215,5 @@ async function runCase(label,revision){
 
 const results=[];
 for(const [label,revision]of [['before',baseline],['after',null]])if(selected==='both'||selected===label)results.push(await runCase(label,revision));
-fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({measurementCompleted:results.every(r=>r.measurementCompleted),cases:results.map(r=>({label:r.label,build:r.build,revision:r.revision,passed:r.passed,wallDurationMs:r.wallDurationMs,nativeClock:r.nativeClock,rescue:r.rescue,resourcesComparison:r.resourcesComparison})),limits:['Sequential native Chromium/SwiftShader observations. No physical-device performance claim. Physical rescue acceptance is separate from contingency/resource safety.']},null,2));
+fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({measurementCompleted:results.every(r=>r.measurementCompleted),cases:results.map(r=>({label:r.label,build:r.build,revision:r.revision,passed:r.passed,wallDurationMs:r.wallDurationMs,nativeClock:r.nativeClock,rescue:r.rescue,resourcesComparison:r.resourcesComparison,performance:r.performance})),limits:['Sequential native Chromium/SwiftShader observations. No physical-device performance claim. Physical rescue acceptance is separate from contingency/resource safety.']},null,2));
 if(!smoke)assert(results.find(r=>r.label==='after')?.passed!==false,'Candidate failed native integrated endurance acceptance; inspect result.json');

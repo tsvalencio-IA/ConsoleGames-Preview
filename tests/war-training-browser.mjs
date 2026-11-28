@@ -16,8 +16,22 @@ try{
   }else{
    assert(!await p.locator('.war-hand-camera canvas').isVisible());assert.equal(await p.locator('[data-hand="source-object"]').isVisible(),false);assert.equal(await p.evaluate(()=>__qaCameraCalls.length),1);assert.equal(await p.evaluate(()=>__qaCameraCalls[0].video.facingMode.ideal),'user');assert(!(await p.evaluate(()=>__qaWorkerUrls)).some(x=>x.includes('object-tracker')));
    for(let i=0;i<5;i++){
-    await p.waitForFunction(()=>System.activeGame.logic.enemies.some(e=>e.active));const target=await p.evaluate(()=>{const g=System.activeGame.logic,e=g.enemies.find(e=>e.active);return{n:g.trainingTargets,dx:-(Math.atan2(e.x-g.player.x,e.z-g.player.z)-(g.handViewAnchor?.yaw||0))/(1.7*1.85),dy:-(Math.atan2(e.y-g.eyeY,Math.hypot(e.x-g.player.x,e.z-g.player.z))-(g.handViewAnchor?.pitch||0))/(2.2*1.8)};});await hand(target.dx,target.dy);await p.waitForFunction(n=>System.activeGame.logic.trainingTargets>n,target.n);
+    const ready=await p.waitForFunction(index=>{
+     const game=System.activeGame.logic;
+     if(game.trainingTargets>index)return {alreadyHit:true};
+     const enemy=game.enemies.find(enemy=>enemy.active);
+     if(!enemy)return null;
+     const x=enemy.x-game.player.x,z=enemy.z-game.player.z;
+     return {
+      dx:-(Math.atan2(x,z)-(game.handViewAnchor?.yaw||0))/(1.7*1.85),
+      dy:-(Math.atan2(enemy.y-game.eyeY,Math.hypot(x,z))-(game.handViewAnchor?.pitch||0))/(2.2*1.8)
+     };
+    },i);
+    const target=await ready.jsonValue();await ready.dispose();
+    if(!target.alreadyHit)await hand(target.dx,target.dy);
+    await p.waitForFunction(index=>System.activeGame.logic.trainingTargets>index,i);
    }
+   assert(await p.evaluate(()=>System.activeGame.logic.trainingTargets)>=5);
    await hand();await p.waitForFunction(()=>{const a=System.activeGame.logic.handAim;return Math.abs(a.x-.5)<.025&&Math.abs(a.y-.48)<.025;});
   }
   assert.equal(await p.evaluate(()=>System.activeGame.logic.player.hp),100);await p.locator('[data-practice="restart"]').click();await p.waitForFunction(()=>System.activeGame.logic.trainingTargets===0&&System.activeGame.logic.stats.shots===0);assert.equal(await p.evaluate(()=>localStorage.getItem(System.activeGame.logic.careerKey)),career);

@@ -9725,6 +9725,37 @@
     return true;
   }
 
+  function pedestrianPassingLane(npc,target,peers,clear){
+    const position=npc.group.position,dx=target.x-position.x,dz=target.z-position.z,distance=Math.hypot(dx,dz);
+    if(distance<1.1)return [];
+    const fx=dx/distance,fz=dz/distance;
+    const oncoming=peers.find(other=>{
+      const p=other.group.position,goal=other.pedestrianNav?.goal;
+      if(other===npc||!goal||other.passengerMode||other.group.visible===false||Math.abs(p.y-position.y)>=1.55)return false;
+      const x=p.x-position.x,z=p.z-position.z,ahead=x*fx+z*fz;
+      const tx=goal.x-p.x,tz=goal.z-p.z;
+      return ahead>0&&ahead<1.55&&Math.abs(x*fz-z*fx)<.86&&
+        tx*fx+tz*fz<-.65*Math.hypot(tx,tz);
+    });
+    if(!oncoming)return [];
+    const p=oncoming.group.position,ahead=(p.x-position.x)*fx+(p.z-position.z)*fz;
+    const segmentClear=(from,to)=>{
+      const count=Math.ceil(distance2D(from,to)/.24);
+      for(let i=1;i<=count;i++)if(!clear(from.x+(to.x-from.x)*i/count,from.z+(to.z-from.z)*i/count))return false;
+      return true;
+    };
+    // A regular grid misses narrow passing lanes. Each pedestrian yields on
+    // their own right before resuming the original destination.
+    for(const width of [.88,.76,.68,.48,.41]){
+      const aside={x:position.x+fz*width,z:position.z-fx*width,arrivalRadius:.04};
+      if(!segmentClear(position,aside))continue;
+      const advance=Math.min(distance,ahead+.75);
+      const forward={x:aside.x+fx*advance,z:aside.z+fz*advance};
+      return segmentClear(aside,forward)?[aside,forward]:[aside];
+    }
+    return [];
+  }
+
   function* findPedestrianDetour(from,goal,clear){
     // Local A* follows a routine's waypoint and searches around obstacles only
     // after a blocked step. A bounded frontier spreads the cost across frames.
@@ -9767,7 +9798,8 @@
     if(!navigator.goal||distance2D(navigator.goal,target)>1.1){
       Object.assign(navigator,{goal:{x:target.x,z:target.z},path:[],blocked:0,retryAt:0,search:null});
     }
-    if(navigator.path.length&&distance2D(position,navigator.path[0])<.11)navigator.path.shift();
+    const next=navigator.path[0];
+    if(next&&distance2D(position,next)<(next.arrivalRadius??.11))navigator.path.shift();
     const waypoint=navigator.path[0]||target,dx=waypoint.x-position.x,dz=waypoint.z-position.z,distance=Math.hypot(dx,dz);
     if(distance<.035)return 0;
     const peers=nearbyPedestrians(position,now),vehicles=nearbyTrafficActors(position.x,position.z,12);
@@ -9791,6 +9823,11 @@
     if(navigator.blocked<.28||now<navigator.retryAt||now<pedestrianNavigation.nextPlanAt)return 0;
     pedestrianNavigation.nextPlanAt=now+20;
     if(!navigator.search){
+      const passing=pedestrianPassingLane(npc,target,peers,clear);
+      if(passing.length){
+        navigator.path=passing;navigator.retryAt=now+420;pedestrianNavigation.detours++;
+        return 0;
+      }
       navigator.search=findPedestrianDetour({x:position.x,z:position.z},target,clear);
       navigator.replans++;pedestrianNavigation.plans++;
     }
@@ -12883,12 +12920,18 @@ function build(T,key,H){
     savePlayerPosition(true);clearMovementInputs();otGamesClearInput();g.active=true;g.state='PLAYING';g.handMode=false;g.kills=0;g.goal=g.level.goal;g.wave=0;g.ammo=30;g.reserve=180;g.reload=0;g.cooldown=0;g.elapsed=0;g.resultSaved=false;g.notice='';g.lock=null;g.enemies=[];g.bullets=[];g.effects=[];
     g.noticeUntil=0;g.autoWalkSide=0;g.autoWalking=false;g.careerKey='thia:ot-games:combat:v1:'+(state.profile?.playerId||'local');g.group=new THREE.Group();g.group.name='OT_GAMES_CIVIL_FLIGHT';scene.add(g.group);
     const safe=safePointNear(player.x,player.z,{ignoreTraffic:true,allowWater:false,radius:.5});
-    g.groundLaunch=!!options.groundLaunch&&mode!=='ground';g.onGround=g.groundLaunch;g.airspeed=mode==='plane'&&!g.groundLaunch?27:0;g.collective=g.groundLaunch&&mode==='plane'?0:.5;g.landingAssist=false;g.crouched=false;g.handViewAnchor=null;g.flightPhase=g.groundLaunch?'ready':'airborne';
+    g.groundLaunch=!!options.groundLaunch&&mode!=='ground';g.onGround=g.groundLaunch;g.airspeed=mode==='plane'&&!g.groundLaunch?27:0;g.collective=g.groundLaunch&&mode==='plane'?0:.5;g.landingAssist=false;g.crouched=false;g.handViewAnchor=null;g.flightPhase=g.groundLaunch?'ready':'airborne';g.landedRoof=false;
     const boarding=options.boarding;if(g.groundLaunch&&boarding){safe.x=boarding.x;safe.z=boarding.z;safe.y=groundHeightAt(safe.x,safe.z);}
     g.body={x:safe.x,y:safe.y+(mode==='ground'?1.8:g.groundLaunch?campaignAircraftHeight(g.aircraftId):mode==='helicopter'?18:32),z:safe.z,yaw:boarding?.yaw??Math.PI-cameraYaw,pitch:0,roll:0,vx:0,vy:0,vz:0,hp:100};
     g.obstacles=(world.colliders||[]).filter(c=>!c.disabled).map(c=>{const box=new THREE.Box3(new THREE.Vector3(c.x-c.w/2,professionalTerrainHeightAt?.(c.x,c.z)||0,c.z-c.d/2),new THREE.Vector3(c.x+c.w/2,(professionalTerrainHeightAt?.(c.x,c.z)||0)+Number(c.height||c.h||6),c.z+c.d/2));if(c.aircraftId)box.aircraftId=c.aircraftId;return box;});
     for(const house of world.houses||[])if(house.group)g.obstacles.push(new THREE.Box3().setFromObject(house.group));
     if(mode!=='ground'){g.aircraft=options.boarding?campaignCreateAircraft(g.aircraftId):otGamesAirframe(mode);g.group.add(g.aircraft);g.weapon=null;}else{g.aircraft=null;g.weapon=otGamesWeapon();g.group.add(g.weapon);}
+    if(mode==='helicopter'){
+      const box=new THREE.Box3().setFromObject(g.aircraft);
+      const halfX=Math.max(Math.abs(box.min.x),Math.abs(box.max.x)),halfZ=Math.max(Math.abs(box.min.z),Math.abs(box.max.z));
+      // The horizontal diagonal also encloses the blades when the rotor turns.
+      g.roofContact=box.isEmpty()?null:{skid:-box.min.y,top:box.max.y,radius:Math.hypot(halfX,halfZ)+.20};
+    }
     playerGroup.visible=false;if(contactShadow)contactShadow.visible=false;if(toolVisual)toolVisual.visible=false;
     document.body.classList.add('ot-games-active');document.body.dataset.otGameMode=mode;otGamesBuildControls();otGamesStageCover();if(g.armed)otGamesSpawnWave();otGamesCamera(.1);return true;
   }
@@ -12899,7 +12942,7 @@ function build(T,key,H){
     playerGroup.visible=g.entry.playerVisible;if(contactShadow)contactShadow.visible=g.entry.shadowVisible;if(toolVisual)toolVisual.visible=g.entry.toolVisible;if(!options.exitPoint){camera.position.copy(g.entry.camera);camera.quaternion.copy(g.entry.rotation);}camera.up.set(0,1,0);camera.fov=g.entry.fov;camera.near=g.entry.near??.05;camera.updateProjectionMatrix();cameraYaw=g.entry.cameraYaw;cameraPitch=g.entry.cameraPitch;cameraZoom=g.entry.cameraZoom;
     if(options.exitPoint){player.x=options.exitPoint.x;player.y=options.exitPoint.y;player.z=options.exitPoint.z;player.facing=g.body.yaw;player.vx=player.vy=player.vz=0;player.grounded=true;playerGroup.position.set(player.x,player.y,player.z);cameraMode='openworld';cameraFollowSnap=true;rememberSafePlayerPosition(true);savePlayerPosition(true);saveState(true);}
     g.flightSession?.dispose();g.flightSession=null;g.flightVideo?.srcObject?.getTracks().forEach(t=>t.stop());g.flightVideo?.remove();g.flightVideo=null;g.flightCameraMode=false;g.flightPoseFresh=false;g.flightEpoch=(g.flightEpoch||0)+1;
-    g.handMode=false;g.active=false;g.mode='peace';g.body=null;g.enemies=[];g.bullets=[];g.effects=[];if(typeof campaignSyncAircraft==='function')campaignSyncAircraft();if(world.routeGuide)world.routeGuide.visible=!!state.waypoint;if(world.waypointMarker)world.waypointMarker.visible=!!state.waypoint;document.body.classList.remove('ot-games-active');delete document.body.dataset.otGameMode;clearMovementInputs();if(typeof releaseVehicleViewPointers==='function')releaseVehicleViewPointers();updateVisualLOD();updateCamera(.1);updateContext(true);if(options.exitPoint&&typeof updateMultiplayer==='function')updateMultiplayer(0,true);
+    g.handMode=false;g.active=false;g.mode='peace';g.body=null;g.landedRoof=false;g.enemies=[];g.bullets=[];g.effects=[];if(typeof campaignSyncAircraft==='function')campaignSyncAircraft();if(world.routeGuide)world.routeGuide.visible=!!state.waypoint;if(world.waypointMarker)world.waypointMarker.visible=!!state.waypoint;document.body.classList.remove('ot-games-active');delete document.body.dataset.otGameMode;clearMovementInputs();if(typeof releaseVehicleViewPointers==='function')releaseVehicleViewPointers();updateVisualLOD();updateCamera(.1);updateContext(true);if(options.exitPoint&&typeof updateMultiplayer==='function')updateMultiplayer(0,true);
   }
   function otGamesBindPress(el,fn){let pressedAt=-Infinity;el?.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(el.disabled)return;pressedAt=performance.now();fn(e);});el?.addEventListener('click',e=>{e.preventDefault();if(!el.disabled&&performance.now()-pressedAt>650)fn(e);});}
   function otGamesCanLand(mode,b){
@@ -12909,10 +12952,49 @@ function build(T,key,H){
     // an aircraft; the road service handles that obstruction after disembarking.
     return true;
   }
-  function otGamesLandingAction(){const g=otGames;if(!g.active||g.mode==='ground')return;g.landingAssist=!g.landingAssist;g.move.x=g.move.y=0;g.pedal=0;if(g.mode==='plane'){g.collective=g.onGround?0:.18;toast('Reduza, alinhe-se à pista e desça suavemente. Após tocar o solo, reduza a potência até parar.','info',4200);}else if(!g.landingAssist)g.collective=.5;}
+  function otGamesRoofOverlaps(bounds,point,radius){
+    return point.x+radius>bounds.min.x&&point.x-radius<bounds.max.x&&point.z+radius>bounds.min.z&&point.z-radius<bounds.max.z;
+  }
+  function otGamesStepRoof(g,b,before,collective){
+    const roof=typeof worldAirport!=='undefined'?worldAirport.terminalRoof:null;
+    if(!roof||!g.roofContact||!otGamesRoofOverlaps(roof,b,g.roofContact.radius))return false;
+    const {skid,top,radius}=g.roofContact,floor=roof.max.y+skid;
+    const tilt=radius*Math.hypot(Math.sin(b.roll),Math.sin(b.pitch));
+    const atRoof=g.landedRoof&&collective<=.52;
+    if(atRoof){b.x=before.x;b.z=before.z;}
+    if(before.y<floor-.02){
+      // The underside is solid. A hover inside the terminal cannot rise through the roof.
+      const ceiling=roof.min.y-top-tilt-.06;
+      if(b.y>ceiling){
+        if(otGamesRoofOverlaps(roof,before,radius)){b.y=ceiling;b.vy=Math.min(b.vy,0);}
+        else{b.x=before.x;b.z=before.z;b.vx=b.vz=0;}
+      }
+      return false;
+    }
+    const fits=b.x-radius>=roof.min.x&&b.x+radius<=roof.max.x&&b.z-radius>=roof.min.z&&b.z+radius<=roof.max.z;
+    let support=floor;
+    for(const obstacle of g.obstacles||[]){
+      if(obstacle.max.y>roof.max.y+.04&&obstacle.min.y<floor+top+tilt+.08&&otGamesRoofOverlaps(obstacle,b,radius)){
+        const obstacleTop=obstacle.max.y+skid;
+        if(before.y>=obstacleTop-.02)support=Math.max(support,obstacleTop);
+        else{b.x=before.x;b.z=before.z;b.y=before.y;b.vx=b.vy=b.vz=0;return false;}
+      }
+    }
+    if(b.y>support+tilt+.05&&!atRoof)return false;
+    const gentle=collective<=.52&&b.vy>=-3.7&&b.vy<=.4&&Math.hypot(b.vx,b.vz)<1.5&&Math.abs(b.roll)<.12&&Math.abs(b.pitch)<.12;
+    if(fits&&support===floor&&(atRoof||gentle)){
+      b.y=floor;b.vx=b.vy=b.vz=b.roll=b.pitch=0;
+      return true;
+    }
+    if(b.y<support+tilt){b.y=support+tilt;b.vy=Math.max(0,b.vy);}
+    return false;
+  }
+  function otGamesLandingAction(){const g=otGames;if(!g.active||g.mode==='ground'||g.landedRoof)return;g.landingAssist=!g.landingAssist;g.move.x=g.move.y=0;g.pedal=0;if(g.mode==='plane'){g.collective=g.onGround?0:.18;toast('Reduza, alinhe-se à pista e desça suavemente. Após tocar o solo, reduza a potência até parar.','info',4200);}else if(!g.landingAssist)g.collective=.5;}
   function otGamesCanDisembark(){const g=otGames;return g.active&&g.mode!=='ground'&&g.onGround&&Math.hypot(g.body.vx||0,g.body.vz||0)<1.5&&Math.abs(g.body.vy||0)<1&&otGamesCanLand(g.mode,g.body);}
   function otGamesDisembark(){
-    const g=otGames;if(!otGamesCanDisembark()){toast('Pouse em um local livre e pare para sair da aeronave.','warn',2500);return false;}
+    const g=otGames;
+    if(g.landedRoof){toast('Levante voo e pouse no pátio para desembarcar.','warn',2500);return false;}
+    if(!otGamesCanDisembark()){toast('Pouse em um local livre e pare para sair da aeronave.','warn',2500);return false;}
     const b=g.body,bounds=v704WorldBounds(),distance=g.mode==='plane'?6.5:5;let point;
     exitSearch:for(const turn of[Math.PI/2,-Math.PI/2,Math.PI,0])for(const extra of[0,2,4]){const x=b.x+Math.sin(b.yaw+turn)*(distance+extra),z=b.z+Math.cos(b.yaw+turn)*(distance+extra);if(x<bounds.minX+1||x>bounds.maxX-1||z<bounds.minZ+1||z>bounds.maxZ-1||waterAt(x,z)||positionBlockedForPlayer(x,z,.45,{ignoreTraffic:true}))continue;point={x,z,y:groundHeightAt(x,z)};break exitSearch;}
     if(!point){toast('Não há espaço seguro para desembarcar aqui.','warn',2400);return false;}
@@ -13099,6 +13181,8 @@ function build(T,key,H){
       b.yaw-=(g.pedal||x*.65)*dt;const dx=Math.sin(b.yaw)*y*13-Math.cos(b.yaw)*x*6,dz=Math.cos(b.yaw)*y*13+Math.sin(b.yaw)*x*6;b.vx+=(dx-b.vx)*blend;b.vz+=(dz-b.vz)*blend;
       if(g.landingAssist){g.collective=g.onGround?.5:.34;g.move.x=g.move.y=0;g.pedal=0;}
       const collective=clamp(g.collective+(k.has('KeyE')?.2:0)-(k.has('KeyQ')?.2:0),0,1);b.vy+=((collective-.5)*18-b.vy)*blend;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;b.roll+=(x*.34-b.roll)*blend;b.pitch+=(-y*.18-b.pitch)*blend;
+      g.landedRoof=otGamesStepRoof(g,b,before,collective);
+      if(g.landedRoof&&g.landingAssist){g.collective=.5;g.landingAssist=false;}
     }else if(g.onGround){
       const desired=g.collective*35;g.airspeed+=clamp(desired-g.airspeed,-7*dt,6*dt);b.yaw-=x*dt*.7;b.roll=0;b.pitch*=Math.exp(-dt*5);b.vx=Math.sin(b.yaw)*g.airspeed;b.vz=Math.cos(b.yaw)*g.airspeed;b.vy=0;b.x+=b.vx*dt;b.z+=b.vz*dt;b.y=groundHeightAt(b.x,b.z)+campaignAircraftHeight(g.aircraftId||g.mode);
       g.flightPhase=g.airspeed>1?'runway':'ready';
@@ -13110,7 +13194,9 @@ function build(T,key,H){
     }
     if(g.mode!=='ground'){
       const floor=groundHeightAt(b.x,b.z)+campaignAircraftHeight(g.aircraftId||g.mode),landable=otGamesCanLand(g.mode,b);
-      if(g.mode==='helicopter'||g.mode==='balloon'){g.onGround=g.collective<=.52&&b.y<=floor+.12&&b.vy<=.8&&Math.hypot(b.vx,b.vz)<3&&landable;g.flightPhase=g.onGround?'landed':'airborne';if(g.onGround){b.y=floor;b.vy=0;if(g.landingAssist){g.collective=.5;g.landingAssist=false;}}}
+      // onGround also authorizes embarking and leaving for network passengers.
+      // The terminal roof supports a touch-and-go, with boarding limited to the apron.
+      if(g.mode==='helicopter'||g.mode==='balloon'){g.onGround=!g.landedRoof&&g.collective<=.52&&b.y<=floor+.12&&b.vy<=.8&&Math.hypot(b.vx,b.vz)<3&&landable;g.flightPhase=g.landedRoof?'landed-roof':g.onGround?'landed':'airborne';if(g.onGround){b.y=floor;b.vy=0;if(g.landingAssist){g.collective=.5;g.landingAssist=false;}}}
       if(g.mode==='plane'&&!g.onGround&&b.y<=floor+.15&&b.vy<-.05&&b.vy>-6&&g.airspeed<24&&Math.abs(b.roll)<.22&&Math.abs(b.pitch)<.22&&landable){g.onGround=true;g.flightPhase='landed';b.y=floor;b.vy=0;b.pitch=0;}
       if(b.y<floor&&g.mode==='plane'&&!g.onGround&&!landable&&(b.vy< -4||g.airspeed>17)){otGamesPlaneCrash('COLISÃO COM O SOLO');return;}
       if(b.y<floor){b.y=floor;b.vy=0;if(g.armed&&!g.onGround)b.hp=Math.max(0,b.hp-18*dt);}
@@ -13177,7 +13263,7 @@ function build(T,key,H){
   }
   function otGamesUpdateHUD(){
     const g=otGames;if(!g.ui)return;const hudHeight=g.ui.clientHeight,lever=g.ui.querySelector('[data-ot="collective"]'),leverHeight=lever.clientHeight;g.ui.querySelector('[data-ot-status]').textContent=otGameModes[g.mode]+' · '+(g.armed?'VIDA '+Math.ceil(g.body.hp)+' · '+(g.reload>0?'RECARREGANDO':g.ammo+'/'+g.reserve):'PASSEIO DE PAZ');
-    g.ui.querySelector('.ot-games-mission').textContent=g.state==='VICTORY'?'MISSÃO CONCLUÍDA · '+g.kills+'/'+g.goal+' ALVOS':g.state==='DEFEAT'?'MISSÃO ENCERRADA · VOLTE AO MENU PARA TENTAR NOVAMENTE':g.notice||(g.armed?'MISSÃO SOLO · SETOR '+g.wave+' · '+g.kills+'/'+g.goal+' ALVOS · '+g.level.label:'Passeio livre · pouse e pare para desembarcar.');
+    g.ui.querySelector('.ot-games-mission').textContent=g.state==='VICTORY'?'MISSÃO CONCLUÍDA · '+g.kills+'/'+g.goal+' ALVOS':g.state==='DEFEAT'?'MISSÃO ENCERRADA · VOLTE AO MENU PARA TENTAR NOVAMENTE':g.notice||(g.landedRoof?'No telhado do terminal. Levante voo e pouse no pátio para desembarcar.':g.armed?'MISSÃO SOLO · SETOR '+g.wave+' · '+g.kills+'/'+g.goal+' ALVOS · '+g.level.label:'Passeio livre · pouse e pare para desembarcar.');
     if(g.noticeUntil&&g.elapsed>g.noticeUntil){g.notice='';g.noticeUntil=0;}
     const live=g.enemies.filter(e=>e.active),next=live.slice().sort((a,b)=>Math.hypot(a.x-g.body.x,a.z-g.body.z)-Math.hypot(b.x-g.body.x,b.z-g.body.z))[0];
     if(next&&g.state==='PLAYING'){const bearing=Math.atan2(Math.sin(Math.atan2(next.x-g.body.x,next.z-g.body.z)-g.body.yaw),Math.cos(Math.atan2(next.x-g.body.x,next.z-g.body.z)-g.body.yaw)),pitch=Math.atan2(next.y-g.body.y,Math.hypot(next.x-g.body.x,next.z-g.body.z))-g.body.pitch;let hint=Math.abs(bearing)>.5?(bearing>0?'VIRE À DIREITA →':'← VIRE À ESQUERDA'):Math.abs(pitch)>.22?(pitch>0?'ALVO ACIMA ↑':'ALVO ABAIXO ↓'):'';if(g.handSession&&!g.handAim?.fresh)hint='MOSTRE A MÃO · MOVIMENTO E TIRO PAUSADOS';else if(g.autoWalking)hint='PASSOS DO CORPO · MIRA PELA MÃO';if(hint)g.ui.querySelector('.ot-games-mission').textContent+=' · '+hint;}
@@ -13192,7 +13278,7 @@ function build(T,key,H){
     const result=g.ui.querySelector('.ot-games-result');result.hidden=!['VICTORY','DEFEAT','SPAWN_BLOCKED'].includes(g.state);result.querySelector('strong').textContent=g.state==='VICTORY'?'MISSÃO CONCLUÍDA':g.state==='DEFEAT'?'TENTE NOVAMENTE':'ÁREA SEM SETOR LIVRE';result.querySelector('p').textContent=g.kills+'/'+g.goal+' alvos · '+(g.state==='VICTORY'?'Vitória salva. Escolha outra missão ou volte à família.':g.notice||'Use a cobertura das casas e alinhe a mira antes de disparar.');
     g.ui.classList.toggle('ot-hands',!!g.handMode);g.ui.querySelector('[data-ot="camera"]').textContent=g.mode==='plane'?(g.flightCameraMode?'DESLIGAR CÂMERA':'CÂMERA FRONTAL'):g.handSession?'CALIBRAR MÃO':'CÂMERA FRONTAL';lever.setAttribute('aria-valuenow',Math.round(g.collective*100));lever.querySelector('i').style.top=(14+(1-g.collective)*(leverHeight-28))+'px';
     if(g.mode==='plane')g.ui.querySelector('[data-ot-status]').textContent='AVIÃO · '+Math.round(g.airspeed*3.6)+' km/h · '+(g.onGround?'NA PISTA':'EM VOO');
-    const leave=g.ui.querySelector('[data-ot="disembark"]');leave.disabled=!otGamesCanDisembark();const crew=g.ui.querySelector('[data-ot="crew"]');if(crew){crew.hidden=typeof remotePresence==='undefined'||remotePresence.size===0;crew.disabled=!g.onGround;}const land=g.ui.querySelector('[data-ot="land"]');land.disabled=!!g.onGround;land.textContent=g.onGround?'NO SOLO':g.landingAssist?'CANCELAR POUSO':'POUSAR';land.setAttribute('aria-pressed',String(!!g.landingAssist));const crouch=g.ui.querySelector('[data-ot="crouch"]');crouch.textContent=g.crouched?'LEVANTAR':'ABAIXAR';crouch.setAttribute('aria-pressed',String(!!g.crouched));
+    const leave=g.ui.querySelector('[data-ot="disembark"]');leave.disabled=!otGamesCanDisembark();const crew=g.ui.querySelector('[data-ot="crew"]');if(crew){crew.hidden=typeof remotePresence==='undefined'||remotePresence.size===0;crew.disabled=!g.onGround;}const land=g.ui.querySelector('[data-ot="land"]');land.disabled=!!(g.onGround||g.landedRoof);land.textContent=g.landedRoof?'NO TELHADO':g.onGround?'NO SOLO':g.landingAssist?'CANCELAR POUSO':'POUSAR';land.setAttribute('aria-pressed',String(!!g.landingAssist));const crouch=g.ui.querySelector('[data-ot="crouch"]');crouch.textContent=g.crouched?'LEVANTAR':'ABAIXAR';crouch.setAttribute('aria-pressed',String(!!g.crouched));
     const ads=g.ui.querySelector('[data-ot="ads"]');ads.setAttribute('aria-pressed',String(!!g.aiming));ads.classList.toggle('selected',!!g.aiming);
   }
   function otGamesChoose(){
@@ -15929,7 +16015,7 @@ function precompile(T,renderer,scene,camera,timings){
    action:n.lifeAction||'work',visible:n.group.visible,stop:n.routine?.index??null,skipped:n.routine?.skipped||0}))})};
 
   // ===== MODULE: 60-airport-mountain-balloon.js =====
- const worldAirport={ready:false,root:null,balloonSite:null};
+ const worldAirport={ready:false,root:null,balloonSite:null,terminalRoof:null};
  function createMountainBalloon(){
   const root=new THREE.Group();root.name='MOUNTAIN_BALLOON';
   const wicker=campaignMaterial(0xa97a48,.02),rim=campaignMaterial(0x684a30,.03),steel=campaignMaterial(0x68737a,.55);
@@ -15957,7 +16043,10 @@ function precompile(T,renderer,scene,camera,timings){
   // Taxiway joins the apron and runway; the public entrance stays below the highway.
   box(pavement,75,.08,-197,9,.07,30);box(white,75,.13,-197,.12,.02,30);
   wall(90,-192,25,.4,4.6);wall(77.6,-185,.4,14,4.6);wall(102.4,-185,.4,14,4.6);
-  for(const x of[81,99])wall(x,-178,7,.28,3.9,glass);box(steel,90,4.72,-185,26,.35,15);box(accent,90,4.05,-177.7,25,.8,.3);
+  for(const x of[81,99])wall(x,-178,7,.28,3.9,glass);
+  const roof=box(steel,90,4.72,-185,26,.35,15);
+  worldAirport.terminalRoof=new THREE.Box3().setFromObject(roof);
+  box(accent,90,4.05,-177.7,25,.8,.3);
   box(concrete,90,.12,-184,25,.18,14);box(steel,90,3.35,-175.7,10,.18,4);
   for(const x of[86,94])wall(x,-174,.15,.15,3.3,steel);
   campaignSign(root,'AEROPORTO DE RIO PRETO','SBSR · PROF. ERIBELTO MANOEL REINO',6.1).position.set(90,6.1,-177.45);
@@ -23223,7 +23312,9 @@ function precompile(T,renderer,scene,camera,timings){
   function rioFurnitureLayout(site,item,saved={}){
     const rotation=Number.isInteger(saved.rotation)?((saved.rotation%4)+4)%4:0;
     const width=rotation%2?item.d:item.w,depth=rotation%2?item.w:item.d;
-    const limX=Math.max(.25,site.w/2-width/2-.53),limZ=Math.max(.25,site.d/2-depth/2-1.10);
+    // Keep the sofa's walking approach clear when its front turns toward a side wall.
+    const sideMargin=item.type==='sofa'&&rotation%2?1.10:.53;
+    const limX=Math.max(.25,site.w/2-width/2-sideMargin),limZ=Math.max(.25,site.d/2-depth/2-1.10);
     return {
       x:clamp(Number.isFinite(saved.x)?saved.x:item.x,-limX,limX),
       z:clamp(Number.isFinite(saved.z)?saved.z:item.z,-limZ,limZ),
@@ -23238,7 +23329,14 @@ function precompile(T,renderer,scene,camera,timings){
     const center=point(placement.x,placement.z),approach=point(placement.x+forward.x*(item.d/2+.52),placement.z+forward.z*(item.d/2+.52));
     const stand={...approach,y:floorY,yaw:yaw+angle+Math.PI};
     const sit={...center,y:floorY+.55,yaw:yaw+angle,sitting:true};
-    if(['sofa','armchair','chair','lounger'].includes(item.type))return{kind:'sofa',target:approach,pose:sit};
+    if(item.type==='sofa'){
+      // The modeled seat top is .58. Raise the hip joint above it and place
+      // knees past the front edge so the rig's shins clear the upholstery.
+      const offset=item.d/2-.19;
+      const hip=point(placement.x+forward.x*offset,placement.z+forward.z*offset);
+      return{kind:'sofa',target:approach,pose:{...hip,y:floorY+.71,yaw:yaw+angle,sitting:true}};
+    }
+    if(['armchair','chair','lounger'].includes(item.type))return{kind:'sofa',target:approach,pose:sit};
     if(item.type==='bed')return{kind:'bed',target:approach,pose:{...center,y:floorY+.74,yaw:yaw+angle,lying:true}};
     if(item.type==='tv')return{kind:'tv',target:seat.target,pose:{...seat.pose,yaw:Math.atan2(center.x-seat.pose.x,center.z-seat.pose.z)}};
     if(item.type==='computer'||item.type==='desk'||item.type==='bookshelf')return{kind:'rio-study',target:approach,pose:stand};

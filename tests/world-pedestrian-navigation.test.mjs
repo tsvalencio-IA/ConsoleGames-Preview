@@ -7,7 +7,7 @@ const source = readFileSync(new URL('../games/otthi/src/modules/27-npc-enemies-c
 const walking = source.slice(source.indexOf('  function v705NpcSeed'), source.indexOf('  function updateNPCs'));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
-function fixture(blocked = () => false) {
+function fixture(blocked = () => false, frameDuration = .1) {
   let time = 100;
   const worldGroup = {}, npcs = [], traffic = [], world = {npcs, vehicles: []};
   const context = vm.createContext({world, worldGroup, player: {x: -50, y: 0, z: -50},
@@ -22,8 +22,8 @@ function fixture(blocked = () => false) {
     npcs.push(npc);
     return npc;
   };
-  const tick = () => { time += 100; };
-  return {spawn, tick, traffic, context, step: (npc, target) => context.v705NpcWalk(npc, .1, target, 1.4, true)};
+  const tick = () => { time += frameDuration * 1000; };
+  return {spawn, tick, traffic, context, step: (npc, target) => context.v705NpcWalk(npc, frameDuration, target, 1.4, true)};
 }
 
 test('pedestrian walks around an intervening wall without crossing or changing destination', () => {
@@ -70,6 +70,35 @@ test('pedestrian leaves clearance around a waiting person and a vehicle approach
     if (tick < 60) assert(!(Math.abs(npc.group.position.x - 4) < 1.42 && Math.abs(npc.group.position.z) < .4));
   }
   assert(distance(npc.group.position, {x: 9, z: 0}) < .08);
+});
+
+test('two oncoming pedestrians share a narrow walkway and keep their destinations', () => {
+  for (const {axis, width, frameDuration} of [
+    {axis:'x', width:2.2, frameDuration:.1}, {axis:'z', width:1.65, frameDuration:1/60}
+  ]) {
+    const across = axis === 'x' ? 'z' : 'x';
+    const blocked = (x, z, radius) => Math.abs(({x, z})[across]) + radius > width / 2;
+    const f = fixture(blocked, frameDuration);
+    const left = {[axis]: -4, [across]: 0}, right = {[axis]: 4, [across]: 0};
+    const first = f.spawn('rio-a', left.x, left.z), second = f.spawn('rio-b', right.x, right.z);
+    let maxStep = 0;
+    for (let tick = 0; tick < 16 / frameDuration; tick++) {
+      f.tick();
+      for (const [npc, target] of [[first, right], [second, left]]) {
+        const before = {...npc.group.position};
+        f.step(npc, target);
+        const point = npc.group.position;
+        maxStep = Math.max(maxStep, distance(point, before));
+        assert(!blocked(point.x, point.z, .31));
+        assert(distance(first.group.position, second.group.position) >= .748);
+      }
+      if (distance(first.group.position, right) < .11 && distance(second.group.position, left) < .11) break;
+    }
+    assert(distance(first.group.position, right) < .11);
+    assert(distance(second.group.position, left) < .11);
+    assert(maxStep <= 1.8 * frameDuration);
+    assert(first.pedestrianNav.replans + second.pedestrianNav.replans <= 2);
+  }
 });
 
 

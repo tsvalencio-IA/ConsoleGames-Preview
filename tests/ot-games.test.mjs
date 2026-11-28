@@ -32,6 +32,80 @@ test('open-world flight: a helicopter can climb above the new snowy mountain pea
  const f=fixture();f.context.groundHeightAt=()=>124;f.context.professionalTerrainHeightAt=()=>124;await f.api.enter('helicopter',{armed:false});f.g.body.y=126;f.g.collective=.9;for(let i=0;i<1800;i++)f.step(1/60);assert(f.g.body.y>200);assert(f.g.body.y<400);assert(!f.g.onGround);
 });
 
+async function airportRoofFixture(civilian=true){
+ const f=fixture(),{T,context,g}=f;
+ const material=new T.MeshStandardMaterial();
+ Object.assign(context,{
+  OT_CHILD_WORLD:civilian,worldGroup:new T.Group(),worldExploreLocations:()=>[],updateWorldExpansion(){},
+  campaignMaterial:()=>material,v702TextureMaterial:()=>material,campaignBatch(){},addResident(){},
+  campaignSign:()=>new T.Group(),citySign(){},registerInteractable(){},
+  WORLD_CAMPAIGN_AIRCRAFT:Object.fromEntries(['heli-tour','heli-ottovias','heli-rescue'].map(id=>[id,{label:id}])),
+  campaignBox(root,mat,x,y,z,w,h,d){
+   const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),mat);
+   mesh.position.set(x,y,z);root.add(mesh);return mesh;
+  }
+ });
+ if(civilian){
+  const art=readFileSync('games/otthi/src/modules/55-world-traffic-and-air.js','utf8');
+  Object.assign(context,{mergeAirframeGlazing(){},mergeTrafficStatic(){}});
+  const create=context.document.createElement;
+  context.document.createElement=tag=>tag==='canvas'?{getContext:()=>({fillText(){}})}:create(tag);
+  vm.runInContext(art.slice(art.indexOf(' function createCivilianAirframe('),art.indexOf(' function ensureWorldAirTraffic(')),context);
+ }
+ const airportSource=readFileSync('games/otthi/src/modules/60-airport-mountain-balloon.js','utf8');
+ vm.runInContext(airportSource+'\ncreateCivilAirport();',context);
+ const roof=vm.runInContext('worldAirport.terminalRoof',context);
+ assert.equal(roof.max.x-roof.min.x,26);
+ assert.equal(roof.max.z-roof.min.z,15);
+ assert(await f.api.enter('helicopter',{armed:false}));
+ assert(g.roofContact.skid>0&&g.roofContact.top>0);
+ const floor=roof.max.y+g.roofContact.skid;
+ const frames=count=>{for(let n=0;n<count;n++)f.step(1/60);};
+ return {...f,roof,floor,frames};
+}
+
+for(const [variant,civilian] of [['civilian',true],['Kestrel',false]])test(`${variant} helicopter touches the terminal roof, holds after input resets and lifts off again`,async()=>{
+ const {g,api,context,floor,frames}=await airportRoofFixture(civilian);
+ Object.assign(g.body,{x:90,y:floor+3,z:-185});
+ api.land();frames(200);
+ assert.equal(api.diagnostics().flightPhase,'landed-roof');
+ assert.equal(g.body.y,floor);
+ assert.equal(g.landingAssist,false);
+ assert.equal(api.canDisembark(),false,'crew needs a safe pedestrian exit');
+ assert.equal(api.disembark(),false);
+ g.move.x=.65;frames(45);
+ assert.equal(g.body.x,90);
+ context.otGamesClearInput();context.otGamesCamera(.1);frames(90);
+ assert.equal(g.body.y,floor,'camera and orientation input resets preserve support');
+ g.keys.add('KeyE');frames(60);g.keys.delete('KeyE');
+ assert(g.body.y>floor+1);
+ assert.equal(api.diagnostics().flightPhase,'airborne');
+ Object.assign(g.body,{x:66,z:-164});
+ api.land();frames(300);
+ assert.equal(api.diagnostics().flightPhase,'landed');
+ assert.equal(api.canDisembark(),true,'ordinary pavement still permits disembarking');
+});
+
+test('the roof and adjacent obstructions stop the helicopter without authorizing unsupported touchdown',async()=>{
+ const {g,api,T,floor,roof,frames}=await airportRoofFixture();
+ Object.assign(g.body,{x:roof.max.x-2,y:floor+3,z:-185});
+ api.land();frames(200);
+ assert.equal(g.landedRoof,false,'keep the aircraft footprint inside the slab');
+ assert(g.body.y>=floor);
+ api.land();
+ Object.assign(g.body,{x:90,y:floor+3,z:-185,vx:0,vy:0,vz:0});
+ const obstacleTop=roof.max.y+1.2;
+ g.obstacles.push(new T.Box3(new T.Vector3(93,roof.max.y,-186),new T.Vector3(94,obstacleTop,-184)));
+ api.land();frames(200);
+ assert.equal(g.landedRoof,false,'rotor clearance matters outside the centre of the hull');
+ assert(g.body.y>=obstacleTop+g.roofContact.skid);
+ api.land();
+ Object.assign(g.body,{x:90,y:1.6,z:-185,vx:0,vy:0,vz:0});
+ g.keys.add('KeyE');frames(175);g.keys.delete('KeyE');
+ assert(g.body.y+g.roofContact.top<roof.min.y,'the aircraft cannot rise through the roof from below');
+ assert.equal(g.landedRoof,false);
+});
+
 test('civil world: ground combat cannot be started and an armed flight request stays unarmed',async()=>{
  const f=fixture();assert.equal(await f.api.enter('ground',{armed:true}),false);assert(!f.g.active);assert.equal(f.scene.children.length,0);assert(await f.api.enter('helicopter',{armed:true}));assert.equal(f.g.armed,false);assert.equal(f.g.enemies.length,0);assert.equal(f.g.bullets.length,0);assert.equal(f.storage.size,0);
 });

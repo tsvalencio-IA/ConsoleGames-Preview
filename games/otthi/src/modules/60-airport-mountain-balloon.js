@@ -1,6 +1,6 @@
 /** Physical civil airport and mountain balloon; all craft use the shared flight/parking system. */
 // @otthi-module-body
- const worldAirport={ready:false,root:null,balloonSite:null};
+ const worldAirport={ready:false,root:null,balloonSite:null,terminalRoof:null};
  function createMountainBalloon(){
   const root=new THREE.Group();root.name='MOUNTAIN_BALLOON';
   const wicker=campaignMaterial(0xa97a48,.02),rim=campaignMaterial(0x684a30,.03),steel=campaignMaterial(0x68737a,.55);
@@ -28,7 +28,10 @@
   // Taxiway joins the apron and runway; the public entrance stays below the highway.
   box(pavement,75,.08,-197,9,.07,30);box(white,75,.13,-197,.12,.02,30);
   wall(90,-192,25,.4,4.6);wall(77.6,-185,.4,14,4.6);wall(102.4,-185,.4,14,4.6);
-  for(const x of[81,99])wall(x,-178,7,.28,3.9,glass);box(steel,90,4.72,-185,26,.35,15);box(accent,90,4.05,-177.7,25,.8,.3);
+  for(const x of[81,99])wall(x,-178,7,.28,3.9,glass);
+  const roof=box(steel,90,4.72,-185,26,.35,15);
+  worldAirport.terminalRoof=new THREE.Box3().setFromObject(roof);
+  box(accent,90,4.05,-177.7,25,.8,.3);
   box(concrete,90,.12,-184,25,.18,14);box(steel,90,3.35,-175.7,10,.18,4);
   for(const x of[86,94])wall(x,-174,.15,.15,3.3,steel);
   campaignSign(root,'AEROPORTO DE RIO PRETO','SBSR · PROF. ERIBELTO MANOEL REINO',6.1).position.set(90,6.1,-177.45);

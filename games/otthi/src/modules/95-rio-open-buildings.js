@@ -113,7 +113,9 @@
   function rioFurnitureLayout(site,item,saved={}){
     const rotation=Number.isInteger(saved.rotation)?((saved.rotation%4)+4)%4:0;
     const width=rotation%2?item.d:item.w,depth=rotation%2?item.w:item.d;
-    const limX=Math.max(.25,site.w/2-width/2-.53),limZ=Math.max(.25,site.d/2-depth/2-1.10);
+    // Keep the sofa's walking approach clear when its front turns toward a side wall.
+    const sideMargin=item.type==='sofa'&&rotation%2?1.10:.53;
+    const limX=Math.max(.25,site.w/2-width/2-sideMargin),limZ=Math.max(.25,site.d/2-depth/2-1.10);
     return {
       x:clamp(Number.isFinite(saved.x)?saved.x:item.x,-limX,limX),
       z:clamp(Number.isFinite(saved.z)?saved.z:item.z,-limZ,limZ),
@@ -128,7 +130,14 @@
     const center=point(placement.x,placement.z),approach=point(placement.x+forward.x*(item.d/2+.52),placement.z+forward.z*(item.d/2+.52));
     const stand={...approach,y:floorY,yaw:yaw+angle+Math.PI};
     const sit={...center,y:floorY+.55,yaw:yaw+angle,sitting:true};
-    if(['sofa','armchair','chair','lounger'].includes(item.type))return{kind:'sofa',target:approach,pose:sit};
+    if(item.type==='sofa'){
+      // The modeled seat top is .58. Raise the hip joint above it and place
+      // knees past the front edge so the rig's shins clear the upholstery.
+      const offset=item.d/2-.19;
+      const hip=point(placement.x+forward.x*offset,placement.z+forward.z*offset);
+      return{kind:'sofa',target:approach,pose:{...hip,y:floorY+.71,yaw:yaw+angle,sitting:true}};
+    }
+    if(['armchair','chair','lounger'].includes(item.type))return{kind:'sofa',target:approach,pose:sit};
     if(item.type==='bed')return{kind:'bed',target:approach,pose:{...center,y:floorY+.74,yaw:yaw+angle,lying:true}};
     if(item.type==='tv')return{kind:'tv',target:seat.target,pose:{...seat.pose,yaw:Math.atan2(center.x-seat.pose.x,center.z-seat.pose.z)}};
     if(item.type==='computer'||item.type==='desk'||item.type==='bookshelf')return{kind:'rio-study',target:approach,pose:stand};

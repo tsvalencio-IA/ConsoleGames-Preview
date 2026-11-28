@@ -41,10 +41,29 @@ test('a rotated sofa fits the room and dragging projects onto the actual finishe
  assert.equal(rotated.rotation,1);
  assert(rotated.stored);
  assert(rotated.x>legacy.x&&rotated.z<legacy.z);
- assert(Math.abs(rotated.x+sofa.d/2+.53-site.w/2)<1e-9);
+ assert(Math.abs(rotated.x+sofa.d/2+1.10-site.w/2)<1e-9);
  assert(Math.abs(rotated.z+sofa.w/2+1.10-site.d/2)<1e-9);
  assert.deepEqual(saved,{x:30,z:30,rotation:5,stored:true});
  assert.match(homes,/new THREE\.Plane\(new THREE\.Vector3\(0,1,0\),-room\.floorY\)/);
+});
+test('the modular sofa seats the avatar above the cushion with a walkable approach at each rotation',()=>{
+ const code=homes.slice(homes.indexOf('  function rioFurnitureCatalog('),homes.indexOf('  function rioHomeCareValue('));
+ const site={w:8,d:6};
+ const ctx=vm.createContext({site,clamp:(n,min,max)=>Math.max(min,Math.min(n,max))});
+ vm.runInContext(code+"\nconst sofa=rioFurnitureCatalog(site).find(item=>item.id==='sofa-modular');",ctx);
+ const directions=[[0,1],[1,0],[0,-1],[-1,0]];
+ const near=(a,b)=>Math.abs(a-b)<1e-9;
+ for(const [rotation,[x,z]] of directions.entries()){
+  ctx.saved={x:100*x,z:100*z,rotation};
+  const {p,plan}=vm.runInContext(`(()=>{
+   const p=rioFurnitureLayout(site,sofa,saved);
+   return {p,plan:rioFurnitureUsePlan(sofa,p,null,(x,z)=>({x,z}),.3,4)};
+  })()`,ctx);
+  assert(plan.pose.sitting&&near(plan.pose.y,4.71));
+  assert(near(plan.pose.x,p.x+x*.33)&&near(plan.pose.z,p.z+z*.33));
+  assert(near(plan.pose.yaw,.3+rotation*Math.PI/2));
+  assert(Math.min(site.w/2-Math.abs(plan.target.x),site.d/2-Math.abs(plan.target.z))>=.57);
+ }
 });
 test('streaming tracks movable furniture interactions alongside the mounted room',()=>{
  const code=homes.slice(homes.indexOf('    const furnitureAction='),homes.indexOf("    room.action('home-entry'"));

@@ -102,6 +102,37 @@
     return true;
   }
 
+  function pedestrianPassingLane(npc,target,peers,clear){
+    const position=npc.group.position,dx=target.x-position.x,dz=target.z-position.z,distance=Math.hypot(dx,dz);
+    if(distance<1.1)return [];
+    const fx=dx/distance,fz=dz/distance;
+    const oncoming=peers.find(other=>{
+      const p=other.group.position,goal=other.pedestrianNav?.goal;
+      if(other===npc||!goal||other.passengerMode||other.group.visible===false||Math.abs(p.y-position.y)>=1.55)return false;
+      const x=p.x-position.x,z=p.z-position.z,ahead=x*fx+z*fz;
+      const tx=goal.x-p.x,tz=goal.z-p.z;
+      return ahead>0&&ahead<1.55&&Math.abs(x*fz-z*fx)<.86&&
+        tx*fx+tz*fz<-.65*Math.hypot(tx,tz);
+    });
+    if(!oncoming)return [];
+    const p=oncoming.group.position,ahead=(p.x-position.x)*fx+(p.z-position.z)*fz;
+    const segmentClear=(from,to)=>{
+      const count=Math.ceil(distance2D(from,to)/.24);
+      for(let i=1;i<=count;i++)if(!clear(from.x+(to.x-from.x)*i/count,from.z+(to.z-from.z)*i/count))return false;
+      return true;
+    };
+    // A regular grid misses narrow passing lanes. Each pedestrian yields on
+    // their own right before resuming the original destination.
+    for(const width of [.88,.76,.68,.48,.41]){
+      const aside={x:position.x+fz*width,z:position.z-fx*width,arrivalRadius:.04};
+      if(!segmentClear(position,aside))continue;
+      const advance=Math.min(distance,ahead+.75);
+      const forward={x:aside.x+fx*advance,z:aside.z+fz*advance};
+      return segmentClear(aside,forward)?[aside,forward]:[aside];
+    }
+    return [];
+  }
+
   function* findPedestrianDetour(from,goal,clear){
     // Local A* follows a routine's waypoint and searches around obstacles only
     // after a blocked step. A bounded frontier spreads the cost across frames.
@@ -144,7 +175,8 @@
     if(!navigator.goal||distance2D(navigator.goal,target)>1.1){
       Object.assign(navigator,{goal:{x:target.x,z:target.z},path:[],blocked:0,retryAt:0,search:null});
     }
-    if(navigator.path.length&&distance2D(position,navigator.path[0])<.11)navigator.path.shift();
+    const next=navigator.path[0];
+    if(next&&distance2D(position,next)<(next.arrivalRadius??.11))navigator.path.shift();
     const waypoint=navigator.path[0]||target,dx=waypoint.x-position.x,dz=waypoint.z-position.z,distance=Math.hypot(dx,dz);
     if(distance<.035)return 0;
     const peers=nearbyPedestrians(position,now),vehicles=nearbyTrafficActors(position.x,position.z,12);
@@ -168,6 +200,11 @@
     if(navigator.blocked<.28||now<navigator.retryAt||now<pedestrianNavigation.nextPlanAt)return 0;
     pedestrianNavigation.nextPlanAt=now+20;
     if(!navigator.search){
+      const passing=pedestrianPassingLane(npc,target,peers,clear);
+      if(passing.length){
+        navigator.path=passing;navigator.retryAt=now+420;pedestrianNavigation.detours++;
+        return 0;
+      }
       navigator.search=findPedestrianDetour({x:position.x,z:position.z},target,clear);
       navigator.replans++;pedestrianNavigation.plans++;
     }
