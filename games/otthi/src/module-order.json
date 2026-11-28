@@ -171,14 +171,14 @@
       "startLine": 3087,
       "endLine": 3308,
       "description": "Ônibus, rotas viárias, paradas, metrô e painel de transporte",
-      "sha256Body": "120649afdcd813f80a15940fda32034fa1d08b0b98ec4728a5620a753308b50b"
+      "sha256Body": "6ddedb954d566283037b5c3d86926701a45deae47d5fbdc4f05e65055addd21b"
     },
     {
       "file": "src/modules/16-emergency-services.js",
       "startLine": 3310,
       "endLine": 3495,
       "description": "Bombeiros, incêndios, polícia, ambulância, segurança e incidentes",
-      "sha256Body": "9a9cd4aee53c296641a3f2174631f3edfefd8482f704fdf7d61fcb6497d2f35e"
+      "sha256Body": "556406dd016822122ead9130f75ccfed1fab16ad62ee390f2f2b1d4c389618de"
     },
     {
       "file": "src/modules/17-adventures-learning-world.js",

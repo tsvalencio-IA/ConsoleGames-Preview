@@ -6419,7 +6419,7 @@
     premiumBox(.25,3.3,.25,0x1c2c42,-1.82,1.75,-1.62,g);premiumBox(.25,3.3,.25,0x1c2c42,1.82,1.75,-1.62,g);premiumBox(4.1,.32,1.2,0x168de2,0,3.38,-1.62,g);
     const panel=new THREE.Mesh(new THREE.PlaneGeometry(1.15,1.15),new THREE.MeshStandardMaterial({map:iconTexture('M','#168de2','#ffffff'),emissive:0x0a4d86,emissiveIntensity:.35,side:THREE.DoubleSide}));panel.position.set(0,3.42,-2.25);panel.rotation.y=Math.PI;g.add(panel);
     premiumBox(3.45,2.5,.12,0x13283d,0,1.45,1.82,g);for(const x of [-1.18,0,1.18])premiumBox(.08,2.35,.14,0x64d8ff,x,1.45,1.75,g);
-    station.group=g;world.metroStations.push(station);registerInteractable({id:`metro-entry-${station.id}`,type:'metro',icon:'Ⓜ️',label:`Entrar: ${station.name}`,x:station.x,z:station.z,radius:3.5,priority:205,action:()=>openMetroStation(station)});return station;
+    station.group=g;world.metroStations.push(station);registerInteractable({id:`metro-entry-${station.id}`,type:'metro',icon:'Ⓜ️',label:`Entrar: ${station.name}`,x:station.navX,z:station.navZ,radius:3.5,priority:205,action:()=>openMetroStation(station)});return station;
   }
   function ensureMetroOverlay(){
     if(metroOverlay)return metroOverlay;metroOverlay=document.createElement('div');metroOverlay.id='metroTravelOverlay';metroOverlay.className='metro-travel-overlay';metroOverlay.hidden=true;metroOverlay.innerHTML='<div class="metro-tunnel"><i></i><i></i><i></i></div><div class="metro-train"><b>M</b><span></span><span></span><span></span></div><strong data-metro-trip>Próxima estação</strong>';document.body.appendChild(metroOverlay);return metroOverlay;
@@ -7126,6 +7126,25 @@
     const search=job.pathSearch;job.pathSearch=null;job.replanIn=3;job.searchFailed=!result.value;if(!result.value)return false;
     const detour=result.value,rejoin=search.goals[detour.goalIndex];job.route=new PhoneDriveRoute(compactRoute([...detour.points,...motion.points.slice(rejoin.index)]),motion.yaw);job.reroutes++;job.blockedFor=0;return true;
   }
+  // A tentative staging search must not mutate the accepted target if the
+  // replacement route cannot depart. Otherwise the next traffic tick discards
+  // its existing response job and restarts the search indefinitely.
+  function replanIncidentResponderStage(incident,vehicle,job){
+    const kind=vehicle.serviceType,previous=incident.staging?.[kind];
+    const alternate=incidentResponderPoint(incident,kind,vehicle,true);
+    const route=incidentResponderRoute(vehicle,alternate),first=route[1];
+    const yaw=Number.isFinite(alternate.yaw)?alternate.yaw:Number(vehicle.group.rotation.y||0);
+    const clear=!!first&&incidentResponderPoseClear(vehicle,alternate.x,alternate.z,yaw,true)&&incidentResponderTravelClear(vehicle,{x:vehicle.group.position.x,z:vehicle.group.position.z},first,false);
+    if(!clear){
+      incident.staging||={};
+      if(previous)incident.staging[kind]=previous;else delete incident.staging[kind];
+      return job;
+    }
+    incident.staging||={};incident.staging[kind]={...alternate};
+    const next=setIncidentResponderRoute(vehicle,alternate,route);
+    next.reroutes=(job.reroutes||0)+1;next.stationaryFor=job.stationaryFor||0;
+    return next;
+  }
   function moveIncidentResponder(vehicle,target,dt){
     const distance=Math.hypot(vehicle.group.position.x-target.x,vehicle.group.position.z-target.z),arrival=vehicle.serviceType==='firefighter'?2.1:1.8;
     if(distance<arrival){vehicle.currentSpeed=0;if(vehicle.responseJob)vehicle.responseJob.route.speed=0;return distance;}
@@ -7152,9 +7171,9 @@
       }
     }
     world.trafficSnapshot=null;recoverIncidentResponder(job,dt);
-    if(job.blockedFor>6&&job.searchFailed){const incident=world.activeIncident;if(incident&&incident.id===vehicle.incidentTargetId){const alternate=incidentResponderPoint(incident,vehicle.serviceType,vehicle,true),route=incidentResponderRoute(vehicle,alternate),first=route[1];if(first&&incidentResponderTravelClear(vehicle,{x:vehicle.group.position.x,z:vehicle.group.position.z},first,false)){const {reroutes,stationaryFor}=job;job=setIncidentResponderRoute(vehicle,alternate,route);job.reroutes=reroutes+1;job.stationaryFor=stationaryFor;}}}
+    if(job.blockedFor>6&&job.searchFailed&&job.replanIn<=0){const incident=world.activeIncident;if(incident&&incident.id===vehicle.incidentTargetId){job=replanIncidentResponderStage(incident,vehicle,job);job.replanIn=3;}}
     vehicle.responseRoute=job.route.points;vehicle.responseIndex=job.route.index;vehicle.group.userData.roadPath=job.route.points;
-    return Math.hypot(vehicle.group.position.x-target.x,vehicle.group.position.z-target.z);
+    return Math.hypot(vehicle.group.position.x-job.target.x,vehicle.group.position.z-job.target.z);
   }
   window.OT_EMERGENCY_SERVICE={diagnostics:()=>({active:world.activeIncident?{id:world.activeIncident.id,simulationMs:Number(world.activeIncident.serviceElapsedMs||0),physicalArrivals:structuredClone(world.activeIncident.physicalArrivals||{}),contingencyEvents:structuredClone(world.activeIncident.contingencyEvents||[])}:null,history:structuredClone(world.emergencyServiceHistory||[]),physicalCompleted:Number(state.cityServices.physicalRescuesCompleted||0),contingencyCompleted:Number(state.cityServices.contingencyRescuesCompleted||0)})};
   function incidentServiceLabel(kind){return kind==='police'?'Polícia':kind==='firefighter'?'Bombeiros':'Resgate';}
@@ -7213,9 +7232,13 @@
       if(!incident.required[kind]||incident.arrived[kind]||incident.tasks[kind]||incident.playerAssigned[kind])continue;
       const current=serviceVehiclePools(kind).find(vehicle=>vehicle.id===incident.responders[kind]&&vehicle.incidentTargetId===incident.id);
       if(!current){incident.responders[kind]='';dispatchIncidentResponder(incident,kind);continue;}
-      if(kind==='police'&&current.responseJob?.stationaryFor>=8&&(incident.dispatches?.[kind]?.length||0)<2&&dispatchIncidentResponder(incident,kind,true)){
-        releaseIncidentResponder(current);
-        if(incident.travelProgress)delete incident.travelProgress[kind];
+      if(current.responseJob?.stationaryFor>=8&&(incident.dispatches?.[kind]?.length||0)<2&&now>=Number(current.responseJob.nextReplacementAt||0)){
+        current.responseJob.nextReplacementAt=now+8000;
+        const replacement=dispatchIncidentResponder(incident,kind,true);
+        if(replacement&&replacement!==current){
+          releaseIncidentResponder(current);
+          if(incident.travelProgress)delete incident.travelProgress[kind];
+        }
       }
     }
   }
