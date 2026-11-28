@@ -46,6 +46,7 @@ try{
  updateOtGames=function(dt){roofQaUpdates++;roofQaSeconds+=dt;return roofQaUpdate(dt);};
  window.__ROOF_QA={
   stage(){const g=otGames,roof=worldAirport.terminalRoof;const floor=roof.max.y+g.roofContact.skid;Object.assign(g.body,{x:90,y:floor+3.6,z:-185,yaw:0,vx:0,vy:0,vz:0,roll:0,pitch:0});return {floor,roof,radius:g.roofContact.radius};},
+  walkingCamera(){camera.updateMatrixWorld(true);const point=new THREE.Vector3(player.x,player.y+1.0,player.z),ndc=point.clone().project(camera);return {player:{x:player.x,y:player.y,z:player.z},camera:camera.position.toArray(),projection:ndc.toArray(),mode:cameraMode,near:camera.near,far:camera.far,drag:input.cameraDrag?.id??null,orbit:OT_VEHICLE_VIEW.diagnostics(),visible:playerGroup.visible};},
   measure(){const g=otGames;return {now:roofQaClock(),updates:roofQaUpdates,seconds:roofQaSeconds,position:g.aircraft?.position.toArray(),body:g.body?{...g.body}:null,viewport:{width:innerWidth,height:innerHeight},drawCalls:renderer.info.render.calls};}
  };`;
  await installCityInspection(page,{appSource:runtime.slice(0,end)+instrumentation+runtime.slice(end),capDuringBoot:true});
@@ -100,9 +101,40 @@ try{
  report.apron=await diagnostics();
  assert.equal(report.apron.onGround,true);
  assert(report.apron.body.z>=-167);
- await page.locator('[data-ot="disembark"]').click();
+ // Transfer ownership after using the real touch flight camera.
+ const surface=page.locator('#stage canvas').first();
+ const orbitFinger=await touch.start(surface,.30,.46);
+ await touch.move(orbitFinger,surface,.70,.46);await touch.end(orbitFinger);
+ await wait(()=>OT_VEHICLE_VIEW.diagnostics().manual);
+ await page.locator('[data-ot="disembark"]').tap();
  await wait(()=>!OT_GAMES.diagnostics().active);
  report.exit=await page.evaluate(()=>OTTHOS_TEST_API.getGame().player);
+ const walking=()=>page.evaluate(()=>__ROOF_QA.walkingCamera());
+ const framed=(m,label)=>{
+   assert.equal(m.mode,'openworld',label);assert.equal(m.orbit.manual,false,label);
+   assert.equal(m.orbit.key,'',label);assert.equal(m.orbit.pointerCount,0,label);assert.equal(m.drag,null,label);
+   assert(m.visible,label+' player root must remain visible');
+   assert(m.camera.every(Number.isFinite)&&m.projection.every(Number.isFinite),label);
+   assert(Math.hypot(m.camera[0]-m.player.x,m.camera[1]-m.player.y,m.camera[2]-m.player.z)<25,label+' camera distance');
+   assert(Math.abs(m.projection[0])<1&&Math.abs(m.projection[1])<1&&Math.abs(m.projection[2])<1,label+' actor must be in the viewport: '+JSON.stringify(m));
+ };
+ report.walkingCamera={exit:await walking(),orbits:[]};
+ framed(report.walkingCamera.exit,'immediate exit');
+ await page.setViewportSize({width:390,height:844});
+ await wait(()=>OTTHI_VIEWPORT.current()?.width===390);
+ for(let i=0;i<7;i++){
+   const finger=await touch.start(surface,.18,.44);await touch.move(finger,surface,.82,.44);await touch.end(finger);
+   await page.waitForTimeout(120);
+   const frame=await walking();framed(frame,'walking touch orbit '+i);report.walkingCamera.orbits.push(frame);
+ }
+ const before=await walking(),joy=page.locator('#joystick');
+ const finger=await touch.start(joy,.5,.24);
+ try{await wait(p=>{const n=OTTHOS_TEST_API.getGame().player;return Math.hypot(n.x-p.x,n.z-p.z)>1.2;},before.player);}
+ finally{await touch.end(finger);}
+ report.walkingCamera.walked=await walking();framed(report.walkingCamera.walked,'after walking');
+ await page.evaluate(()=>__CITY_QA.renderNative());
+ await page.screenshot({path:output+'/camera-apos-desembarque.png'});
+ console.log('PASS moved helicopter, real flight orbit, disembark, portrait touch orbit and walk');
  assert(tookTouch,'The real touch on the collective should raise power');
  assert.deepEqual(errors,[]);
  report.passed=true;

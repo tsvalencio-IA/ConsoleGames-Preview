@@ -30,3 +30,17 @@ test('aircraft exit reanchors the camera at the actual disembark point and relea
  assert.match(camera,/const t=cameraFollowSnap\?1:1-Math\.exp\(-dt\*7\.5\);cameraFollowSnap=false/);
  assert.match(vehicle,/vehicleView\.manual=vehicleView\.inside=vehicleView\.snap=false;releaseVehicleViewPointers\(\)/);
 });
+
+test('releasing flight camera clears both vehicle and pedestrian pointer capture',()=>{
+ const vehicle=read('69-vehicle-camera-passengers.js'),a=vehicle.indexOf(' function releaseVehicleViewPointers(){'),b=vehicle.indexOf('\n for(const type',a);assert(a>=0&&b>a);
+ const released=[],input={cameraDrag:{id:8}},vehicleView={pointers:new Map([[7,{}],[8,{}]]),pinch:33},ctx=vm.createContext({input,vehicleView,els:{stage:{hasPointerCapture:()=>true,releasePointerCapture:id=>released.push(id)}}});
+ vm.runInContext(vehicle.slice(a,b),ctx);ctx.releaseVehicleViewPointers();
+ assert.equal(input.cameraDrag,null);assert.equal(vehicleView.pointers.size,0);assert.equal(vehicleView.pinch,0);assert.deepEqual(released,[7,8]);
+});
+test('walking camera handoff restores pedestrian projection only after vehicle ownership and family seating are released',()=>{
+ const flight=read('42-ot-games-modes.js'),a=flight.indexOf('  function otGamesReanchorWalkingCamera('),b=flight.indexOf('  function otGamesLeave(',a);assert(a>=0&&b>a);
+ const order=[],player={x:90,y:0,z:-167,facing:Math.PI/2},camera={near:1.5,far:2000,up:{set:()=>{}},updateProjectionMatrix:()=>{},updateMatrixWorld:()=>order.push('matrix')};
+ const ctx=vm.createContext({player,camera,cameraMode:'flight',cameraYaw:0,cameraPitch:1.35,cameraZoom:35,cameraFollowSnap:false,vehicleViewRestore:()=>order.push('restore'),releaseVehicleViewPointers:()=>order.push('release'),familyWorld:{portraitUntil:Infinity},document:{body:{classList:{remove:()=>{}}}},updateFamilyCarry:()=>order.push('family'),playerGroup:{position:{set:()=>order.push('position')},rotation:{}},clamp:(x,a,b)=>Math.min(b,Math.max(a,x)),updateCamera:()=>order.push('camera')});
+ vm.runInContext(flight.slice(a,b),ctx);ctx.otGamesReanchorWalkingCamera({near:.05,far:600,cameraPitch:1.35,cameraZoom:35});
+ assert.equal(ctx.cameraMode,'openworld');assert.equal(ctx.cameraFollowSnap,true);assert.equal(ctx.cameraYaw,Math.PI/2);assert.equal(ctx.cameraPitch,.85);assert.equal(ctx.cameraZoom,4);assert.equal(camera.near,.05);assert.equal(camera.far,600);assert.equal(ctx.familyWorld.portraitUntil,0);assert.deepEqual(order,['restore','release','family','position','camera','matrix']);
+});

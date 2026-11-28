@@ -134,7 +134,7 @@
     if(!otGames.assets){otGames.starting=true;let response;try{response=await fetch(new URL('assets/ot-games-airframes.json',OTTHI_GAME_LIVE_BASE));}finally{otGames.starting=false;}if(!response.ok)throw Error('Não foi possível carregar os veículos.');otGames.assets=await response.json();}
     const g=otGames;g.engineVoice?.dispose();g.engineVoice=['ground','balloon'].includes(mode)?null:window.GameAudio?.vehicleVoice(mode,mode);g.mode=mode;g.aircraftId=options.boarding?.id||mode;g.armed=mode!=='balloon'&&options.armed!==false;g.difficulty=['easy','normal','hard'].includes(options.difficulty)?options.difficulty:'normal';g.level={easy:{label:'INICIANTE',goal:6,damage:7,enemyRate:3.8},normal:{label:'NORMAL',goal:8,damage:10,enemyRate:2.9},hard:{label:'VETERANO',goal:10,damage:15,enemyRate:2.1}}[g.difficulty];
     state.ui.quickOpen=false;syncMobilePanels();
-    g.entry={camera:camera.position.clone(),rotation:camera.quaternion.clone(),fov:camera.fov,near:camera.near,playerVisible:playerGroup.visible,shadowVisible:contactShadow?.visible,toolVisible:toolVisual?.visible,position:{x:player.x,y:player.y,z:player.z},cameraYaw,cameraPitch,cameraZoom};
+    g.entry={camera:camera.position.clone(),rotation:camera.quaternion.clone(),fov:camera.fov,near:camera.near,far:camera.far,playerVisible:playerGroup.visible,shadowVisible:contactShadow?.visible,toolVisible:toolVisual?.visible,position:{x:player.x,y:player.y,z:player.z},cameraYaw,cameraPitch,cameraZoom};
     savePlayerPosition(true);clearMovementInputs();otGamesClearInput();g.active=true;g.state='PLAYING';g.handMode=false;g.kills=0;g.goal=g.level.goal;g.wave=0;g.ammo=30;g.reserve=180;g.reload=0;g.cooldown=0;g.elapsed=0;g.resultSaved=false;g.notice='';g.lock=null;g.enemies=[];g.bullets=[];g.effects=[];
     g.noticeUntil=0;g.autoWalkSide=0;g.autoWalking=false;g.careerKey='thia:ot-games:combat:v1:'+(state.profile?.playerId||'local');g.group=new THREE.Group();g.group.name='OT_GAMES_CIVIL_FLIGHT';scene.add(g.group);
     const safe=safePointNear(player.x,player.z,{ignoreTraffic:true,allowWater:false,radius:.5});
@@ -154,13 +154,31 @@
     document.body.classList.add('ot-games-active');document.body.dataset.otGameMode=mode;otGamesBuildControls();otGamesStageCover();if(g.armed)otGamesSpawnWave();otGamesCamera(.1);return true;
   }
   function otGamesDisposeGroup(group){if(!group)return;const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:o.material?[o.material]:[])materials.add(m);});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());group.parent?.remove(group);}
+  function otGamesReanchorWalkingCamera(entry){
+    // Transfer ownership after flight teardown, never inherit the cabin view.
+    if(typeof vehicleViewRestore==='function')vehicleViewRestore();
+    if(typeof releaseVehicleViewPointers==='function')releaseVehicleViewPointers();
+    if(typeof familyWorld!=='undefined')familyWorld.portraitUntil=0;
+    document.body.classList.remove('family-portrait');
+    if(typeof updateFamilyCarry==='function')updateFamilyCarry();
+    playerGroup.position.set(player.x,player.y,player.z);
+    playerGroup.rotation.y=player.facing;
+    cameraMode='openworld';
+    cameraYaw=Math.atan2(Math.sin(Math.PI-player.facing),Math.cos(Math.PI-player.facing));
+    cameraPitch=Number.isFinite(entry.cameraPitch)?clamp(entry.cameraPitch,.05,.85):.28;
+    cameraZoom=Number.isFinite(entry.cameraZoom)?clamp(entry.cameraZoom,-4.5,4):0;
+    camera.up.set(0,1,0);camera.near=entry.near??.05;
+    if(Number.isFinite(entry.far)&&entry.far>camera.near)camera.far=entry.far;
+    cameraFollowSnap=true;camera.updateProjectionMatrix();
+    updateCamera(.1);camera.updateMatrixWorld(true);
+  }
   function otGamesLeave(options={}){
     const g=otGames;if(!g.active)return;g.engineVoice?.dispose();g.engineVoice=null;if(g.coverColliders)world.colliders=world.colliders.filter(c=>!g.coverColliders.includes(c));g.coverColliders=[];g.coverPoints=[];if(typeof campaignAbort==='function')campaignAbort({preserve:options?.preserveCampaign===true});g.cameraEpoch++;g.handSession?.dispose();g.handSession=null;g.handAim=null;g.cameraVideo?.srcObject?.getTracks().forEach(t=>t.stop());g.cameraVideo?.remove();g.cameraVideo=null;otGamesClearInput();g.lookCleanup?.();g.lookCleanup=null;g.inputResets=[];g.ui?.remove();g.ui=null;otGamesDisposeGroup(g.group);g.group=null;
     for(const [actor,until]of g.trafficHolds)actor.trafficHoldUntil=until;g.trafficHolds.clear();
     playerGroup.visible=g.entry.playerVisible;if(contactShadow)contactShadow.visible=g.entry.shadowVisible;if(toolVisual)toolVisual.visible=g.entry.toolVisible;if(!options.exitPoint){camera.position.copy(g.entry.camera);camera.quaternion.copy(g.entry.rotation);}camera.up.set(0,1,0);camera.fov=g.entry.fov;camera.near=g.entry.near??.05;camera.updateProjectionMatrix();cameraYaw=g.entry.cameraYaw;cameraPitch=g.entry.cameraPitch;cameraZoom=g.entry.cameraZoom;
     if(options.exitPoint){player.x=options.exitPoint.x;player.y=options.exitPoint.y;player.z=options.exitPoint.z;player.facing=g.body.yaw;player.vx=player.vy=player.vz=0;player.grounded=true;playerGroup.position.set(player.x,player.y,player.z);cameraMode='openworld';cameraFollowSnap=true;rememberSafePlayerPosition(true);savePlayerPosition(true);saveState(true);}
     g.flightSession?.dispose();g.flightSession=null;g.flightVideo?.srcObject?.getTracks().forEach(t=>t.stop());g.flightVideo?.remove();g.flightVideo=null;g.flightCameraMode=false;g.flightPoseFresh=false;g.flightEpoch=(g.flightEpoch||0)+1;
-    g.handMode=false;g.active=false;g.mode='peace';g.body=null;g.landedRoof=false;g.enemies=[];g.bullets=[];g.effects=[];if(typeof campaignSyncAircraft==='function')campaignSyncAircraft();if(world.routeGuide)world.routeGuide.visible=!!state.waypoint;if(world.waypointMarker)world.waypointMarker.visible=!!state.waypoint;document.body.classList.remove('ot-games-active');delete document.body.dataset.otGameMode;clearMovementInputs();if(typeof releaseVehicleViewPointers==='function')releaseVehicleViewPointers();updateVisualLOD();updateCamera(.1);updateContext(true);if(options.exitPoint&&typeof updateMultiplayer==='function')updateMultiplayer(0,true);
+    g.handMode=false;g.active=false;g.mode='peace';g.body=null;g.landedRoof=false;g.enemies=[];g.bullets=[];g.effects=[];if(typeof campaignSyncAircraft==='function')campaignSyncAircraft();if(world.routeGuide)world.routeGuide.visible=!!state.waypoint;if(world.waypointMarker)world.waypointMarker.visible=!!state.waypoint;document.body.classList.remove('ot-games-active');delete document.body.dataset.otGameMode;clearMovementInputs();if(options.exitPoint){otGamesReanchorWalkingCamera(g.entry);}else{if(typeof releaseVehicleViewPointers==='function')releaseVehicleViewPointers();updateCamera(.1);}updateVisualLOD();updateContext(true);if(options.exitPoint&&typeof updateMultiplayer==='function')updateMultiplayer(0,true);
   }
   function otGamesBindPress(el,fn){let pressedAt=-Infinity;el?.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();if(el.disabled)return;pressedAt=performance.now();fn(e);});el?.addEventListener('click',e=>{e.preventDefault();if(!el.disabled&&performance.now()-pressedAt>650)fn(e);});}
   function otGamesCanLand(mode,b){
@@ -216,7 +234,7 @@
     const b=g.body,bounds=v704WorldBounds(),distance=g.mode==='plane'?6.5:5;let point;
     exitSearch:for(const turn of[Math.PI/2,-Math.PI/2,Math.PI,0])for(const extra of[0,2,4]){const x=b.x+Math.sin(b.yaw+turn)*(distance+extra),z=b.z+Math.cos(b.yaw+turn)*(distance+extra);if(x<bounds.minX+1||x>bounds.maxX-1||z<bounds.minZ+1||z>bounds.maxZ-1||waterAt(x,z)||positionBlockedForPlayer(x,z,.45,{ignoreTraffic:true}))continue;point={x,z,y:groundHeightAt(x,z)};break exitSearch;}
     if(!point){toast('Não há espaço seguro para desembarcar aqui.','warn',2400);return false;}
-    campaignParkAircraft(g.aircraftId||g.mode,b);campaignPersist();otGamesLeave({exitPoint:point,preserveCampaign:true});updateFamilyCarry();toast('Aeronave estacionada. Aproxime-se dela para entrar novamente.','good',3300);return true;
+    campaignParkAircraft(g.aircraftId||g.mode,b);campaignPersist();otGamesLeave({exitPoint:point,preserveCampaign:true});toast('Aeronave estacionada. Aproxime-se dela para entrar novamente.','good',3300);return true;
   }
   function otGamesToggleCrouch(){if(otGames.mode!=='ground')return;otGames.crouched=!otGames.crouched;otGames.autoWalking=false;otGamesCamera(.016);otGamesUpdateHUD();}
   function otGamesReload(){const g=otGames;if(g.state!=='PLAYING'||g.reload>0||g.ammo>=30||g.reserve<=0)return;g.reload=1.6;if(state.settings?.sound!==false)window.GameAudio?.effect('reload');}
