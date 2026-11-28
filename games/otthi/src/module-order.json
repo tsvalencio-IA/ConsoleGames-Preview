@@ -290,7 +290,7 @@
       "startLine": 5124,
       "endLine": 5238,
       "description": "Loop principal, controles, gamepad e início do jogo",
-      "sha256Body": "05ad0df7d484147df42cddf2b449daafa8790b3c8c8f8c3dc7a346f5103ad998"
+      "sha256Body": "0b42c128511c712687082485a135fb37d5236ebc6e94c2c994b470a1133ca749"
     },
     {
       "file": "src/modules/30-pause-tests-public-api-bootstrap.js",
@@ -395,7 +395,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "OT Games: original map shared by peace, infantry and aircraft; separate combat body and save",
-      "sha256Body": "8535364a07e1aed3d04c57e626e8fffaa38ab217acda5ae8713efe471e3305f5"
+      "sha256Body": "206fb1300c1615dcb18304cba65b972b7447aeb691d8f8c1ec673ddff40af036"
     },
     {
       "file": "src/modules/43-world-campaign.js",
@@ -609,7 +609,7 @@
     {
       "file": "src/modules/69-vehicle-camera-passengers.js",
       "description": "Câmera 360 de veículos, vista dos ocupantes e reações dos passageiros",
-      "sha256Body": "c1136c5103f6fbd4883b703e478e4e4176f30db24f9df59b6f2293f8f8dea6d5"
+      "sha256Body": "c1f960cf1f16bd63652b64fe496a81423032f1b5ed5ec2e0ee0f0cae962659b7"
     },
     {
       "file": "src/modules/70-world-query-budget.js",
