@@ -18,6 +18,7 @@ jobs:
         with:
           node-version: '22'
       - name: Compilar e testar geometria
+        id: preparar
         run: |
           python3 games/otthi/tools/build_project.py
           node --check tests/world-render-stability-browser.mjs
@@ -29,8 +30,13 @@ jobs:
           OT_RENDER_BASELINE: a791268ec4486520bb2c43fcc02c0cdadaac9c43
         run: node tests/world-render-stability-browser.mjs
       - name: Validar embarque voo e pouso reais
+        if: ${{ !cancelled() && steps.preparar.outcome == 'success' }}
         run: node tests/world-airport-balloon-browser.mjs
+      - name: Pousar no terminal, girar a tela, decolar pelo toque e desembarcar no pátio
+        if: ${{ !cancelled() && steps.preparar.outcome == 'success' }}
+        run: node tests/world-terminal-roof-browser.mjs
       - name: Validar seleção por toque e teclado no mapa do metrô e baldeação física
+        if: ${{ !cancelled() && steps.preparar.outcome == 'success' }}
         run: node tests/world-metro-itinerary-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
@@ -39,6 +45,7 @@ jobs:
           path: |
             test-results/render-stability/
             test-results/world-airport/
+            test-results/world-terminal-roof/
             test-results/world-metro-itinerary/
   desempenho:
     runs-on: ubuntu-24.04
