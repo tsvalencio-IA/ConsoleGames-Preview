@@ -34,7 +34,7 @@ try{
  assert(ready,'Playtest metadata missing');
  const stable=await (await get('preview-release.json')).json(),meta=await (await get('teste-54/preview-release.json')).json();
  assert.equal(stable.build,'705.28.53-camera-multiplayer');
- assert.equal(meta.commit,candidate);assert.equal(meta.build,'705.28.54-simulador-servicos');assert.equal(meta.firebase,'disabled');assert.equal(meta.storagePrefix,'consolegames-preview-54:');
+ assert.equal(meta.commit,candidate);assert.equal(meta.build,'705.28.54-simulador-servicos');assert.equal(meta.firebase,'enabled');assert.equal(meta.storagePrefix,'consolegames-preview-54-live:');
  const release=await (await get('teste-54/games/otthi/release-manifest.json')).json();
  assert.equal(release.revision,meta.revision);
  const app=await (await get('teste-54/games/otthi/app.js')).body();
@@ -43,7 +43,7 @@ try{
  await c.addInitScript(()=>{
   if(!location.pathname.includes('/teste-54/'))return;
   localStorage.setItem('consolegames-preview:qa-playtest-sentinel','stable');
-  localStorage.setItem('consolegames-preview-54:otthos_life_world_roleplay_v700',JSON.stringify({version:705,profile:{name:'QA 54',nameConfirmed:true,playerId:'qa54-local',coins:2345},flags:{accountPromptedV635:true},settings:{quality:'low',sound:false,lastWorldMap:'rio-preto'},guardian:{sessionLimitMinutes:0}}));
+  localStorage.setItem('consolegames-preview-54-live:otthos_life_world_roleplay_v700',JSON.stringify({version:705,profile:{name:'QA 54',nameConfirmed:true,playerId:'qa54-local',coins:2345},flags:{accountPromptedV635:true},settings:{quality:'low',sound:false,lastWorldMap:'rio-preto'},guardian:{sessionLimitMinutes:0}}));
  });
  p=await c.newPage();p.on('pageerror',e=>report.errors.push(e.message));
  p.setDefaultTimeout(60000);
@@ -51,7 +51,20 @@ try{
  await p.waitForFunction(()=>window.OTTHI_RELEASE_COHERENT&&window.OTTHI_RELEASE_REVISION);
  assert.equal(await p.locator('html').getAttribute('data-otthi-build'),meta.build);
  const isolation=await p.evaluate(()=>({mount:CONSOLEGAMES_PREVIEW.mount,prefix:CONSOLEGAMES_PREVIEW.prefix,stable:localStorage.getItem('qa-playtest-sentinel'),firebase:window.OTTHOS_FIREBASE_CONFIG?.enabled,console:OTTHI_CANONICAL.consoleUrl}));
- assert.equal(isolation.mount,mount+'teste-54/');assert.equal(isolation.prefix,meta.storagePrefix);assert.equal(isolation.stable,null);assert.equal(isolation.firebase,false);assert.equal(isolation.console,href('teste-54/arcade/'));
+ assert.equal(isolation.mount,mount+'teste-54/');assert.equal(isolation.prefix,meta.storagePrefix);assert.equal(isolation.stable,null);assert.equal(isolation.firebase,true);assert.equal(isolation.console,href('teste-54/arcade/'));
+ // Exercise the original account screen, not the test-profile shortcut.
+ await p.locator('#accountBtn').click();
+ await p.locator('[data-account-login]').waitFor({state:'visible'});
+ await p.locator('[data-account-login]').click();
+ await p.locator('[data-account-user]').waitFor({state:'visible'});
+ assert.equal(await p.locator('[data-account-password]').getAttribute('type'),'password');
+ assert.equal(await p.locator('[data-account-form]').count(),1);
+ assert.equal(await p.evaluate(()=>window.OTTHOS_FIREBASE_CONFIG?.projectId),'otthi-656c5');
+ const policy=await p.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+ assert(policy.includes('https://identitytoolkit.googleapis.com')&&policy.includes('wss://*.firebasedatabase.app'));
+ await p.screenshot({path:out+'/real-account-form.png',timeout:60000});
+ report.accountForm=true;report.authNetwork='blocked deliberately; no real credentials submitted or cloud progress written';
+ await p.locator('#modalClose').click();
  await p.locator('#playBtn').click();
  await p.waitForFunction(()=>window.OTTHOS_TEST_API?.getGame().running&&!OTTHOS_TEST_API.getGame().paused&&document.getElementById('modal').hidden,null,{timeout:180000});
  assert.equal(await p.locator('body').getAttribute('data-otthi-map'),'rio-preto-compacto');
