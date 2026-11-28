@@ -62,7 +62,7 @@
     premiumBox(.25,3.3,.25,0x1c2c42,-1.82,1.75,-1.62,g);premiumBox(.25,3.3,.25,0x1c2c42,1.82,1.75,-1.62,g);premiumBox(4.1,.32,1.2,0x168de2,0,3.38,-1.62,g);
     const panel=new THREE.Mesh(new THREE.PlaneGeometry(1.15,1.15),new THREE.MeshStandardMaterial({map:iconTexture('M','#168de2','#ffffff'),emissive:0x0a4d86,emissiveIntensity:.35,side:THREE.DoubleSide}));panel.position.set(0,3.42,-2.25);panel.rotation.y=Math.PI;g.add(panel);
     premiumBox(3.45,2.5,.12,0x13283d,0,1.45,1.82,g);for(const x of [-1.18,0,1.18])premiumBox(.08,2.35,.14,0x64d8ff,x,1.45,1.75,g);
-    station.group=g;world.metroStations.push(station);registerInteractable({id:`metro-entry-${station.id}`,type:'metro',icon:'Ⓜ️',label:`Entrar: ${station.name}`,x:station.x,z:station.z,radius:3.5,priority:205,action:()=>openMetroStation(station)});return station;
+    station.group=g;world.metroStations.push(station);registerInteractable({id:`metro-entry-${station.id}`,type:'metro',icon:'Ⓜ️',label:`Entrar: ${station.name}`,x:station.navX,z:station.navZ,radius:3.5,priority:205,action:()=>openMetroStation(station)});return station;
   }
   function ensureMetroOverlay(){
     if(metroOverlay)return metroOverlay;metroOverlay=document.createElement('div');metroOverlay.id='metroTravelOverlay';metroOverlay.className='metro-travel-overlay';metroOverlay.hidden=true;metroOverlay.innerHTML='<div class="metro-tunnel"><i></i><i></i><i></i></div><div class="metro-train"><b>M</b><span></span><span></span><span></span></div><strong data-metro-trip>Próxima estação</strong>';document.body.appendChild(metroOverlay);return metroOverlay;

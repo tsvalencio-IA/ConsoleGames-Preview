@@ -1,0 +1,62 @@
+name: OTThi - Compilar candidata e verificar continuidade
+on:
+  push:
+    branches: ['fix/otthi-visual-recovery-20261126']
+    paths: ['.github/workflows/otthi-candidate-continuity.yml', 'games/otthi/src/modules/**', 'tests/world-responder-stage-transaction.test.mjs']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: otthi-candidate-continuity
+  cancel-in-progress: true
+jobs:
+  candidate:
+    if: github.repository == 'tsvalencio-IA/ConsoleGames-Preview' && github.ref == 'refs/heads/fix/otthi-visual-recovery-20261126'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build real e regressao completa
+        run: |
+          python3 games/otthi/tools/build_project.py
+          node --check games/otthi/app.js
+          node --test tests/*.test.mjs
+          git diff --check
+      - name: Sincronizar somente derivados na candidata, nunca main
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/fix/otthi-visual-recovery-20261126 | cut -f1)" = "$GITHUB_SHA"
+          git config user.name 'ConsoleGames Build Bot'
+          git config user.email 'console-build@users.noreply.github.com'
+          git add games/otthi/app.js games/otthi/style.css games/otthi/sw.js games/otthi/index.html games/otthi/release-manifest.json games/otthi/src/module-order.json
+          git diff --exit-code
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore(otthi): synchronize validated candidate bundle'
+            git push origin HEAD:refs/heads/fix/otthi-visual-recovery-20261126
+          fi
+          python3 games/otthi/tools/build_project.py
+          git diff --exit-code -- games/otthi
+      - name: Instalar navegador
+        id: browser
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install chromium
+      - name: Teste da estacao e baldeacao
+        run: node tests/world-metro-itinerary-browser.mjs
+      - name: Jornada e interacao no jogo real
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
+        run: node tests/world-candidate-smoke-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: otthi-continuity-evidence
+          path: |
+            test-results/world-metro-itinerary/
+            test-results/world-candidate-smoke/
+          if-no-files-found: ignore
