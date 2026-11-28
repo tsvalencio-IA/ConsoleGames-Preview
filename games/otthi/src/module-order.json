@@ -262,7 +262,7 @@
       "startLine": 4767,
       "endLine": 4928,
       "description": "Sociedade NPC, inimigos, combate, câmera, contexto, ação e necessidades",
-      "sha256Body": "1471f754c62ba8f896917a0e4c25862f6d5e6f734ced16a4b018c5002d10ae32"
+      "sha256Body": "fe73066352812615a8ed90b4e4b0e1ca2e10568f682eadc04601f84eaef1606e"
     },
     {
       "file": "src/modules/28b-multiplayer-core-v2.js",
@@ -395,7 +395,7 @@
       "startLine": 0,
       "endLine": 0,
       "description": "OT Games: original map shared by peace, infantry and aircraft; separate combat body and save",
-      "sha256Body": "206fb1300c1615dcb18304cba65b972b7447aeb691d8f8c1ec673ddff40af036"
+      "sha256Body": "18afc367a27502c7b30ce7d12fb8d81c2be445d642da6e90a763cf0a496d3792"
     },
     {
       "file": "src/modules/43-world-campaign.js",
