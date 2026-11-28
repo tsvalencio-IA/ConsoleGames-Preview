@@ -12,7 +12,7 @@ import sys
 
 root = Path(sys.argv[1]).resolve()
 stable = Path(sys.argv[2]).resolve()
-expected = '65484d1f70b8d7df12e9149f9decbba1063c6c3b'
+expected = 'd620a3fa4e5c9278656595f71462ccff54b2ed34'
 assert os.environ.get('GITHUB_REPOSITORY') == 'tsvalencio-IA/ConsoleGames-Preview'
 assert subprocess.check_output(['git','rev-parse','HEAD'], cwd=root,text=True).strip() == expected
 assert json.loads((stable/'preview-release.json').read_text())['build'] == '705.28.53-camera-multiplayer'

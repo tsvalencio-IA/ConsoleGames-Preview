@@ -6,7 +6,7 @@ import path from 'node:path';
 import {chromium} from 'playwright';
 import {browserNetwork,browserContextNetwork} from './helpers/browser-network.mjs';
 const mount='/ConsoleGames-Preview/';
-const candidate='65484d1f70b8d7df12e9149f9decbba1063c6c3b';
+const candidate='d620a3fa4e5c9278656595f71462ccff54b2ed34';
 const dir=path.resolve('_pages_preview'),out=process.env.OT_PLAYTEST_OUT||'test-results/pages-candidate-54';
 await mkdir(out,{recursive:true});
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.json':'application/json','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml','.wasm':'application/wasm','.jpg':'image/jpeg','.webp':'image/webp','.ogg':'audio/ogg'};

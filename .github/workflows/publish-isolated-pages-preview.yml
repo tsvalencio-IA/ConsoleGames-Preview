@@ -62,8 +62,8 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin refs/heads/fix/otthi-visual-recovery-20261126
-          git merge-base --is-ancestor 65484d1f70b8d7df12e9149f9decbba1063c6c3b FETCH_HEAD
-          git worktree add --detach "$RUNNER_TEMP/otthi-54" 65484d1f70b8d7df12e9149f9decbba1063c6c3b
+          git merge-base --is-ancestor d620a3fa4e5c9278656595f71462ccff54b2ed34 FETCH_HEAD
+          git worktree add --detach "$RUNNER_TEMP/otthi-54" d620a3fa4e5c9278656595f71462ccff54b2ed34
           python3 tools/append-otthi-playtest.py "$RUNNER_TEMP/otthi-54" _pages_preview
           node tests/pages-candidate-54-browser.mjs
 
