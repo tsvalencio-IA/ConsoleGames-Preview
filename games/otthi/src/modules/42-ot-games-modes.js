@@ -155,7 +155,8 @@
   }
   function otGamesDisposeGroup(group){if(!group)return;const geometries=new Set(),materials=new Set();group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:o.material?[o.material]:[])materials.add(m);});geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());group.parent?.remove(group);}
   function otGamesReanchorWalkingCamera(entry){
-    // Transfer ownership after flight teardown, never inherit the cabin view.
+    // Restore the existing walking controller after flight teardown. Do not
+    // introduce a new walking view or change the player's chosen orbit.
     if(typeof vehicleViewRestore==='function')vehicleViewRestore();
     if(typeof releaseVehicleViewPointers==='function')releaseVehicleViewPointers();
     if(typeof familyWorld!=='undefined')familyWorld.portraitUntil=0;
@@ -164,12 +165,13 @@
     playerGroup.position.set(player.x,player.y,player.z);
     playerGroup.rotation.y=player.facing;
     cameraMode='openworld';
-    cameraYaw=Math.atan2(Math.sin(Math.PI-player.facing),Math.cos(Math.PI-player.facing));
-    cameraPitch=Number.isFinite(entry.cameraPitch)?clamp(entry.cameraPitch,.05,.85):.28;
-    cameraZoom=Number.isFinite(entry.cameraZoom)?clamp(entry.cameraZoom,-4.5,4):0;
+    cameraYaw=Number.isFinite(entry.cameraYaw)?entry.cameraYaw:0;
+    cameraPitch=Number.isFinite(entry.cameraPitch)?entry.cameraPitch:.28;
+    cameraZoom=Number.isFinite(entry.cameraZoom)?entry.cameraZoom:0;
+    state.settings.cameraPitch=cameraPitch;state.settings.cameraZoom=cameraZoom;
     camera.up.set(0,1,0);camera.near=entry.near??.05;
     if(Number.isFinite(entry.far)&&entry.far>camera.near)camera.far=entry.far;
-    cameraWalkCentered=true;cameraFollowSnap=true;camera.updateProjectionMatrix();
+    cameraFollowSnap=true;camera.updateProjectionMatrix();
     updateCamera(.1);camera.updateMatrixWorld(true);
   }
   function otGamesLeave(options={}){

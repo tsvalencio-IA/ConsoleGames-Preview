@@ -46,7 +46,11 @@ try{
  updateOtGames=function(dt){roofQaUpdates++;roofQaSeconds+=dt;return roofQaUpdate(dt);};
  window.__ROOF_QA={
   stage(){const g=otGames,roof=worldAirport.terminalRoof;const floor=roof.max.y+g.roofContact.skid;Object.assign(g.body,{x:90,y:floor+3.6,z:-185,yaw:0,vx:0,vy:0,vz:0,roll:0,pitch:0});return {floor,roof,radius:g.roofContact.radius};},
-  walkingCamera(){camera.updateMatrixWorld(true);const point=walkingCameraFocus(),ndc=point.clone().project(camera);return {player:{x:player.x,y:player.y,z:player.z},camera:camera.position.toArray(),projection:ndc.toArray(),mode:cameraMode,centered:cameraWalkCentered,near:camera.near,far:camera.far,drag:input.cameraDrag?.id??null,orbit:OT_VEHICLE_VIEW.diagnostics(),visible:playerGroup.visible};},
+  entryCamera(){const e=otGames.entry;return {yaw:e.cameraYaw,pitch:e.cameraPitch,zoom:e.cameraZoom,near:e.near,far:e.far};},
+  walkingCamera(){camera.updateMatrixWorld(true);const point=new THREE.Vector3(player.x,player.y+1.0*playerScaleValue(),player.z),ndc=point.clone().project(camera);return {player:{x:player.x,y:player.y,z:player.z},camera:camera.position.toArray(),rotation:camera.quaternion.toArray(),projection:ndc.toArray(),mode:cameraMode,yaw:cameraYaw,pitch:cameraPitch,zoom:cameraZoom,near:camera.near,far:camera.far,drag:input.cameraDrag?.id??null,orbit:OT_VEHICLE_VIEW.diagnostics(),visible:playerGroup.visible};},
+  // Compare the actual first walking frame to the original walking algorithm
+  // at this location, including its Rio obstacle adjustment and look-ahead.
+  nativeWalkingReference(){const pos=camera.position.clone(),q=camera.quaternion.clone(),fov=camera.fov,snap=cameraFollowSnap;try{cameraFollowSnap=true;updateCamera(.1);camera.updateMatrixWorld(true);return this.walkingCamera();}finally{camera.position.copy(pos);camera.quaternion.copy(q);camera.fov=fov;cameraFollowSnap=snap;camera.updateProjectionMatrix();camera.updateMatrixWorld(true);}},
   measure(){const g=otGames;return {now:roofQaClock(),updates:roofQaUpdates,seconds:roofQaSeconds,position:g.aircraft?.position.toArray(),body:g.body?{...g.body}:null,viewport:{width:innerWidth,height:innerHeight},drawCalls:renderer.info.render.calls};}
  };`;
  await installCityInspection(page,{appSource:runtime.slice(0,end)+instrumentation+runtime.slice(end),capDuringBoot:true});
@@ -56,8 +60,16 @@ try{
  const id='heli-ottovias',craft=await page.evaluate(id=>OT_WORLD_AIRPORT.diagnostics().fleet.find(p=>p.id===id),id);
  await page.evaluate(p=>OTTHOS_TEST_API.teleport(p.x+4,p.z),craft);
  await wait(id=>OTTHOS_TEST_API.getContext()?.id==='board-aircraft-'+id,id);
+ // Choose a non-default walking orbit with the actual touch controls before boarding.
+ const surface=page.locator('#stage canvas').first();
+ const preFinger=await touch.start(surface,.35,.43);
+ await touch.move(preFinger,surface,.53,.47);await touch.end(preFinger);
+ await page.waitForTimeout(200);
+ report.beforeBoarding=await page.evaluate(()=>__ROOF_QA.walkingCamera());
  await page.locator('#actionBtn').click();
  await wait(id=>OT_GAMES.diagnostics().aircraftId===id&&OT_GAMES.diagnostics().active,id);
+ report.entryCamera=await page.evaluate(()=>__ROOF_QA.entryCamera());
+ for(const key of ['yaw','pitch','zoom'])assert(Math.abs(report.entryCamera[key]-report.beforeBoarding[key])<.001,'boarding snapshots the actual walking '+key);
  report.approach=await page.evaluate(()=>__ROOF_QA.stage());
  report.approachFrame=await page.evaluate(()=>__ROOF_QA.measure());
  await page.locator('[data-ot="land"]').click();
@@ -102,7 +114,6 @@ try{
  assert.equal(report.apron.onGround,true);
  assert(report.apron.body.z>=-167);
  // Transfer ownership after using the real touch flight camera.
- const surface=page.locator('#stage canvas').first();
  const orbitFinger=await touch.start(surface,.30,.46);
  await touch.move(orbitFinger,surface,.70,.46);await touch.end(orbitFinger);
  await wait(()=>OT_VEHICLE_VIEW.diagnostics().manual);
@@ -111,21 +122,27 @@ try{
  report.exit=await page.evaluate(()=>OTTHOS_TEST_API.getGame().player);
  const walking=()=>page.evaluate(()=>__ROOF_QA.walkingCamera());
  const framed=(m,label)=>{
-   assert.equal(m.mode,'openworld',label);assert.equal(m.centered,true,label);assert.equal(m.orbit.manual,false,label);
+   assert.equal(m.mode,'openworld',label);assert.equal(m.orbit.manual,false,label);
    assert.equal(m.orbit.key,'',label);assert.equal(m.orbit.pointerCount,0,label);assert.equal(m.drag,null,label);
    assert(m.visible,label+' player root must remain visible');
    assert(m.camera.every(Number.isFinite)&&m.projection.every(Number.isFinite),label);
    assert(Math.hypot(m.camera[0]-m.player.x,m.camera[1]-m.player.y,m.camera[2]-m.player.z)<25,label+' camera distance');
-   assert(Math.abs(m.projection[0])<.035&&Math.abs(m.projection[1])<.035&&Math.abs(m.projection[2])<1,label+' actor must be CENTERED, not merely visible: '+JSON.stringify(m));
+   assert(Math.abs(m.projection[0])<1&&Math.abs(m.projection[1])<1&&Math.abs(m.projection[2])<1,label+' actor must be visible with the original walking frame: '+JSON.stringify(m));
  };
  report.walkingCamera={exit:await walking(),orbits:[]};
  framed(report.walkingCamera.exit,'immediate exit');
+ for(const key of ['yaw','pitch','zoom','near','far'])assert(Math.abs(report.walkingCamera.exit[key]-report.entryCamera[key])<.001,'disembarking restores original walking '+key);
+ const nativeReference=await page.evaluate(()=>__ROOF_QA.nativeWalkingReference());
+ report.walkingCamera.nativeReference=nativeReference;
+ for(const key of ['camera','rotation','projection'])assert(nativeReference[key].every((v,i)=>Math.abs(v-report.walkingCamera.exit[key][i])<.01),'first walking frame must match original native '+key);
+ await page.evaluate(()=>__CITY_QA.renderNative());await page.screenshot({path:output+'/camera-original-desembarque.png'});
  await page.setViewportSize({width:390,height:844});
  await wait(()=>OTTHI_VIEWPORT.current()?.width===390);
  for(let i=0;i<7;i++){
+   const orbitBefore=await walking();
    const finger=await touch.start(surface,.18,.44);await touch.move(finger,surface,.82,.44);await touch.end(finger);
    await page.waitForTimeout(120);
-   const frame=await walking();framed(frame,'walking touch orbit '+i);report.walkingCamera.orbits.push(frame);
+   const frame=await walking();framed(frame,'walking touch orbit '+i);assert(Math.abs(frame.yaw-orbitBefore.yaw)>.2,'original orbit input must change yaw');report.walkingCamera.orbits.push(frame);
    if(i===0||i===3||i===6){await page.evaluate(()=>__CITY_QA.renderNative());await page.screenshot({path:output+'/camera-orbita-'+i+'.png'});}
  }
  const before=await walking(),joy=page.locator('#joystick');
@@ -135,7 +152,7 @@ try{
  report.walkingCamera.walked=await walking();framed(report.walkingCamera.walked,'after walking');
  await page.evaluate(()=>__CITY_QA.renderNative());
  await page.screenshot({path:output+'/camera-apos-desembarque.png'});
- console.log('PASS moved helicopter, actual actor CENTERED after disembark, portrait touch orbit and walk',JSON.stringify(report.walkingCamera));
+ console.log('PASS moved helicopter, original walking camera restored, real touch orbit and walk',JSON.stringify(report.walkingCamera));
  assert(tookTouch,'The real touch on the collective should raise power');
  assert.deepEqual(errors,[]);
  report.passed=true;

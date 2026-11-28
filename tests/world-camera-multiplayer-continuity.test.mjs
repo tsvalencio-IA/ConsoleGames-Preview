@@ -40,14 +40,14 @@ test('releasing flight camera clears both vehicle and pedestrian pointer capture
 test('walking camera handoff restores pedestrian projection only after vehicle ownership and family seating are released',()=>{
  const flight=read('42-ot-games-modes.js'),a=flight.indexOf('  function otGamesReanchorWalkingCamera('),b=flight.indexOf('  function otGamesLeave(',a);assert(a>=0&&b>a);
  const order=[],player={x:90,y:0,z:-167,facing:Math.PI/2},camera={near:1.5,far:2000,up:{set:()=>{}},updateProjectionMatrix:()=>{},updateMatrixWorld:()=>order.push('matrix')};
- const ctx=vm.createContext({player,camera,cameraMode:'flight',cameraYaw:0,cameraPitch:1.35,cameraZoom:35,cameraFollowSnap:false,cameraWalkCentered:false,vehicleViewRestore:()=>order.push('restore'),releaseVehicleViewPointers:()=>order.push('release'),familyWorld:{portraitUntil:Infinity},document:{body:{classList:{remove:()=>{}}}},updateFamilyCarry:()=>order.push('family'),playerGroup:{position:{set:()=>order.push('position')},rotation:{}},clamp:(x,a,b)=>Math.min(b,Math.max(a,x)),updateCamera:()=>order.push('camera')});
- vm.runInContext(flight.slice(a,b),ctx);ctx.otGamesReanchorWalkingCamera({near:.05,far:600,cameraPitch:1.35,cameraZoom:35});
- assert.equal(ctx.cameraMode,'openworld');assert.equal(ctx.cameraWalkCentered,true);assert.equal(ctx.cameraFollowSnap,true);assert.equal(ctx.cameraYaw,Math.PI/2);assert.equal(ctx.cameraPitch,.85);assert.equal(ctx.cameraZoom,4);assert.equal(camera.near,.05);assert.equal(camera.far,600);assert.equal(ctx.familyWorld.portraitUntil,0);assert.deepEqual(order,['restore','release','family','position','camera','matrix']);
+ const ctx=vm.createContext({player,camera,cameraMode:'flight',cameraYaw:0,cameraPitch:1.35,cameraZoom:35,cameraFollowSnap:false,state:{settings:{}},vehicleViewRestore:()=>order.push('restore'),releaseVehicleViewPointers:()=>order.push('release'),familyWorld:{portraitUntil:Infinity},document:{body:{classList:{remove:()=>{}}}},updateFamilyCarry:()=>order.push('family'),playerGroup:{position:{set:()=>order.push('position')},rotation:{}},clamp:(x,a,b)=>Math.min(b,Math.max(a,x)),updateCamera:()=>order.push('camera')});
+ vm.runInContext(flight.slice(a,b),ctx);ctx.otGamesReanchorWalkingCamera({near:.05,far:600,cameraYaw:-2.17,cameraPitch:-.42,cameraZoom:7.4});
+ assert.equal(ctx.cameraMode,'openworld');assert.equal(ctx.cameraFollowSnap,true);assert.equal(ctx.cameraYaw,-2.17);assert.equal(ctx.cameraPitch,-.42);assert.equal(ctx.cameraZoom,7.4);assert.equal(ctx.state.settings.cameraPitch,-.42);assert.equal(ctx.state.settings.cameraZoom,7.4);assert.equal(camera.near,.05);assert.equal(camera.far,600);assert.equal(ctx.familyWorld.portraitUntil,0);assert.deepEqual(order,['restore','release','family','position','camera','matrix']);
 });
 
-test('aircraft walking camera is centered after geometry correction and cannot interpolate through the actor',()=>{
+test('aircraft exit does not introduce an alternate walking camera or change its original framing',()=>{
  const camera=read('27-npc-enemies-combat-camera-action.js');
- assert.match(camera,/centerWalking=cameraWalkCentered&&!player\.vehicle&&!player\.boating/);
- assert.match(camera,/const forwardLook=centerWalking\?0:/);
- assert.match(camera,/if\(centerWalking\)\{[\s\S]*?camera\.position\.copy\(desiredPos\);look\.copy\(walkingCameraFocus\(\)\);[\s\S]*?camera\.lookAt\(look\)/);
+ assert.doesNotMatch(camera,/cameraWalkCentered|walkingCameraFocus/);
+ assert.match(camera,/const forwardLook=player\.vehicle\?lerp\(3\.4,1,normalized\):lerp\(7\.0,1\.6,normalized\)/);
+ assert.match(camera,/camera\.position\.lerp\(desiredPos,t\);camera\.lookAt\(look\)/);
 });

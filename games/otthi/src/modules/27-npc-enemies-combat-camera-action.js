@@ -287,12 +287,11 @@
     // Global world-space planes keep the actual furnishings and actors intact.
     renderer.clippingPlanes=h?[new THREE.Plane(new THREE.Vector3(1,0,0),-h.x+h.w/2+.18),new THREE.Plane(new THREE.Vector3(-1,0,0),h.x+h.w/2+.18),new THREE.Plane(new THREE.Vector3(0,0,1),-h.z+h.d/2+.18),new THREE.Plane(new THREE.Vector3(0,0,-1),h.z+h.d/2+.18),new THREE.Plane(new THREE.Vector3(0,-1,0),3.05)]:[];
   }
-  let cameraFollowSnap=false, cameraWalkCentered=false;
-  function walkingCameraFocus(){return new THREE.Vector3(player.x,player.y+Math.max(.25,1.0*playerScaleValue())*(player.crouched?.72:1)+(player.swimming?-.2:0),player.z);}
+  let cameraFollowSnap=false;
   function updateCamera(dt){
     updateInteriorClipping();if(typeof syncWorldFlightHorizon==='function')syncWorldFlightHorizon();
     if(typeof otGames!=='undefined'&&otGames.active){otGamesCamera(dt);return;}
-    let desiredPos,look,centerWalking=false;
+    let desiredPos,look;
     const workshopView=world.workshopInspectionCamera,lift=world.workshopLift;if(workshopView?.active&&lift?.vehicleId){const ground=groundHeightAt(lift.x,lift.z),pitch=clamp(cameraPitch,-.55,1.35),normalized=(pitch+.55)/1.9,dist=clamp(6.2+cameraZoom,3.4,13.5),height=lerp(.48,7.35,normalized),focusY=ground+Number(lift.height||0)+.82;desiredPos=new THREE.Vector3(lift.x-Math.sin(cameraYaw)*dist,ground+height,lift.z+Math.cos(cameraYaw)*dist);look=new THREE.Vector3(lift.x,focusY,lift.z);camera.fov=lerp(60,48,normalized);}
     const familyFrame=!desiredPos?window.OTTHI_FAMILY?.cameraFrame?.():null;if(familyFrame){desiredPos=familyFrame.position;look=familyFrame.look;camera.fov=familyFrame.fov;camera.position.copy(desiredPos);}
     const sportFrame=!desiredPos?window.OTTHI_SPORTS_V705?.cameraFrame?.():null;if(sportFrame){desiredPos=sportFrame.position;look=sportFrame.look;camera.fov=Number(sportFrame.fov||56);}
@@ -322,22 +321,14 @@
       const followScale=playerModel?.userData?.familyAvatar&&!player.vehicle&&!player.boating?.72:1;
       const dist=clamp((player.vehicle?(portrait?10.2:8.8):(portrait?12.5:10.2)*followScale+(player.boating?2.2:0))+speedKick*1.6+cameraZoom,5.3,27);
       const normalized=(pitch+.55)/1.9,height=clamp(player.vehicle?2.4+normalized*3.8+cameraZoom*.12:((portrait?2.35:1.75)+normalized*(portrait?11.8:10.4))*followScale+(player.boating?.32:0)+cameraZoom*.12,1.35,15.8);
-      centerWalking=cameraWalkCentered&&!player.vehicle&&!player.boating&&!player.transit.mode&&!currentHouse&&!characterActivities.session&&!window.__OTTHI_DECOR_PREVIEW;
-      const forwardLook=centerWalking?0:player.vehicle?lerp(3.4,1,normalized):lerp(7.0,1.6,normalized),visualHeight=1.35*followScale*playerScaleValue()*(player.crouched?.72:1)+(player.swimming?-.2:0);
+      const forwardLook=player.vehicle?lerp(3.4,1,normalized):lerp(7.0,1.6,normalized),visualHeight=1.35*followScale*playerScaleValue()*(player.crouched?.72:1)+(player.swimming?-.2:0);
       desiredPos=new THREE.Vector3(player.x-Math.sin(cameraYaw)*dist,player.y+height,player.z+Math.cos(cameraYaw)*dist);look=new THREE.Vector3(player.x+Math.sin(cameraYaw)*forwardLook,player.y+visualHeight+lerp(.9,-.25,normalized),player.z-Math.cos(cameraYaw)*forwardLook);
       camera.fov=(portrait?55:58)+speedKick*(player.vehicle?7:player.boating?4:2)+lerp(4,-2,normalized);
     }
     const compactCamera=typeof rioCompactWorld==='function'&&rioCompactWorld()&&!currentHouse&&!workshopView?.active&&
       !player.transit.mode&&!fishingVisual?.active&&!familyFrame;
     if(typeof inRioMap==='function'&&inRioMap()||compactCamera)rioAdjustCamera(desiredPos,look);
-    const t=cameraFollowSnap?1:1-Math.exp(-dt*7.5);cameraFollowSnap=false;
-    if(centerWalking){
-      // A Cartesian interpolation between opposite orbit positions can pass
-      // through the avatar. Keep the true orbit and target the actor, not a
-      // look-ahead point. The Rio collision pass still owns the camera radius.
-      camera.position.copy(desiredPos);look.copy(walkingCameraFocus());
-    }else camera.position.lerp(desiredPos,t);
-    camera.lookAt(look);camera.updateProjectionMatrix();
+    const t=cameraFollowSnap?1:1-Math.exp(-dt*7.5);cameraFollowSnap=false;camera.position.lerp(desiredPos,t);camera.lookAt(look);camera.updateProjectionMatrix();
   }
 
   function nearestInteractable(){
