@@ -58,6 +58,15 @@ jobs:
           npx playwright install chromium --with-deps
           node tests/pages-preview-browser.mjs
 
+      - name: Prepare the requested isolated 705.28.54 playtest
+        run: |
+          set -euo pipefail
+          git fetch origin refs/heads/fix/otthi-visual-recovery-20261126
+          git merge-base --is-ancestor 65484d1f70b8d7df12e9149f9decbba1063c6c3b FETCH_HEAD
+          git worktree add --detach "$RUNNER_TEMP/otthi-54" 65484d1f70b8d7df12e9149f9decbba1063c6c3b
+          python3 tools/append-otthi-playtest.py "$RUNNER_TEMP/otthi-54" _pages_preview
+          node tests/pages-candidate-54-browser.mjs
+
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
@@ -113,6 +122,12 @@ jobs:
           OT_PAGES_OUT: test-results/pages-published
         run: node tests/pages-preview-browser.mjs
 
+      - name: Verify the isolated published playtest
+        env:
+          OT_PAGES_URL: ${{ steps.pages.outputs.base_url }}/
+          OT_PLAYTEST_OUT: test-results/pages-candidate-54-published
+        run: node tests/pages-candidate-54-browser.mjs
+
       - name: Store browser evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -121,4 +136,6 @@ jobs:
           path: |
             test-results/pages-preview/
             test-results/pages-published/
+            test-results/pages-candidate-54/
+            test-results/pages-candidate-54-published/
           if-no-files-found: ignore
