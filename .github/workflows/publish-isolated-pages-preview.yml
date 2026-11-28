@@ -62,8 +62,15 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin refs/heads/fix/otthi-visual-recovery-20261126
-          git merge-base --is-ancestor d620a3fa4e5c9278656595f71462ccff54b2ed34 FETCH_HEAD
-          git worktree add --detach "$RUNNER_TEMP/otthi-54" d620a3fa4e5c9278656595f71462ccff54b2ed34
+          git merge-base --is-ancestor b4e0f1f74b413e501cc0ba02a61d9911c60c442c FETCH_HEAD
+          git worktree add --detach "$RUNNER_TEMP/otthi-54" b4e0f1f74b413e501cc0ba02a61d9911c60c442c
+          # Gate publication on the exact aircraft-exit regression using the compiled candidate.
+          (
+            cd "$RUNNER_TEMP/otthi-54"
+            ln -s "$GITHUB_WORKSPACE/node_modules" node_modules
+            python3 games/otthi/tools/build_project.py
+            OT_ROOF_RESULT="$GITHUB_WORKSPACE/test-results/world-terminal-roof-centered" node tests/world-terminal-roof-browser.mjs
+          )
           python3 tools/append-otthi-playtest.py "$RUNNER_TEMP/otthi-54" _pages_preview
           node tests/pages-candidate-54-browser.mjs
 
@@ -138,4 +145,5 @@ jobs:
             test-results/pages-published/
             test-results/pages-candidate-54/
             test-results/pages-candidate-54-published/
+            test-results/world-terminal-roof-centered/
           if-no-files-found: ignore
