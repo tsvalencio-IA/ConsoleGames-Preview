@@ -169,7 +169,7 @@
     cameraZoom=Number.isFinite(entry.cameraZoom)?clamp(entry.cameraZoom,-4.5,4):0;
     camera.up.set(0,1,0);camera.near=entry.near??.05;
     if(Number.isFinite(entry.far)&&entry.far>camera.near)camera.far=entry.far;
-    cameraFollowSnap=true;camera.updateProjectionMatrix();
+    cameraWalkCentered=true;cameraFollowSnap=true;camera.updateProjectionMatrix();
     updateCamera(.1);camera.updateMatrixWorld(true);
   }
   function otGamesLeave(options={}){
